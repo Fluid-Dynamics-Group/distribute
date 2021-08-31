@@ -25,6 +25,13 @@ pub enum RequestFromServer {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct JobInit {
     pub python_setup_file: Vec<u8>,
+    pub additional_build_files: Vec<BuildFile>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct BuildFile {
+    pub file_name: String,
+    pub file_bytes: Vec<u8>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]

@@ -71,7 +71,9 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
                         }
                         transport::RequestFromServer::PauseExecution(pause_data) => {
                             // send the pause duration to the arbiter
-                            if let Err(e) = pause_tx.send(Some(Instant::now() + pause_data.duration)) {
+                            if let Err(e) =
+                                pause_tx.send(Some(Instant::now() + pause_data.duration))
+                            {
                                 error!("Error sending data to the pausing arbiter task. full error: {}", e);
                             }
                         }
@@ -300,7 +302,6 @@ async fn execute_general_request(
             info!("received request to resume the execution of the process - however the main thread picked up this request which means there are no commands currently running. ignoring the request");
             PrerequisiteOperations::DoNothing
         }
-
     };
 
     Ok(output)
@@ -376,19 +377,38 @@ async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::Fin
     Ok(transport::FinishedJob)
 }
 
-async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<(), Error> {
-    info!("running initialization for new job");
+async fn write_init_file<T: AsRef<Path>>(
+    base_path: &Path,
+    file_name: T,
+    bytes: &[u8],
+) -> Result<(), error::InitJobError> {
+    let file_path = base_path.join(file_name);
 
-    let file_path = base_path.join("run.py");
-    debug!("creating file for job init");
+    debug!("creating file {} for job init", file_path.display());
+
     let mut file = tokio::fs::File::create(&file_path)
         .await
         .map_err(error::InitJobError::from)?;
-    file.write(&init.python_setup_file)
-        .await
-        .map_err(error::InitJobError::from)?;
 
-    debug!("created init file, running with external command. current directory");
+    file.write(bytes).await.map_err(error::InitJobError::from)?;
+
+    Ok(())
+}
+
+async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<(), Error> {
+    info!("running initialization for new job");
+    write_init_file(base_path, "run.py", &init.python_setup_file).await?;
+
+    for additional_file in init.additional_build_files {
+        write_init_file(
+            base_path,
+            additional_file.file_name,
+            &additional_file.file_bytes,
+        )
+        .await?;
+    }
+
+    debug!("initialized all init files");
 
     // enter the file to execute the file from
     let original_dir = enter_output_dir(base_path);
@@ -486,7 +506,10 @@ impl PauseProcessArbiter {
         let signal = nix::sys::signal::Signal::SIGSTOP;
         let process_id = nix::unistd::Pid::from_raw(EXEC_GROUP_ID as i32);
         if let Err(e) = nix::sys::signal::kill(process_id, signal) {
-            error!("error when pausing group process (id {}): {}", EXEC_GROUP_ID, e);
+            error!(
+                "error when pausing group process (id {}): {}",
+                EXEC_GROUP_ID, e
+            );
         }
     }
 
@@ -495,7 +518,10 @@ impl PauseProcessArbiter {
         let signal = nix::sys::signal::Signal::SIGCONT;
         let process_id = nix::unistd::Pid::from_raw(EXEC_GROUP_ID as i32);
         if let Err(e) = nix::sys::signal::kill(process_id, signal) {
-            error!("error when resuming group process (id {}): {}", EXEC_GROUP_ID, e);
+            error!(
+                "error when resuming group process (id {}): {}",
+                EXEC_GROUP_ID, e
+            );
         }
     }
 }

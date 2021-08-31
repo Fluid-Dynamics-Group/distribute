@@ -31,9 +31,16 @@ impl IpAddress {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Jobs {
-    #[serde(rename = "build")]
-    pub python_build_file_path: PathBuf,
+    pub init: BuildJob,
     pub jobs: Vec<Job>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BuildJob {
+    #[serde(rename = "build_file")]
+    pub python_build_file_path: PathBuf,
+    #[serde(default)]
+    required_files: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -48,9 +55,9 @@ impl Jobs {
         let mut out = Vec::with_capacity(self.jobs.len());
 
         for job in &self.jobs {
-            let bytes = tokio::fs::read(&job.job_file)
-                .await
-                .map_err(|e| error::LoadJobsError::from((e, job.job_file.clone())))?;
+            let bytes = tokio::fs::read(&job.job_file).await.map_err(|e| {
+                error::LoadJobsError::from(error::ReadBytesError::new(e, job.job_file.clone()))
+            })?;
             let job = transport::Job {
                 python_file: bytes,
                 job_name: job.name.clone(),
@@ -62,11 +69,36 @@ impl Jobs {
     }
 
     pub(crate) async fn load_build(&self) -> Result<transport::JobInit, error::LoadJobsError> {
-        let bytes = tokio::fs::read(&self.python_build_file_path)
+        let bytes = tokio::fs::read(&self.init.python_build_file_path)
             .await
-            .map_err(|e| error::LoadJobsError::from((e, self.python_build_file_path.clone())))?;
+            .map_err(|e| {
+                error::ReadBytesError::new(e, self.init.python_build_file_path.clone())
+            })?;
+
+        let mut additional_build_files = vec![];
+
+        for additional_file in &self.init.required_files {
+            let additional_bytes = tokio::fs::read(&self.init.python_build_file_path)
+                .await
+                .map_err(|e| {
+                    error::ReadBytesError::new(e, self.init.python_build_file_path.clone())
+                })?;
+
+            let file_name = additional_file
+                .file_name()
+                .ok_or(error::MissingFileNameError::from(additional_file.clone()))?
+                .to_string_lossy()
+                .to_string();
+
+            additional_build_files.push(transport::BuildFile {
+                file_name,
+                file_bytes: additional_bytes,
+            });
+        }
+
         Ok(transport::JobInit {
             python_setup_file: bytes,
+            additional_build_files,
         })
     }
 }

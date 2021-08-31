@@ -1,12 +1,14 @@
 # a file that is run once to orchestrate downloading source code
 # from a specified location and compiling it to be run from each job command
-build: some_python_file.py
+init: 
+  build_file: some_python_file.py
+  required_files: [python_library.py, /path/to/random_file.txt]
   
 # a list of python files to 
 jobs:
   - name: example_job_name
     file: job_one.py
-  #- job_two.py
-  #- job_three.py
-  #- job_four.py
-  #- job_five.py
+  - name: example_job_name_2
+    file: job_two.py
+  - name: example_job_name_3
+    file: job_three.py

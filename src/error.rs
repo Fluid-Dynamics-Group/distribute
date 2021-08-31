@@ -164,16 +164,31 @@ pub struct JobsConfigError {
     path: String,
 }
 
-#[derive(Debug, Display, From, thiserror::Error)]
+#[derive(Debug, From, thiserror::Error)]
+pub enum LoadJobsError {
+    #[error("{0}")]
+    ReadBytes(ReadBytesError),
+    #[error("{0}")]
+    MissingFileName(MissingFileNameError),
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
 #[display(
     fmt = "Error loading configuration for jobs (`{}`): {:?} ",
     error,
     path
 )]
 /// error that happens when loading the bytes of a job file from path
-pub struct LoadJobsError {
+pub struct ReadBytesError {
     error: std::io::Error,
     path: std::path::PathBuf,
+}
+
+#[derive(Debug, Display, From, thiserror::Error)]
+#[display(fmt = "Error loading configuration for jobs {:?} ", path)]
+/// happens when a file path does not contain a filename
+pub struct MissingFileNameError {
+    path: PathBuf,
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]
