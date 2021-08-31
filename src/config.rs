@@ -11,7 +11,6 @@ pub struct Nodes {
 }
 
 #[derive(Debug, Clone, Deserialize, Display)]
-#[serde(transparent)]
 #[display(fmt = "ip address: {}", ip)]
 pub struct IpAddress {
     pub ip: std::net::IpAddr,

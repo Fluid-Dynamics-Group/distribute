@@ -19,7 +19,7 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         .await
         .map_err(error::ClientInitError::from)?;
 
-    let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], client.port)))
+    let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], client.port)))
         .await
         .map_err(error::TcpConnection::from)?;
 

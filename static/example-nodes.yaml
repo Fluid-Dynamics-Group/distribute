@@ -1,6 +1,7 @@
 # a simple list of IP addresses to poll to check version 
 # number compatability and running status
 nodes:
-  - "192.168.1.136"
-  - "192.168.1.107"
-  - "192.168.1.122"
+  - ip: "192.168.1.136"
+    port: 9952
+  - ip: "192.168.1.107"
+  - ip: "192.168.1.122"
