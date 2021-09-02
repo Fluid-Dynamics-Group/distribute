@@ -359,7 +359,6 @@ async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::Fin
 
     let output = tokio::process::Command::new("python3")
         .args(&["run.py"])
-        .gid(EXEC_GROUP_ID)
         .output()
         .await
         .map_err(|e| error::CommandExecutionError::from(e))
@@ -413,9 +412,12 @@ async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<()
     // enter the file to execute the file from
     let original_dir = enter_output_dir(base_path);
 
+    debug!("current file path is {:?}", std::env::current_dir());
+
     let output = tokio::process::Command::new("python3")
         .args(&["run.py"])
-        .gid(EXEC_GROUP_ID)
+        //.gid(EXEC_GROUP_ID)
+        //.env_clear()
         .output()
         .await
         .map_err(|e| error::CommandExecutionError::from(e))
@@ -431,6 +433,7 @@ async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<()
 
     // return to original directory
     enter_output_dir(&original_dir);
+    debug!("current file path is {:?}", std::env::current_dir());
 
     Ok(())
 }

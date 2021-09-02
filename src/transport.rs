@@ -232,7 +232,7 @@ mod tests {
     use tokio::net::TcpListener;
 
     fn add_port(port: u16) -> SocketAddr {
-        SocketAddr::from(([127, 0, 0, 1], port))
+        SocketAddr::from(([0, 0, 0, 0], port))
     }
 
     /// make sure that if we are just waiting on more bytes it doesnt
