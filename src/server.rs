@@ -10,6 +10,14 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     let nodes = config::load_config::<config::Nodes>(&server.nodes_file)?;
     let jobs = config::load_config::<config::Jobs>(&server.jobs_file)?;
 
+    if server.save_path.exists() {
+        std::fs::remove_dir_all(&server.save_path)
+            .map_err(|e| error::ServerError::from(error::RemoveDirError::new(e, server.save_path.clone())))?;
+    }
+
+    std::fs::create_dir_all(&server.save_path)
+        .map_err(|e| error::ServerError::from(error::CreateDirError::new(e, server.save_path.clone())))?;
+
     // start by checking the status of each node - if one of the nodes is not ready
     // then something is wrong
 

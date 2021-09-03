@@ -140,6 +140,8 @@ pub enum ServerError {
     WriteFile(WriteFile),
     #[error("{0}")]
     CreateDir(CreateDirError),
+    #[error("{0}")]
+    RemoveDir(RemoveDirError),
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]
@@ -205,9 +207,16 @@ pub struct WriteFile {
     path: PathBuf,
 }
 
-#[derive(Debug, Display, From, thiserror::Error)]
+#[derive(Debug, Display, From, Constructor, thiserror::Error)]
 #[display(fmt = "Could create directory {:?}, error: {}", path, error)]
 pub struct CreateDirError {
+    error: std::io::Error,
+    path: PathBuf,
+}
+
+#[derive(Debug, Display, Constructor, thiserror::Error)]
+#[display(fmt = "Could create remove directory `{:?}`, error: {}", path, error)]
+pub struct RemoveDirError {
     error: std::io::Error,
     path: PathBuf,
 }

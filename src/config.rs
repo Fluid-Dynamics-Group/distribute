@@ -70,18 +70,14 @@ impl Jobs {
     pub(crate) async fn load_build(&self) -> Result<transport::JobInit, error::LoadJobsError> {
         let bytes = tokio::fs::read(&self.init.python_build_file_path)
             .await
-            .map_err(|e| {
-                error::ReadBytesError::new(e, self.init.python_build_file_path.clone())
-            })?;
+            .map_err(|e| error::ReadBytesError::new(e, self.init.python_build_file_path.clone()))?;
 
         let mut additional_build_files = vec![];
 
         for additional_file in &self.init.required_files {
-            let additional_bytes = tokio::fs::read(&self.init.python_build_file_path)
+            let additional_bytes = tokio::fs::read(&additional_file)
                 .await
-                .map_err(|e| {
-                    error::ReadBytesError::new(e, self.init.python_build_file_path.clone())
-                })?;
+                .map_err(|e| error::ReadBytesError::new(e, additional_file.clone()))?;
 
             let file_name = additional_file
                 .file_name()
@@ -94,6 +90,11 @@ impl Jobs {
                 file_bytes: additional_bytes,
             });
         }
+
+        debug!(
+            "number of initial files included: {}",
+            additional_build_files.len()
+        );
 
         Ok(transport::JobInit {
             python_setup_file: bytes,

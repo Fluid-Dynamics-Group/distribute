@@ -328,4 +328,13 @@ mod tests {
 
         assert_eq!(output.is_err(), true);
     }
+
+    #[test]
+    fn build_file_truncate() {
+        let build_file = std::iter::repeat(0).take(20714).collect::<Vec<u8>>();
+        let serializer = serialization_options();
+        let x = serializer.serialize(&build_file).unwrap();
+        let y: Vec<u8> = serializer.deserialize(&x).unwrap();
+        assert_eq!(build_file.len(), y.len());
+    }
 }

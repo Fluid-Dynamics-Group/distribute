@@ -132,13 +132,19 @@ async fn start_server_connection(
                         .await?;
                     }
                     PrerequisiteOperations::SendFiles { paths, after } => {
+                        debug!("there are {} files to send to the server", paths.len());
+
                         // start by writing all of the file bytes to the tcp stream
                         // TODO: this has potential to allocate too much memory depending on how
                         // fast the network connection is at exporting and clearing information
                         // from memory
                         for metadata in paths {
+                            // remove leading directories up until (and including) distribute_save
+
                             match metadata.into_send_file() {
-                                Ok(send_file) => {
+                                Ok(mut send_file) => {
+                                    send_file.file_path = remove_path_prefixes(send_file.file_path);
+
                                     let response = transport::ClientResponse::SendFile(send_file);
                                     send_client_response_with_logging(
                                         response,
@@ -156,8 +162,6 @@ async fn start_server_connection(
                         }
 
                         debug!("all file transfers have finished - now sending new job request to server");
-
-                        // TODO: log that all the file transfers have finished
 
                         // now that we have sent all of the files out, we now send the `after`
                         // response
@@ -284,7 +288,7 @@ async fn execute_general_request(
             //
             run_job(job, base_path).await?;
             let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-            let paths = walkdir::WalkDir::new(base_path.join("output"))
+            let paths = walkdir::WalkDir::new(base_path.join("distribute_save"))
                 .into_iter()
                 .flat_map(|x| x.ok())
                 .map(|x| FileMetadata {
@@ -332,6 +336,12 @@ impl FileMetadata {
             bytes,
         })
     }
+
+}
+/// remove the directories up until "distribute_save" so that the file names that we send are
+/// not absolute in their path - which makes saving things on the server side easier
+fn remove_path_prefixes(path: PathBuf) -> PathBuf {
+    path.components().skip_while(|x| x.as_os_str() == "distribute_save").skip(1).collect()
 }
 
 async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::FinishedJob, Error> {
@@ -389,7 +399,9 @@ async fn write_init_file<T: AsRef<Path>>(
         .await
         .map_err(error::InitJobError::from)?;
 
-    file.write(bytes).await.map_err(error::InitJobError::from)?;
+    file.write_all(bytes)
+        .await
+        .map_err(error::InitJobError::from)?;
 
     Ok(())
 }
@@ -399,6 +411,11 @@ async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<()
     write_init_file(base_path, "run.py", &init.python_setup_file).await?;
 
     for additional_file in init.additional_build_files {
+        debug!(
+            "init file {} number of bytes written: {}",
+            additional_file.file_name,
+            additional_file.file_bytes.len()
+        );
         write_init_file(
             base_path,
             additional_file.file_name,
