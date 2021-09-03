@@ -10,13 +10,18 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     let nodes = config::load_config::<config::Nodes>(&server.nodes_file)?;
     let jobs = config::load_config::<config::Jobs>(&server.jobs_file)?;
 
-    if server.save_path.exists() {
-        std::fs::remove_dir_all(&server.save_path)
-            .map_err(|e| error::ServerError::from(error::RemoveDirError::new(e, server.save_path.clone())))?;
+    if server.save_path.exists() && server.clean_output {
+        std::fs::remove_dir_all(&server.save_path).map_err(|e| {
+            error::ServerError::from(error::RemoveDirError::new(e, server.save_path.clone()))
+        })?;
     }
 
-    std::fs::create_dir_all(&server.save_path)
-        .map_err(|e| error::ServerError::from(error::CreateDirError::new(e, server.save_path.clone())))?;
+    // make the output folder - if it already exits then dont error
+    match std::fs::create_dir_all(&server.save_path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err( error::ServerError::from(error::CreateDirError::new(e, server.save_path.clone())))
+    }?;
 
     // start by checking the status of each node - if one of the nodes is not ready
     // then something is wrong
@@ -243,6 +248,12 @@ impl NodeConnection {
                             })
                             .map_err(|e| error::ServerError::from(e))?;
                     }
+
+                    // after we have received the file, let the client know this and send another
+                    // file
+                    self.conn
+                        .transport_data(&transport::RequestFromServer::FileReceived)
+                        .await?;
                 }
                 _ => unimplemented!(),
             }

@@ -113,7 +113,7 @@ async fn start_server_connection(
     ready_for_job: Arc<AtomicBool>,
 ) -> Result<(), Error> {
     let mut conn = transport::ClientConnection::new(tcp_conn);
-    loop {
+    'main_loop: loop {
         let new_data = conn.receive_data().await;
         if let Ok(request) = new_data {
             info!("executing general request handler from main task");
@@ -138,12 +138,20 @@ async fn start_server_connection(
                         // TODO: this has potential to allocate too much memory depending on how
                         // fast the network connection is at exporting and clearing information
                         // from memory
-                        for metadata in paths {
+                        // 
+                        // we skip the first path sine it is the path to the `distribute_save`
+                        // folder and we dont want to replicate that folder on the other side
+                        for metadata in paths.into_iter().skip(1) {
                             // remove leading directories up until (and including) distribute_save
 
                             match metadata.into_send_file() {
                                 Ok(mut send_file) => {
                                     send_file.file_path = remove_path_prefixes(send_file.file_path);
+                                    debug!(
+                                        "sending file at path {} with byte count {}",
+                                        send_file.file_path.display(),
+                                        send_file.bytes.len()
+                                    );
 
                                     let response = transport::ClientResponse::SendFile(send_file);
                                     send_client_response_with_logging(
@@ -153,6 +161,18 @@ async fn start_server_connection(
                                         &base_path,
                                     )
                                     .await?;
+
+                                    if let Ok(transport::RequestFromServer::FileReceived) =
+                                        conn.receive_data().await
+                                    {
+                                        //
+                                    } else {
+                                        // TODO: handle this error better - perhaps with a receive
+                                        // function to automatically do the swapping on an error
+                                        error!("repsonse from file send was not Ok(FileReceived) - this should not happen. Terminating the connection");
+                                        ready_for_job.swap(true, Ordering::Relaxed);
+                                        break 'main_loop;
+                                    }
                                 }
                                 Err(e) => {
                                     error!("could not read the bytes from the `send back` output files 
@@ -306,6 +326,10 @@ async fn execute_general_request(
             info!("received request to resume the execution of the process - however the main thread picked up this request which means there are no commands currently running. ignoring the request");
             PrerequisiteOperations::DoNothing
         }
+        transport::RequestFromServer::FileReceived => {
+            warn!("got a file recieved message from the server but we didnt send any files");
+            PrerequisiteOperations::DoNothing
+        }
     };
 
     Ok(output)
@@ -336,12 +360,14 @@ impl FileMetadata {
             bytes,
         })
     }
-
 }
 /// remove the directories up until "distribute_save" so that the file names that we send are
 /// not absolute in their path - which makes saving things on the server side easier
 fn remove_path_prefixes(path: PathBuf) -> PathBuf {
-    path.components().skip_while(|x| x.as_os_str() == "distribute_save").skip(1).collect()
+    path.components()
+        .skip_while(|x| x.as_os_str() == "distribute_save")
+        .skip(2)
+        .collect()
 }
 
 async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::FinishedJob, Error> {

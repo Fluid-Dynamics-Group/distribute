@@ -53,6 +53,11 @@ pub struct Server {
     #[argh(option, default = "SERVER_PORT", short = 'p')]
     /// the port to bind the server to (default 8952)
     pub port: u16,
+
+    #[argh(switch)]
+    /// clean and remove the entire output tree
+    pub clean_output: bool
+
 }
 
 #[derive(FromArgs, PartialEq, Debug)]

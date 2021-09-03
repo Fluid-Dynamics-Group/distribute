@@ -20,6 +20,7 @@ pub enum RequestFromServer {
     AssignJob(Job),
     PauseExecution(PauseExecution),
     ResumeExecution(ResumeExecution),
+    FileReceived,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -162,18 +163,20 @@ async fn transport<T: Serialize>(tcp_connection: &mut TcpStream, data: &T) -> Re
         .serialize(&data)
         .map_err(error::Serialization::from)?;
 
+    debug!("sending buffer of length {}", bytes.len());
+
     let bytes_len: u64 = bytes.len() as u64;
 
     // write the length of the data that we are first sending
     tcp_connection
-        .write(&bytes_len.to_le_bytes())
+        .write_all(&bytes_len.to_le_bytes())
         .await
         .map_err(error::TcpConnection::from)?;
 
     // write the contents of the actual data now that the length of the data is
     // actually known
     tcp_connection
-        .write(&bytes)
+        .write_all(&bytes)
         .await
         .map_err(error::TcpConnection::from)?;
 
@@ -189,6 +192,8 @@ async fn receive<T: DeserializeOwned>(tcp_connection: &mut TcpStream) -> Result<
 
     let content_length = u64::from_le_bytes(buf);
 
+    debug!("receiving buffer with length {}", content_length);
+
     let mut content_buffer = vec![0; content_length as usize];
 
     read_buffer_bytes(&mut content_buffer, tcp_connection).await?;
@@ -203,6 +208,12 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
     let mut starting_idx = 0;
 
     loop {
+        debug!(
+            "reading buffer bytes w/ index {} and buffer len {}",
+            starting_idx,
+            buffer.len()
+        );
+
         let bytes_read = conn
             .read(&mut buffer[starting_idx..])
             .await
@@ -219,6 +230,8 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
             break;
         }
     }
+
+    debug!("finished reading bytes from buffer");
 
     Ok(())
 }
