@@ -25,6 +25,7 @@ pub enum RequestFromServer {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct JobInit {
+    pub batch_name: String,
     pub python_setup_file: Vec<u8>,
     pub additional_build_files: Vec<BuildFile>,
 }
@@ -80,7 +81,7 @@ impl Version {
         Self {
             major: 0,
             minor: 1,
-            patch: 0,
+            patch: 2,
         }
     }
 }

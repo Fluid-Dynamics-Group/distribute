@@ -138,7 +138,7 @@ async fn start_server_connection(
                         // TODO: this has potential to allocate too much memory depending on how
                         // fast the network connection is at exporting and clearing information
                         // from memory
-                        // 
+                        //
                         // we skip the first path sine it is the path to the `distribute_save`
                         // folder and we dont want to replicate that folder on the other side
                         for metadata in paths.into_iter().skip(1) {
@@ -383,7 +383,7 @@ async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::Fin
 
     debug!("created run file");
 
-    file.write(&job.python_file)
+    file.write_all(&job.python_file)
         .await
         .map_err(|full_error| error::RunJobError::WriteBytes {
             full_error,
@@ -404,11 +404,10 @@ async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::Fin
 
     debug!("job successfully finished - returning to main process");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    // write the stdout and stderr to a file
+    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+    command_output_to_file(output, output_file_path).await;
 
-    println!("stdout: \n{}", stdout);
-    println!("stderr: \n{}", stderr);
     Ok(transport::FinishedJob)
 }
 
@@ -466,19 +465,44 @@ async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<()
         .map_err(|e| error::CommandExecutionError::from(e))
         .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    println!("stdout: \n{}", stdout);
-    println!("stderr: \n{}", stderr);
-
-    debug!("finished init command, returning to main process");
-
     // return to original directory
     enter_output_dir(&original_dir);
     debug!("current file path is {:?}", std::env::current_dir());
 
+    // write stdout / stderr to file
+    let output_file_path = base_path.join(format!(
+        "distribute_save/{}_init_output.txt",
+        init.batch_name
+    ));
+    command_output_to_file(output, output_file_path).await;
+
+    debug!("finished init command, returning to main process");
+
     Ok(())
+}
+
+async fn command_output_to_file(output: std::process::Output, path: PathBuf) {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    let output = format!("STDOUT:\n{}\nSTDERR:\n{}", stdout, stderr);
+
+    let print_err = |e: std::io::Error| {
+        warn!(
+            "error writing stdout/stderr to txt file: {} - {}",
+            e,
+            path.display()
+        )
+    };
+
+    match tokio::fs::File::create(&path).await {
+        Ok(mut file) => {
+            if let Err(e) = file.write_all(&output.as_bytes()).await {
+                print_err(e)
+            }
+        }
+        Err(e) => print_err(e),
+    };
 }
 
 fn enter_output_dir(base_path: &Path) -> PathBuf {
@@ -489,6 +513,8 @@ fn enter_output_dir(base_path: &Path) -> PathBuf {
     current_path
 }
 
+// clean out the tmp files from a build script from the output directory
+// and recreate the distributed_save folder
 async fn clean_output_dir(dir: &Path) -> Result<(), std::io::Error> {
     tokio::fs::remove_dir_all(dir).await.ok();
 

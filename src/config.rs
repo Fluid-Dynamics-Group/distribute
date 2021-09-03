@@ -40,6 +40,7 @@ pub struct BuildJob {
     pub python_build_file_path: PathBuf,
     #[serde(default)]
     required_files: Vec<PathBuf>,
+    batch_name: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -97,6 +98,7 @@ impl Jobs {
         );
 
         Ok(transport::JobInit {
+            batch_name: self.init.batch_name.clone(),
             python_setup_file: bytes,
             additional_build_files,
         })

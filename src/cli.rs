@@ -56,8 +56,7 @@ pub struct Server {
 
     #[argh(switch)]
     /// clean and remove the entire output tree
-    pub clean_output: bool
-
+    pub clean_output: bool,
 }
 
 #[derive(FromArgs, PartialEq, Debug)]

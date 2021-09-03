@@ -16,11 +16,18 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         })?;
     }
 
+    ok_if_exists(tokio::fs::create_dir_all(&server.save_path).await).map_err(|e| {
+        error::ServerError::from(error::CreateDirError::new(e, server.save_path.clone()))
+    })?;
+
     // make the output folder - if it already exits then dont error
     match std::fs::create_dir_all(&server.save_path) {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
-        Err(e) => Err( error::ServerError::from(error::CreateDirError::new(e, server.save_path.clone())))
+        Err(e) => Err(error::ServerError::from(error::CreateDirError::new(
+            e,
+            server.save_path.clone(),
+        ))),
     }?;
 
     // start by checking the status of each node - if one of the nodes is not ready
@@ -232,17 +239,14 @@ impl NodeConnection {
                     info!("saving solver file to {:?}", save_location);
                     if send_file.is_file {
                         // TODO: fix these unwraps
-                        let file = tokio::fs::File::create(&save_location)
+                        let mut file = tokio::fs::File::create(&save_location)
                             .await
                             .map_err(|error| error::WriteFile::from((error, save_location.clone())))
                             .map_err(|e| error::ServerError::from(e))?;
-                        let mut file = tokio::io::BufWriter::new(file);
-
-                        file.write(&send_file.bytes).await.unwrap();
+                        file.write_all(&send_file.bytes).await.unwrap();
                     } else {
-                        // just create the directory
-                        tokio::fs::create_dir(&save_location)
-                            .await
+                        // just create the directory - sometimes it already exists which is ok
+                        ok_if_exists(tokio::fs::create_dir(&save_location).await)
                             .map_err(|error| {
                                 error::CreateDirError::from((error, save_location.clone()))
                             })
@@ -259,6 +263,17 @@ impl NodeConnection {
             }
         }
     }
+}
+
+/// Map a Err(io::Error) to Ok(()) if the ErrorKind was that the file / dir already exists
+fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+    match x {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(e),
+    }?;
+
+    Ok(())
 }
 
 enum NodeNextStep {

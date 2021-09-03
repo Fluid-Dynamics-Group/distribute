@@ -3,6 +3,7 @@
 init: 
   build_file: some_python_file.py
   required_files: [python_library.py, /path/to/random_file.txt]
+  batch_name: example_build_batch
   
 # a list of python files to 
 jobs:
