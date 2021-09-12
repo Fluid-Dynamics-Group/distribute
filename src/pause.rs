@@ -1,10 +1,12 @@
 use crate::{
     cli,
+    client::EXEC_GROUP_ID,
     error::{self, Error, PauseError},
     transport,
 };
+
 use std::net::{Ipv4Addr, SocketAddr};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub async fn pause(args: cli::Pause) -> Result<(), Error> {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, args.port));
@@ -20,9 +22,9 @@ pub async fn pause(args: cli::Pause) -> Result<(), Error> {
     // only expects messsages from a "server"
     let mut conn = transport::ServerConnection::new(addr).await?;
 
-    let request = transport::PauseExecution::new(duration);
-    let wrapped_request = transport::RequestFromServer::from(request);
-    conn.transport_data(&wrapped_request).await?;
+    //let request = transport::PauseExecution::new(duration);
+    //let wrapped_request = transport::RequestFromServer::from(request);
+    //conn.transport_data(&wrapped_request).await?;
 
     Ok(())
 }
@@ -73,6 +75,80 @@ fn slice_until_unit(input_str: &str) -> Result<(u64, char, &str), error::PauseEr
     let remaining = input_str.get(slice_length + 1..).unwrap_or("");
 
     Ok((num, next_char, remaining))
+}
+
+pub(super) struct PauseProcessArbiter {
+    unpause_instant: Option<Instant>,
+    rx: std::sync::mpsc::Receiver<Option<Instant>>,
+}
+
+impl PauseProcessArbiter {
+    /// Sending a None unpauses the execution
+    /// Sending a Some(instant) will pause the underlying process until
+    /// that instant
+    pub(super) fn new() -> (Self, std::sync::mpsc::Sender<Option<Instant>>) {
+        // we use std channels here because there is no easy way to check
+        // if there is a value in the `Receiver` with tokio channels
+        let (tx, rx) = std::sync::mpsc::channel();
+        (
+            Self {
+                unpause_instant: None,
+                rx,
+            },
+            tx,
+        )
+    }
+
+    pub(super) fn spawn(mut self) -> tokio::task::JoinHandle<()> {
+        tokio::task::spawn(async move {
+            if let Ok(sleep_update) = self.rx.try_recv() {
+                match sleep_update {
+                    // request to set a pause time in the future, we pause now
+                    Some(future_instant) => {
+                        self.unpause_instant = Some(future_instant);
+                        self.pause_execution();
+                    }
+                    // resume right away
+                    None => {
+                        self.unpause_execution();
+                    }
+                }
+            }
+
+            if let Some(instant) = self.unpause_instant {
+                if Instant::now() > instant {
+                    self.unpause_execution();
+                    self.unpause_instant = None;
+                }
+            }
+
+            tokio::time::sleep(Duration::from_secs(10)).await;
+        })
+    }
+
+    // pause the execution of all processes using the specified groupid
+    fn pause_execution(&self) {
+        let signal = nix::sys::signal::Signal::SIGSTOP;
+        let process_id = nix::unistd::Pid::from_raw(EXEC_GROUP_ID as i32);
+        if let Err(e) = nix::sys::signal::kill(process_id, signal) {
+            error!(
+                "error when pausing group process (id {}): {}",
+                EXEC_GROUP_ID, e
+            );
+        }
+    }
+
+    // pause the execution of all processes using the specified groupid
+    fn unpause_execution(&self) {
+        let signal = nix::sys::signal::Signal::SIGCONT;
+        let process_id = nix::unistd::Pid::from_raw(EXEC_GROUP_ID as i32);
+        if let Err(e) = nix::sys::signal::kill(process_id, signal) {
+            error!(
+                "error when resuming group process (id {}): {}",
+                EXEC_GROUP_ID, e
+            );
+        }
+    }
 }
 
 #[test]

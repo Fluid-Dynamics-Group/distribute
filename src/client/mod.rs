@@ -2,7 +2,6 @@ mod execute;
 mod utils;
 
 use execute::PrerequisiteOperations;
-use execute::PauseProcessArbiter;
 
 use crate::{cli, error, error::Error, transport};
 
@@ -28,10 +27,6 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], client.port)))
         .await
         .map_err(error::TcpConnection::from)?;
-
-    // create an arbiter that will pause and unpause the processes created by this program
-    let (pause_execution_arbiter, pause_tx) = PauseProcessArbiter::new();
-    pause_execution_arbiter.spawn();
 
     loop {
         let (tcp_conn, _address) = listener
@@ -74,20 +69,6 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
                             }
 
                             //
-                        }
-                        transport::RequestFromServer::PauseExecution(pause_data) => {
-                            // send the pause duration to the arbiter
-                            if let Err(e) =
-                                pause_tx.send(Some(Instant::now() + pause_data.duration))
-                            {
-                                error!("Error sending data to the pausing arbiter task. full error: {}", e);
-                            }
-                        }
-                        transport::RequestFromServer::ResumeExecution(_resume_data) => {
-                            // send the pause duration to the arbiter
-                            if let Err(e) = pause_tx.send(None) {
-                                error!("Error sending data to the pausing arbiter task. full error: {}", e);
-                            }
                         }
                         _ => {
                             // TODO: log that we have gotten a real job request even though we are marked as
@@ -149,7 +130,8 @@ async fn start_server_connection(
 
                             match metadata.into_send_file() {
                                 Ok(mut send_file) => {
-                                    send_file.file_path = utils::remove_path_prefixes(send_file.file_path);
+                                    send_file.file_path =
+                                        utils::remove_path_prefixes(send_file.file_path);
 
                                     let response = transport::ClientResponse::SendFile(send_file);
                                     send_client_response_with_logging(
@@ -215,8 +197,6 @@ async fn start_server_connection(
     Ok(())
 }
 
-
-
 /// check if the error from reading transport data from the tcp connection
 /// was due to the connection being closed - and if so it means
 /// that we should mark ourselves ready for additional jobs
@@ -255,4 +235,3 @@ async fn send_client_response_with_logging(
         Ok(())
     }
 }
-

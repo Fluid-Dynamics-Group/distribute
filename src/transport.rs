@@ -18,8 +18,6 @@ pub enum RequestFromServer {
     StatusCheck,
     AssignJobInit(JobInit),
     AssignJob(Job),
-    PauseExecution(PauseExecution),
-    ResumeExecution(ResumeExecution),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]

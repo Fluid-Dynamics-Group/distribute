@@ -1,6 +1,6 @@
-use crate::{cli, error, error::Error, transport};
-use super::EXEC_GROUP_ID;
 use super::utils;
+use super::EXEC_GROUP_ID;
+use crate::{cli, error, error::Error, transport};
 
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
@@ -54,14 +54,6 @@ pub(super) async fn general_request(
                 .collect();
             PrerequisiteOperations::SendFiles { paths, after }
         }
-        transport::RequestFromServer::PauseExecution(_) => {
-            info!("received request to pause the execution of the process - however the main thread picked up this request which means there are no commands currently running. ignoring the request");
-            PrerequisiteOperations::DoNothing
-        }
-        transport::RequestFromServer::ResumeExecution(_) => {
-            info!("received request to resume the execution of the process - however the main thread picked up this request which means there are no commands currently running. ignoring the request");
-            PrerequisiteOperations::DoNothing
-        }
     };
 
     Ok(output)
@@ -92,7 +84,6 @@ impl FileMetadata {
             bytes,
         })
     }
-
 }
 
 async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::FinishedJob, Error> {
@@ -212,81 +203,6 @@ fn enter_output_dir(base_path: &Path) -> PathBuf {
     std::env::set_current_dir(base_path).unwrap();
 
     current_path
-}
-
-
-pub(super) struct PauseProcessArbiter {
-    unpause_instant: Option<Instant>,
-    rx: std::sync::mpsc::Receiver<Option<Instant>>,
-}
-
-impl PauseProcessArbiter {
-    /// Sending a None unpauses the execution
-    /// Sending a Some(instant) will pause the underlying process until
-    /// that instant
-    pub(super) fn new() -> (Self, std::sync::mpsc::Sender<Option<Instant>>) {
-        // we use std channels here because there is no easy way to check
-        // if there is a value in the `Receiver` with tokio channels
-        let (tx, rx) = std::sync::mpsc::channel();
-        (
-            Self {
-                unpause_instant: None,
-                rx,
-            },
-            tx,
-        )
-    }
-
-    pub(super) fn spawn(mut self) -> tokio::task::JoinHandle<()> {
-        tokio::task::spawn(async move {
-            if let Ok(sleep_update) = self.rx.try_recv() {
-                match sleep_update {
-                    // request to set a pause time in the future, we pause now
-                    Some(future_instant) => {
-                        self.unpause_instant = Some(future_instant);
-                        self.pause_execution();
-                    }
-                    // resume right away
-                    None => {
-                        self.unpause_execution();
-                    }
-                }
-            }
-
-            if let Some(instant) = self.unpause_instant {
-                if Instant::now() > instant {
-                    self.unpause_execution();
-                    self.unpause_instant = None;
-                }
-            }
-
-            tokio::time::sleep(Duration::from_secs(10)).await;
-        })
-    }
-
-    // pause the execution of all processes using the specified groupid
-    fn pause_execution(&self) {
-        let signal = nix::sys::signal::Signal::SIGSTOP;
-        let process_id = nix::unistd::Pid::from_raw(EXEC_GROUP_ID as i32);
-        if let Err(e) = nix::sys::signal::kill(process_id, signal) {
-            error!(
-                "error when pausing group process (id {}): {}",
-                EXEC_GROUP_ID, e
-            );
-        }
-    }
-
-    // pause the execution of all processes using the specified groupid
-    fn unpause_execution(&self) {
-        let signal = nix::sys::signal::Signal::SIGCONT;
-        let process_id = nix::unistd::Pid::from_raw(EXEC_GROUP_ID as i32);
-        if let Err(e) = nix::sys::signal::kill(process_id, signal) {
-            error!(
-                "error when resuming group process (id {}): {}",
-                EXEC_GROUP_ID, e
-            );
-        }
-    }
 }
 
 pub(super) enum PrerequisiteOperations {

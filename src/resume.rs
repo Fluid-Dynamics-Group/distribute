@@ -12,9 +12,9 @@ pub async fn resume(args: cli::Resume) -> Result<(), Error> {
     // only expects messsages from a "server"
     let mut conn = transport::ServerConnection::new(addr).await?;
 
-    let request = transport::ResumeExecution::new();
-    let wrapped_request = transport::RequestFromServer::from(request);
-    conn.transport_data(&wrapped_request).await?;
+    //let request = transport::ResumeExecution::new();
+    //let wrapped_request = transport::RequestFromServer::from(request);
+    //conn.transport_data(&wrapped_request).await?;
 
     Ok(())
 }
