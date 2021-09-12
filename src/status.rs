@@ -6,7 +6,7 @@ use crate::{
 
 /// check that all the nodes are up *and* the versions match. returns `true` if all nodes are
 /// healthy w/ version matches
-pub async fn status_command(status: cli::Status) -> Result<(), Error> {
+pub(crate) async fn status_command(status: cli::Status) -> Result<(), Error> {
     let nodes_config: config::Nodes = config::load_config(&status.node_information)?;
 
     status_check_nodes(&nodes_config.nodes).await?;
@@ -14,7 +14,7 @@ pub async fn status_command(status: cli::Status) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn status_check_nodes(
+pub(crate) async fn status_check_nodes(
     nodes: &[config::Node],
 ) -> Result<Vec<transport::ServerConnection>, Error> {
     let mut connections = vec![];

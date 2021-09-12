@@ -1,4 +1,6 @@
 use argh::FromArgs;
+use std::path::PathBuf;
+use std::net::IpAddr;
 
 pub const SERVER_PORT: u16 = 8952;
 pub const CLIENT_PORT: u16 = 8953;
@@ -18,6 +20,7 @@ pub enum Command {
     Status(Status),
     Pause(Pause),
     Resume(Resume),
+    Add(Add),
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -91,4 +94,24 @@ pub struct Resume {
     #[argh(option, default = "CLIENT_PORT", short = 'p')]
     /// port that the client is mapped to
     pub port: u16,
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// add a job set to the queue
+#[argh(subcommand, name = "add")]
+pub struct Add {
+    #[argh(positional, default = "String::from(\"distribute-jobs.yaml\")")]
+    pub jobs: String,
+
+    #[argh(option, default = "SERVER_PORT", short = 'p')]
+    /// port that the client is mapped to
+    pub port: u16,
+
+    #[argh(option)]
+    /// port that the client is mapped to
+    pub ip: IpAddr,
+
+    #[argh(switch)]
+    /// print out the capabilities of each node
+    pub show_caps: bool
 }

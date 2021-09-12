@@ -41,8 +41,8 @@ pub struct BuildJob {
     pub python_build_file_path: PathBuf,
     #[serde(default)]
     required_files: Vec<PathBuf>,
-    batch_name: String,
-    capabilities: server::Requirements<server::JobRequiredCaps>,
+    pub(crate) batch_name: String,
+    pub(crate) capabilities: server::Requirements<server::JobRequiredCaps>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

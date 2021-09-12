@@ -1,7 +1,8 @@
 mod job_pool;
 mod schedule;
 
-use job_pool::{JobPool, NodeConnection};
+pub(crate) use job_pool::JobResponse;
+use job_pool::{JobPool, JobRequest, NodeConnection};
 pub(crate) use schedule::{
     JobRequiredCaps, JobSet, NodeProvidedCaps, Requirement, Requirements, Schedule,
 };
@@ -9,14 +10,14 @@ pub(crate) use schedule::{
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
 
-pub async fn server_command(server: cli::Server) -> Result<(), Error> {
+pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
     let nodes = config::load_config::<config::Nodes>(&server.nodes_file)?;
-    let jobs = config::load_config::<config::Jobs>(&server.jobs_file)?;
 
     if server.save_path.exists() && server.clean_output {
         std::fs::remove_dir_all(&server.save_path).map_err(|e| {
@@ -44,13 +45,21 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     log::info!("checking connection status of each node");
     let connections = status::status_check_nodes(&nodes.nodes).await?;
 
+    let node_caps = nodes
+        .nodes
+        .into_iter()
+        .map(|node| std::sync::Arc::new(node.capabilities))
+        .collect::<Vec<_>>();
+
     let (request_job, job_pool_holder) = mpsc::channel(100);
 
-    info!("loading job information from files");
-    let loaded_jobs = jobs.load_jobs().await.map_err(error::ServerError::from)?;
-
-    info!("loading build information from files");
-    let loaded_build = jobs.load_build().await.map_err(error::ServerError::from)?;
+    // spawn off a connection to listen to user requests
+    let port = server.port;
+    let req_clone = request_job.clone();
+    let caps_clone = node_caps.clone();
+    tokio::spawn(async move {
+        handle_user_requests(port, req_clone, caps_clone).await;
+    });
 
     // spawn off a job pool that we can query from different tasks
 
@@ -62,12 +71,12 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     let mut handles = vec![handle];
 
     // spawn off each node connection to its own task
-    for (server_connection, node) in connections.into_iter().zip(nodes.nodes.into_iter()) {
+    for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
         info!("starting NodeConnection for {}", server_connection.addr);
         let handle = NodeConnection::new(
             server_connection,
             request_job.clone(),
-            std::sync::Arc::new(node.capabilities),
+            caps,
             server.save_path.clone(),
             None,
         )
@@ -80,8 +89,71 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     Ok(())
 }
 
-fn choose_scheduler<T: schedule::Schedule>(server: &cli::Server) -> T {
-    todo!()
+/// handle incomming requests from the user over CLI on any node
+async fn handle_user_requests(
+    port: u16,
+    tx: mpsc::Sender<JobRequest>,
+    node_capabilities: Vec<Arc<Requirements<NodeProvidedCaps>>>,
+) {
+    let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port)))
+        .await
+        .map_err(error::TcpConnection::from)
+        .unwrap();
+
+    loop {
+        let (tcp_conn, _address) = listener
+            .accept()
+            .await
+            .map_err(error::TcpConnection::from)
+            .unwrap();
+
+        let mut conn = transport::ServerConnectionToUser::new(tcp_conn);
+
+        let request = match conn.receive_data().await {
+            Ok(req) => req,
+            Err(e) => {
+                error!("error reading user request: {}", e);
+                continue;
+            }
+        };
+
+        match request {
+            transport::UserMessageToServer::AddJobSet(set) => {
+                if let None = tx
+                    .send(JobRequest::AddJobSet(set))
+                    .await
+                    .map_err(|e| {
+                        error!(
+                            "error sending job set to pool (this should not happen): {}",
+                            e
+                        )
+                    })
+                    .ok()
+                {
+                    conn.transport_data(&transport::ServerResponseToUser::JobSetAdded)
+                        .await
+                        .ok();
+                } else {
+                    conn.transport_data(&transport::ServerResponseToUser::JobSetAddedFailed)
+                        .await
+                        .ok();
+                }
+            }
+            transport::UserMessageToServer::QueryCapabilities => {
+                // clone all the data so that we have non-Arc'd data
+                // this can be circumvented by
+                let caps: Vec<Requirements<_>> =
+                    node_capabilities.iter().map(|x| (**x).clone()).collect();
+                conn.transport_data(&transport::ServerResponseToUser::Capabilities(caps))
+                    .await
+                    .map_err(|e| {
+                        error!("error sending caps to user (this should not happen): {}", e)
+                    })
+                    .ok();
+            }
+        }
+        //
+    }
 }
 
 pub(crate) fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io::Error> {

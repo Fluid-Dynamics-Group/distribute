@@ -2,7 +2,7 @@ use derive_more::{Constructor, Display, From, Unwrap};
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub(crate) enum Error {
     #[error("Could not load configuration file. {0}")]
     InvalidConfiguration(#[from] ConfigurationError),
     #[error("{0}")]
@@ -23,6 +23,8 @@ pub enum Error {
     ClientInit(#[from] ClientInitError),
     #[error("{0}")]
     Pause(#[from] PauseError),
+    #[error("{0}")]
+    Add(#[from] AddError)
 }
 
 #[derive(Debug, Display, thiserror::Error, From)]
@@ -254,4 +256,14 @@ pub enum PauseError {
     InvalidCharacter(char),
     #[error("The input pause duration is too long. Maximum pause duration is 4 hours")]
     DurationTooLong,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub(crate) enum AddError {
+    #[error("Server did not send capabilities when requested. Instead, sent `{0}`")]
+    NotCapabilities(crate::transport::ServerResponseToUser),
+    #[error("None of the nodes could run the jobs. Aborted")]
+    NoCompatableNodes,
+    #[error("Could not add the job set on the server side. This is generally a really really bad error. You should tell brooks about this.")]
+    FailedToAdd
 }

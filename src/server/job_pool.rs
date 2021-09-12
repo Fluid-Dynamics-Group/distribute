@@ -1,5 +1,5 @@
 use super::ok_if_exists;
-use super::schedule::{JobIdentifier, NodeProvidedCaps, Requirements, Schedule};
+use super::schedule::{self, JobIdentifier, NodeProvidedCaps, Requirements, Schedule};
 use crate::{cli, config, error, error::Error, status, transport};
 
 use std::net::SocketAddr;
@@ -27,23 +27,34 @@ where
     pub(super) fn spawn(mut self) -> JoinHandle<()> {
         tokio::task::spawn(async move {
             while let Some(new_req) = self.receive_requests.recv().await {
-                let new_req = match new_req {
-                    JobRequest::NewJob(x) => x,
+                match new_req {
+                    // we want a new job from the scheduler
+                    JobRequest::NewJob(new_req) => {
+                        let new_task: JobResponse = self
+                            .remaining_jobs
+                            .fetch_new_task(new_req.initialized_job, new_req.capabilities);
+                        new_req.tx.send(new_task).ok().unwrap();
+                    }
+                    // a job failed to execute on the node
                     JobRequest::DeadNode(pending_job) => {
-                        let job = match pending_job.task {
-                            JobOrInit::Job(job) => job,
-                            JobOrInit::JobInit(init) => continue,
+                        match pending_job.task {
+                            JobOrInit::Job(job) => {
+                                self.remaining_jobs.add_job_back(job, pending_job.ident);
+                            }
+                            // an initialization job does not need to be returned to the
+                            // scheduler
+                            JobOrInit::JobInit(_init) => (),
                         };
-
-                        self.remaining_jobs.add_job_back(job, pending_job.ident);
+                        continue;
+                    }
+                    // the server got a request to add a new job set
+                    JobRequest::AddJobSet(set) => {
+                        info!("added new job set `{}` to scheduler", set.name());
+                        self.remaining_jobs.insert_new_batch(set);
                         continue;
                     }
                 };
-
-                let new_task: JobResponse = self
-                    .remaining_jobs
-                    .fetch_new_task(new_req.initialized_job, new_req.capabilities);
-                new_req.tx.send(new_task).ok().unwrap();
+                //
             }
         })
     }
@@ -61,6 +72,7 @@ pub(crate) enum JobResponse {
 pub(super) enum JobRequest {
     NewJob(NewJobRequest),
     DeadNode(PendingJob),
+    AddJobSet(schedule::JobSet),
 }
 
 pub(super) struct NewJobRequest {

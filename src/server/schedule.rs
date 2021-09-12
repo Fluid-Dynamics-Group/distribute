@@ -1,8 +1,9 @@
 use super::job_pool::{JobOrInit, JobResponse};
 use crate::transport;
 use derive_more::{Constructor, Display, From};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
+use std::fmt;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
@@ -42,6 +43,7 @@ pub(crate) struct GpuPriority {
     map: BTreeMap<JobIdentifier, JobSet>,
     last_identifier: u64,
 }
+
 impl GpuPriority {
     /// grab the first job that we have available. It is assumed that this function is only called
     /// if we have ensured that the current jobidentifier has no remaining jobs left
@@ -177,7 +179,7 @@ impl Schedule for GpuPriority {
     }
 }
 
-#[derive(Constructor, Debug, Clone, Deserialize)]
+#[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct JobSet {
     build: transport::JobInit,
     requirements: Requirements<JobRequiredCaps>,
@@ -212,9 +214,13 @@ impl JobSet {
             self.currently_running_jobs -= 1
         }
     }
+
+    pub(crate) fn name(&self) -> &str {
+        &self.batch_name
+    }
 }
 
-#[derive(From, Debug, Clone, Deserialize)]
+#[derive(From, Debug, Clone, Deserialize, Serialize)]
 #[serde(transparent)]
 pub(crate) struct Requirements<T> {
     reqs: BTreeSet<Requirement>,
@@ -223,7 +229,7 @@ pub(crate) struct Requirements<T> {
 }
 
 impl Requirements<NodeProvidedCaps> {
-    fn can_accept_job(&self, job_reqs: &Requirements<JobRequiredCaps>) -> bool {
+    pub(crate) fn can_accept_job(&self, job_reqs: &Requirements<JobRequiredCaps>) -> bool {
         self.reqs.is_superset(&job_reqs.reqs)
     }
 }
@@ -236,13 +242,21 @@ impl Requirements<JobRequiredCaps> {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+impl <T> fmt::Display for Requirements<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let formatted = self.reqs.iter().map(|x| format!("{}, ", x)).collect::<String>();
+        write!(f, "{}", formatted)
+    }
+
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct NodeProvidedCaps;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct JobRequiredCaps;
 
-#[derive(From, Ord, Eq, PartialEq, PartialOrd, Debug, Clone, Deserialize)]
+#[derive(From, Ord, Eq, PartialEq, PartialOrd, Debug, Clone, Deserialize, Serialize, Display)]
 pub(crate) struct Requirement(String);
 
 impl From<&str> for Requirement {
@@ -270,7 +284,7 @@ mod tests {
 
     fn check_job(response: JobResponse, expected_job: transport::Job) {
         match response {
-            JobResponse::SetupOrRun { task, identifier } => {
+            JobResponse::SetupOrRun { task, identifier: _ } => {
                 assert_eq!(task.unwrap_job(), expected_job);
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),

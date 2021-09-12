@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 pub(crate) const EXEC_GROUP_ID: u32 = 999232;
 
-pub async fn client_command(client: cli::Client) -> Result<(), Error> {
+pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
     let ready_for_job = Arc::new(AtomicBool::new(true));
     let base_path = PathBuf::from(client.base_folder);
     utils::clean_output_dir(&base_path)

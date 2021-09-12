@@ -4,11 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::error;
 use crate::error::Error;
+use crate::server;
 use bincode::config::Options;
 
 #[derive(
@@ -18,6 +20,22 @@ pub enum RequestFromServer {
     StatusCheck,
     AssignJobInit(JobInit),
     AssignJob(Job),
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
+pub(crate) enum UserMessageToServer {
+    AddJobSet(server::JobSet),
+    QueryCapabilities,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap, Display)]
+pub(crate) enum ServerResponseToUser {
+    #[display(fmt="job set added")]
+    JobSetAdded,
+    #[display(fmt="job set failed to add")]
+    JobSetAddedFailed,
+    #[display(fmt="capabilities")]
+    Capabilities(Vec<server::Requirements<server::NodeProvidedCaps>>),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -120,7 +138,7 @@ pub struct ServerConnection {
 }
 
 impl ServerConnection {
-    pub async fn new(addr: SocketAddr) -> Result<Self, error::TcpConnection> {
+    pub(crate) async fn new(addr: SocketAddr) -> Result<Self, error::TcpConnection> {
         let conn = TcpStream::connect(addr)
             .await
             .map_err(error::TcpConnection::from)?;
@@ -128,11 +146,11 @@ impl ServerConnection {
         Ok(Self { conn, addr })
     }
 
-    pub async fn transport_data(&mut self, request: &RequestFromServer) -> Result<(), Error> {
+    pub(crate) async fn transport_data(&mut self, request: &RequestFromServer) -> Result<(), Error> {
         transport(&mut self.conn, request).await
     }
 
-    pub async fn receive_data(&mut self) -> Result<ClientResponse, Error> {
+    pub(crate) async fn receive_data(&mut self) -> Result<ClientResponse, Error> {
         receive(&mut self.conn).await
     }
 
@@ -146,20 +164,61 @@ impl ServerConnection {
     }
 }
 
+pub struct UserConnectionToServer {
+    conn: TcpStream,
+    pub addr: std::net::SocketAddr,
+}
+
+impl UserConnectionToServer {
+    pub(crate) async fn new(addr: SocketAddr) -> Result<Self, error::TcpConnection> {
+        let conn = TcpStream::connect(addr)
+            .await
+            .map_err(error::TcpConnection::from)?;
+
+        Ok(Self { conn, addr })
+    }   
+
+    pub(crate) async fn transport_data(
+        &mut self,
+        request: &UserMessageToServer,
+    ) -> Result<(), Error> {
+        transport(&mut self.conn, request).await
+    }
+
+    pub(crate) async fn receive_data(&mut self) -> Result<ServerResponseToUser, Error> {
+        receive(&mut self.conn).await
+    }
+}
+
+#[derive(derive_more::From, derive_more::Constructor)]
+pub(crate) struct ServerConnectionToUser {
+    conn: TcpStream,
+}
+
+impl ServerConnectionToUser {
+    pub(crate) async fn transport_data(
+        &mut self,
+        request: &ServerResponseToUser,
+    ) -> Result<(), Error> {
+        transport(&mut self.conn, request).await
+    }
+
+    pub(crate) async fn receive_data(&mut self) -> Result<UserMessageToServer, Error> {
+        receive(&mut self.conn).await
+    }
+}
+
+#[derive(derive_more::Constructor)]
 pub struct ClientConnection {
     conn: TcpStream,
 }
 
 impl ClientConnection {
-    pub fn new(conn: TcpStream) -> Self {
-        Self { conn }
-    }
-
-    pub async fn transport_data(&mut self, response: &ClientResponse) -> Result<(), Error> {
+    pub(crate) async fn transport_data(&mut self, response: &ClientResponse) -> Result<(), Error> {
         transport(&mut self.conn, response).await
     }
 
-    pub async fn receive_data(&mut self) -> Result<RequestFromServer, Error> {
+    pub(crate) async fn receive_data(&mut self) -> Result<RequestFromServer, Error> {
         receive(&mut self.conn).await
     }
 }

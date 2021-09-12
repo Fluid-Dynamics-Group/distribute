@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 
+mod add;
 mod cli;
 mod client;
 mod config;
@@ -53,5 +54,6 @@ async fn wrap_main() -> Result<(), Error> {
         cli::Command::Status(status) => status::status_command(status).await,
         cli::Command::Pause(pause) => pause::pause(pause).await,
         cli::Command::Resume(resume) => resume::resume(resume).await,
+        cli::Command::Add(add) => add::add(add).await,
     }
 }

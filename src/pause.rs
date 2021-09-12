@@ -8,7 +8,7 @@ use crate::{
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::{Duration, Instant};
 
-pub async fn pause(args: cli::Pause) -> Result<(), Error> {
+pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, args.port));
 
     let duration = parse_time_input(&args.duration)?;

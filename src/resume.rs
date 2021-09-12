@@ -5,7 +5,7 @@ use crate::{
 };
 use std::net::{Ipv4Addr, SocketAddr};
 
-pub async fn resume(args: cli::Resume) -> Result<(), Error> {
+pub(crate) async fn resume(args: cli::Resume) -> Result<(), Error> {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, args.port));
 
     // emulate a server connection here since the host client process
