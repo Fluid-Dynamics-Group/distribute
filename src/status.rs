@@ -15,33 +15,33 @@ pub async fn status_command(status: cli::Status) -> Result<(), Error> {
 }
 
 pub async fn status_check_nodes(
-    node_ips: &[config::IpAddress],
+    nodes: &[config::Node],
 ) -> Result<Vec<transport::ServerConnection>, Error> {
     let mut connections = vec![];
     let mut print_statements = vec![];
 
-    for ip in node_ips {
-        debug!("status check for ip {}", ip.ip);
-        let mut connection = transport::ServerConnection::new(ip.addr()).await?;
-        debug!("successfully connected to {}", ip.ip);
+    for node in nodes {
+        debug!("status check for ip {}", node.ip);
+        let mut connection = transport::ServerConnection::new(node.addr()).await?;
+        debug!("successfully connected to {}", node.ip);
         connection
             .transport_data(&transport::RequestFromServer::StatusCheck)
             .await?;
 
-        debug!("status check sent to {}", ip.ip);
+        debug!("status check sent to {}", node.ip);
         let response = connection.receive_data().await?;
 
         match response {
             transport::ClientResponse::StatusCheck(status_response) => {
-                debug!("successful response recieved from {}", ip.ip);
+                debug!("successful response recieved from {}", node.ip);
                 print_statements.push(StatusCheckResponse::Good {
-                    ip,
+                    node,
                     version: status_response.version,
                     ready: status_response.ready,
                 });
             }
             x => {
-                print_statements.push(StatusCheckResponse::InvalidResponse { ip, response: x });
+                print_statements.push(StatusCheckResponse::InvalidResponse { node, response: x });
             }
         }
 
@@ -64,12 +64,12 @@ pub async fn status_check_nodes(
 
 pub(crate) enum StatusCheckResponse<'a> {
     Good {
-        ip: &'a config::IpAddress,
+        node: &'a config::Node,
         version: transport::Version,
         ready: bool,
     },
     InvalidResponse {
-        ip: &'a config::IpAddress,
+        node: &'a config::Node,
         response: transport::ClientResponse,
     },
 }
@@ -77,13 +77,20 @@ pub(crate) enum StatusCheckResponse<'a> {
 impl<'a> StatusCheckResponse<'a> {
     pub(crate) fn print(&'a self, self_version: transport::Version) -> bool {
         match self {
-            Self::Good { ip, version, ready } => {
+            Self::Good {
+                node,
+                version,
+                ready,
+            } => {
                 let version_match = self_version == *version;
-                println!("ip {} version match {} ready {}", ip, version_match, ready);
+                println!(
+                    "ip {} version match {} ready {}",
+                    node, version_match, ready
+                );
                 version_match
             }
-            Self::InvalidResponse { ip, response } => {
-                println!("ip {} invalid status check response: {}", ip, response);
+            Self::InvalidResponse { node, response } => {
+                println!("ip {} invalid status check response: {}", node, response);
                 false
             }
         }

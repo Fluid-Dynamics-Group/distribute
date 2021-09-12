@@ -291,11 +291,17 @@ mod tests {
                 .write_all(&content_length_bytes)
                 .await
                 .unwrap();
-            raw_server_connection.write_all(&first_section).await.unwrap();
+            raw_server_connection
+                .write_all(&first_section)
+                .await
+                .unwrap();
 
             std::thread::sleep(Duration::from_secs(2));
 
-            raw_server_connection.write_all(&second_section).await.unwrap();
+            raw_server_connection
+                .write_all(&second_section)
+                .await
+                .unwrap();
         });
 
         let client_version_of_request = client_connection.receive_data().await;

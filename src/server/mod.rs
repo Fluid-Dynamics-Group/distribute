@@ -2,6 +2,9 @@ mod job_pool;
 mod schedule;
 
 use job_pool::{JobPool, NodeConnection};
+pub(crate) use schedule::{
+    JobRequiredCaps, JobSet, NodeProvidedCaps, Requirement, Requirements, Schedule,
+};
 
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;
@@ -51,7 +54,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
 
     // spawn off a job pool that we can query from different tasks
 
-    let scheduler = schedule::GpuPriority::new();
+    let scheduler = schedule::GpuPriority::default();
 
     info!("starting job pool task");
     let handle = JobPool::new(scheduler, job_pool_holder).spawn();
@@ -59,11 +62,12 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     let mut handles = vec![handle];
 
     // spawn off each node connection to its own task
-    for server_connection in connections {
+    for (server_connection, node) in connections.into_iter().zip(nodes.nodes.into_iter()) {
         info!("starting NodeConnection for {}", server_connection.addr);
         let handle = NodeConnection::new(
             server_connection,
             request_job.clone(),
+            std::sync::Arc::new(node.capabilities),
             server.save_path.clone(),
             None,
         )

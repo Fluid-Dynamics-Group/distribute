@@ -1,5 +1,5 @@
 use crate::error::{self, ConfigErrorReason, ConfigurationError};
-use crate::transport;
+use crate::{server, transport};
 use derive_more::Display;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -7,22 +7,23 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Nodes {
-    pub nodes: Vec<IpAddress>,
+    pub nodes: Vec<Node>,
 }
 
 #[derive(Debug, Clone, Deserialize, Display)]
 #[display(fmt = "ip address: {}", ip)]
-pub struct IpAddress {
-    pub ip: std::net::IpAddr,
+pub struct Node {
+    pub(crate) ip: std::net::IpAddr,
     #[serde(default = "default_client_port")]
-    pub port: u16,
+    pub(crate) port: u16,
+    pub(crate) capabilities: server::Requirements<server::NodeProvidedCaps>,
 }
 
 fn default_client_port() -> u16 {
     crate::cli::CLIENT_PORT
 }
 
-impl IpAddress {
+impl Node {
     pub(crate) fn addr(&self) -> std::net::SocketAddr {
         std::net::SocketAddr::from((self.ip, self.port))
     }
@@ -41,6 +42,7 @@ pub struct BuildJob {
     #[serde(default)]
     required_files: Vec<PathBuf>,
     batch_name: String,
+    capabilities: server::Requirements<server::JobRequiredCaps>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

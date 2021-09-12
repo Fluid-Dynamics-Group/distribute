@@ -3,5 +3,9 @@
 nodes:
   - ip: "192.168.1.136"
     port: 9952
+    capabilities: [fortran, fftw, gpu, cargo]
   - ip: "192.168.1.107"
+    capabilities: [fotran, fftw, cargo]
   - ip: "192.168.1.122"
+    capabilities:
+      [gcc, clang, openfoam]

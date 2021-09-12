@@ -1,9 +1,10 @@
 use super::ok_if_exists;
-use super::schedule::{JobIdentifier, Schedule};
+use super::schedule::{JobIdentifier, NodeProvidedCaps, Requirements, Schedule};
 use crate::{cli, config, error, error::Error, status, transport};
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
@@ -39,8 +40,9 @@ where
                     }
                 };
 
-                let new_task: JobResponse =
-                    self.remaining_jobs.fetch_new_task(new_req.initialized_job);
+                let new_task: JobResponse = self
+                    .remaining_jobs
+                    .fetch_new_task(new_req.initialized_job, new_req.capabilities);
                 new_req.tx.send(new_task).ok().unwrap();
             }
         })
@@ -64,6 +66,7 @@ pub(super) enum JobRequest {
 pub(super) struct NewJobRequest {
     tx: oneshot::Sender<JobResponse>,
     initialized_job: JobIdentifier,
+    capabilities: Arc<Requirements<NodeProvidedCaps>>,
 }
 
 #[derive(Clone)]
@@ -72,6 +75,7 @@ pub(super) struct PendingJob {
     ident: JobIdentifier,
 }
 
+#[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone)]
 pub(crate) enum JobOrInit {
     Job(transport::Job),
@@ -82,6 +86,7 @@ pub(crate) enum JobOrInit {
 pub(super) struct NodeConnection {
     conn: transport::ServerConnection,
     request_job_tx: mpsc::Sender<JobRequest>,
+    capabilities: Arc<Requirements<NodeProvidedCaps>>,
     save_path: PathBuf,
     current_job: Option<PendingJob>,
 }
@@ -118,7 +123,11 @@ impl NodeConnection {
                 let send_response = self.conn.transport_data(&server_request).await;
 
                 if let Err(e) = send_response {
-                    error!("error sending the request to the server on node at {}: {}", self.addr(), e);
+                    error!(
+                        "error sending the request to the server on node at {}: {}",
+                        self.addr(),
+                        e
+                    );
 
                     self.request_job_tx
                         .send(JobRequest::DeadNode(self.current_job.clone().unwrap()))
@@ -126,20 +135,24 @@ impl NodeConnection {
                         .ok()
                         .unwrap();
 
-                    continue
-                } 
+                    continue;
+                }
                 // we ere able to send the data to the client without issue
                 else {
                     // check if we could read from the TCP socket without issue:
                     match self.handle_client_response().await {
                         Ok(response) => {
                             // TODO: add some logic to schedule other jobs on this node
-                            // if this job was a initialization job 
+                            // if this job was a initialization job
                             // since that means that the packages were not correctly built on the
                             // machine
-                        },
+                        }
                         Err(e) => {
-                            error!("error receiving job response from node {}: {}", self.addr(), e);
+                            error!(
+                                "error receiving job response from node {}: {}",
+                                self.addr(),
+                                e
+                            );
                             self.schedule_reconnect().await;
                         }
                     }
@@ -159,6 +172,7 @@ impl NodeConnection {
                     .map(|x| x.ident)
                     .or(Some(JobIdentifier::none()))
                     .unwrap(),
+                capabilities: self.capabilities.clone(),
             }))
             .await?;
 
