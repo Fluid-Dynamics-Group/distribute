@@ -1,3 +1,4 @@
+use super::ok_if_exists;
 use super::schedule::{JobIdentifier, Schedule};
 use crate::{cli, config, error, error::Error, status, transport};
 
@@ -33,8 +34,7 @@ where
                             JobOrInit::JobInit(init) => continue,
                         };
 
-                        self.remaining_jobs
-                            .add_job_back(job, pending_job.ident);
+                        self.remaining_jobs.add_job_back(job, pending_job.ident);
                         continue;
                     }
                 };
@@ -169,17 +169,15 @@ impl NodeConnection {
                     info!("saving solver file to {:?}", save_location);
                     if send_file.is_file {
                         // TODO: fix these unwraps
-                        let file = tokio::fs::File::create(&save_location)
+                        let mut file = tokio::fs::File::create(&save_location)
                             .await
                             .map_err(|error| error::WriteFile::from((error, save_location.clone())))
                             .map_err(|e| error::ServerError::from(e))?;
-                        let mut file = tokio::io::BufWriter::new(file);
 
-                        file.write(&send_file.bytes).await.unwrap();
+                        file.write_all(&send_file.bytes).await.unwrap();
                     } else {
                         // just create the directory
-                        tokio::fs::create_dir(&save_location)
-                            .await
+                        ok_if_exists(tokio::fs::create_dir(&save_location).await)
                             .map_err(|error| {
                                 error::CreateDirError::from((error, save_location.clone()))
                             })

@@ -99,7 +99,7 @@ async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::Fin
 
     debug!("created run file");
 
-    file.write(&job.python_file)
+    file.write_all(&job.python_file)
         .await
         .map_err(|full_error| error::RunJobError::WriteBytes {
             full_error,
@@ -120,11 +120,10 @@ async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::Fin
 
     debug!("job successfully finished - returning to main process");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    // write the stdout and stderr to a file
+    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+    command_output_to_file(output, output_file_path).await;
 
-    println!("stdout: \n{}", stdout);
-    println!("stderr: \n{}", stderr);
     Ok(transport::FinishedJob)
 }
 
@@ -185,8 +184,14 @@ async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<()
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    println!("stdout: \n{}", stdout);
-    println!("stderr: \n{}", stderr);
+    // write stdout / stderr to file
+    let output_file_path = base_path.join(format!(
+        "distribute_save/{}_init_output.txt",
+        init.batch_name
+    ));
+    command_output_to_file(output, output_file_path).await;
+
+    debug!("finished init command, returning to main process");
 
     debug!("finished init command, returning to main process");
 
@@ -212,4 +217,28 @@ pub(super) enum PrerequisiteOperations {
         after: transport::ClientResponse,
     },
     DoNothing,
+}
+
+async fn command_output_to_file(output: std::process::Output, path: PathBuf) {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    let output = format!("STDOUT:\n{}\nSTDERR:\n{}", stdout, stderr);
+
+    let print_err = |e: std::io::Error| {
+        warn!(
+            "error writing stdout/stderr to txt file: {} - {}",
+            e,
+            path.display()
+        )
+    };
+
+    match tokio::fs::File::create(&path).await {
+        Ok(mut file) => {
+            if let Err(e) = file.write_all(&output.as_bytes()).await {
+                print_err(e)
+            }
+        }
+        Err(e) => print_err(e),
+    };
 }

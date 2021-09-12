@@ -22,6 +22,7 @@ pub enum RequestFromServer {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct JobInit {
+    pub batch_name: String,
     pub python_setup_file: Vec<u8>,
     pub additional_build_files: Vec<BuildFile>,
 }
@@ -77,7 +78,7 @@ impl Version {
         Self {
             major: 0,
             minor: 1,
-            patch: 0,
+            patch: 2,
         }
     }
 }
@@ -160,18 +161,20 @@ async fn transport<T: Serialize>(tcp_connection: &mut TcpStream, data: &T) -> Re
         .serialize(&data)
         .map_err(error::Serialization::from)?;
 
+    debug!("sending buffer of length {}", bytes.len());
+
     let bytes_len: u64 = bytes.len() as u64;
 
     // write the length of the data that we are first sending
     tcp_connection
-        .write(&bytes_len.to_le_bytes())
+        .write_all(&bytes_len.to_le_bytes())
         .await
         .map_err(error::TcpConnection::from)?;
 
     // write the contents of the actual data now that the length of the data is
     // actually known
     tcp_connection
-        .write(&bytes)
+        .write_all(&bytes)
         .await
         .map_err(error::TcpConnection::from)?;
 
@@ -187,6 +190,8 @@ async fn receive<T: DeserializeOwned>(tcp_connection: &mut TcpStream) -> Result<
 
     let content_length = u64::from_le_bytes(buf);
 
+    debug!("receiving buffer with length {}", content_length);
+
     let mut content_buffer = vec![0; content_length as usize];
 
     read_buffer_bytes(&mut content_buffer, tcp_connection).await?;
@@ -201,6 +206,12 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
     let mut starting_idx = 0;
 
     loop {
+        debug!(
+            "reading buffer bytes w/ index {} and buffer len {}",
+            starting_idx,
+            buffer.len()
+        );
+
         let bytes_read = conn
             .read(&mut buffer[starting_idx..])
             .await
@@ -217,6 +228,8 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
             break;
         }
     }
+
+    debug!("finished reading bytes from buffer");
 
     Ok(())
 }
@@ -265,14 +278,14 @@ mod tests {
         tokio::task::spawn(async move {
             let content_length_bytes = u64::to_le_bytes(bytes_len.try_into().unwrap());
             raw_server_connection
-                .write(&content_length_bytes)
+                .write_all(&content_length_bytes)
                 .await
                 .unwrap();
-            raw_server_connection.write(&first_section).await.unwrap();
+            raw_server_connection.write_all(&first_section).await.unwrap();
 
             std::thread::sleep(Duration::from_secs(2));
 
-            raw_server_connection.write(&second_section).await.unwrap();
+            raw_server_connection.write_all(&second_section).await.unwrap();
         });
 
         let client_version_of_request = client_connection.receive_data().await;

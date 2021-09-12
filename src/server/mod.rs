@@ -15,15 +15,25 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     let nodes = config::load_config::<config::Nodes>(&server.nodes_file)?;
     let jobs = config::load_config::<config::Jobs>(&server.jobs_file)?;
 
-    if server.save_path.exists() {
+    if server.save_path.exists() && server.clean_output {
         std::fs::remove_dir_all(&server.save_path).map_err(|e| {
             error::ServerError::from(error::RemoveDirError::new(e, server.save_path.clone()))
         })?;
     }
 
-    std::fs::create_dir_all(&server.save_path).map_err(|e| {
+    ok_if_exists(tokio::fs::create_dir_all(&server.save_path).await).map_err(|e| {
         error::ServerError::from(error::CreateDirError::new(e, server.save_path.clone()))
     })?;
+
+    // make the output folder - if it already exits then dont error
+    match std::fs::create_dir_all(&server.save_path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(error::ServerError::from(error::CreateDirError::new(
+            e,
+            server.save_path.clone(),
+        ))),
+    }?;
 
     // start by checking the status of each node - if one of the nodes is not ready
     // then something is wrong
@@ -68,4 +78,14 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
 
 fn choose_scheduler<T: schedule::Schedule>(server: &cli::Server) -> T {
     todo!()
+}
+
+pub(crate) fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io::Error> {
+    match x {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(e),
+    }?;
+
+    Ok(())
 }

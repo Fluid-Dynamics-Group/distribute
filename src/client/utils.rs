@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+// clean out the tmp files from a build script from the output directory
+// and recreate the distributed_save folder
 pub(crate) async fn clean_output_dir(dir: &Path) -> Result<(), std::io::Error> {
     tokio::fs::remove_dir_all(dir).await.ok();
 
