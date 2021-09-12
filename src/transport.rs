@@ -135,6 +135,15 @@ impl ServerConnection {
     pub async fn receive_data(&mut self) -> Result<ClientResponse, Error> {
         receive(&mut self.conn).await
     }
+
+    pub(crate) async fn reconnect(&mut self) -> Result<(), Error> {
+        let conn = TcpStream::connect(self.addr)
+            .await
+            .map_err(error::TcpConnection::from)?;
+        self.conn = conn;
+
+        Ok(())
+    }
 }
 
 pub struct ClientConnection {
@@ -199,6 +208,7 @@ async fn receive<T: DeserializeOwned>(tcp_connection: &mut TcpStream) -> Result<
     let output = deserializer
         .deserialize(&content_buffer)
         .map_err(error::Deserialization::from)?;
+
     Ok(output)
 }
 

@@ -98,7 +98,10 @@ impl NodeConnection {
                 // server
                 let new_job = match response {
                     JobResponse::SetupOrRun { task, identifier } => {
-                        //
+                        self.current_job = Some(PendingJob {
+                            task,
+                            ident: identifier,
+                        });
                         &self.current_job.as_ref().unwrap().task
                     }
                     JobResponse::EmptyJobs => {
@@ -108,7 +111,6 @@ impl NodeConnection {
                 };
 
                 let server_request = match new_job {
-                    // TODO: work on references here so that we can remove these clones
                     JobOrInit::Job(job) => transport::RequestFromServer::from(job.clone()),
                     JobOrInit::JobInit(init) => transport::RequestFromServer::from(init.clone()),
                 };
@@ -116,14 +118,31 @@ impl NodeConnection {
                 let send_response = self.conn.transport_data(&server_request).await;
 
                 if let Err(e) = send_response {
-                    error!("error for node at {}: {}", self.addr(), e);
-                    let new_job = server_request.unwrap_assign_job();
+                    error!("error sending the request to the server on node at {}: {}", self.addr(), e);
 
                     self.request_job_tx
                         .send(JobRequest::DeadNode(self.current_job.clone().unwrap()))
                         .await
                         .ok()
                         .unwrap();
+
+                    continue
+                } 
+                // we ere able to send the data to the client without issue
+                else {
+                    // check if we could read from the TCP socket without issue:
+                    match self.handle_client_response().await {
+                        Ok(response) => {
+                            // TODO: add some logic to schedule other jobs on this node
+                            // if this job was a initialization job 
+                            // since that means that the packages were not correctly built on the
+                            // machine
+                        },
+                        Err(e) => {
+                            error!("error receiving job response from node {}: {}", self.addr(), e);
+                            self.schedule_reconnect().await;
+                        }
+                    }
                 }
             }
         })
@@ -187,6 +206,17 @@ impl NodeConnection {
                 _ => unimplemented!(),
             }
         }
+    }
+
+    async fn schedule_reconnect(&mut self) {
+        while let Err(e) = self._schedule_reconnect().await {
+            error!("could not reconnect to node at {}: {}", self.addr(), e);
+        }
+    }
+
+    async fn _schedule_reconnect(&mut self) -> Result<(), Error> {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        self.conn.reconnect().await
     }
 }
 
