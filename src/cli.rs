@@ -41,10 +41,6 @@ pub struct Client {
 /// start serving jobs out to nodes using the provied configuration file
 #[argh(subcommand, name = "server")]
 pub struct Server {
-    #[argh(option, default = "String::from(\"distribute-jobs.yaml\")")]
-    /// the path to the yaml file containing all information on what jobs need to be run
-    pub jobs_file: String,
-
     #[argh(option, default = "String::from(\"distribute-nodes.yaml\")")]
     /// the path to the yaml file describing all available nodes
     pub nodes_file: String,
@@ -104,11 +100,11 @@ pub struct Add {
     pub jobs: String,
 
     #[argh(option, default = "SERVER_PORT", short = 'p')]
-    /// port that the client is mapped to
+    /// the port that the server uses (default 8952)
     pub port: u16,
 
     #[argh(option)]
-    /// port that the client is mapped to
+    /// the ip address that the server is located at
     pub ip: IpAddr,
 
     #[argh(switch)]
