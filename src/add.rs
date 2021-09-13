@@ -80,18 +80,22 @@ pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
         jobs.init.batch_name,
     );
 
-    debug!("sending job set to server");
-    conn.transport_data(&transport::UserMessageToServer::AddJobSet(job_set))
-        .await?;
+    if !args.dry {
+        debug!("sending job set to server");
+        conn.transport_data(&transport::UserMessageToServer::AddJobSet(job_set))
+            .await?;
 
-    match conn.receive_data().await {
-        Ok(transport::ServerResponseToUser::JobSetAdded) => (),
-        Ok(transport::ServerResponseToUser::JobSetAddedFailed) => {
-            Err(error::AddError::FailedToAdd)?
-        }
-        Ok(x) => return Err(Error::from(error::AddError::NotCapabilities(x))),
-        Err(e) => Err(e)?,
-    };
+        match conn.receive_data().await {
+            Ok(transport::ServerResponseToUser::JobSetAdded) => (),
+            Ok(transport::ServerResponseToUser::JobSetAddedFailed) => {
+                Err(error::AddError::FailedToAdd)?
+            }
+            Ok(x) => return Err(Error::from(error::AddError::NotCapabilities(x))),
+            Err(e) => Err(e)?,
+        };
+    } else {
+        debug!("skipping message to the server for dry run");
+    }
 
     Ok(())
 }

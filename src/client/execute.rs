@@ -54,6 +54,10 @@ pub(super) async fn general_request(
                 .collect();
             PrerequisiteOperations::SendFiles { paths, after }
         }
+        transport::RequestFromServer::FileReceived => {
+            warn!("got a file recieved message from the server but we didnt send any files");
+            PrerequisiteOperations::DoNothing
+        }
     };
 
     Ok(output)
@@ -169,7 +173,6 @@ async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<()
 
     // enter the file to execute the file from
     let original_dir = enter_output_dir(base_path);
-
     debug!("current file path is {:?}", std::env::current_dir());
 
     let output = tokio::process::Command::new("python3")
@@ -181,8 +184,9 @@ async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<()
         .map_err(|e| error::CommandExecutionError::from(e))
         .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    // return to original directory
+    enter_output_dir(&original_dir);
+    debug!("current file path is {:?}", std::env::current_dir());
 
     // write stdout / stderr to file
     let output_file_path = base_path.join(format!(
@@ -192,12 +196,6 @@ async fn initialize_job(init: transport::JobInit, base_path: &Path) -> Result<()
     command_output_to_file(output, output_file_path).await;
 
     debug!("finished init command, returning to main process");
-
-    debug!("finished init command, returning to main process");
-
-    // return to original directory
-    enter_output_dir(&original_dir);
-    debug!("current file path is {:?}", std::env::current_dir());
 
     Ok(())
 }

@@ -16,6 +16,6 @@ pub(crate) async fn clean_output_dir(dir: &Path) -> Result<(), std::io::Error> {
 pub(crate) fn remove_path_prefixes(path: PathBuf) -> PathBuf {
     path.components()
         .skip_while(|x| x.as_os_str() == "distribute_save")
-        .skip(1)
+        .skip(2)
         .collect()
 }

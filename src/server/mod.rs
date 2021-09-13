@@ -165,7 +165,7 @@ async fn single_user_request(
                     } else {
                         debug!("alerted the client that the job set was added");
                     }
-                } 
+                }
                 // we were NOT able to schedule the job
                 else {
                     debug!("job set was successfully added to the server");

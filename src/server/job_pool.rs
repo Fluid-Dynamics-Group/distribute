@@ -230,6 +230,12 @@ impl NodeConnection {
                                 error::CreateDirError::from((error, save_location.clone()))
                             })
                             .map_err(|e| error::ServerError::from(e))?;
+
+                        // after we have received the file, let the client know this and send another
+                        // file
+                        self.conn
+                            .transport_data(&transport::RequestFromServer::FileReceived)
+                            .await?;
                     }
                 }
                 _ => unimplemented!(),

@@ -110,4 +110,8 @@ pub struct Add {
     #[argh(switch)]
     /// print out the capabilities of each node
     pub show_caps: bool,
+
+    #[argh(switch)]
+    /// execute as normal but don't send the job set to the server
+    pub dry: bool,
 }

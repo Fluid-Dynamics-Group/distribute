@@ -20,6 +20,7 @@ pub enum RequestFromServer {
     StatusCheck,
     AssignJobInit(JobInit),
     AssignJob(Job),
+    FileReceived,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
