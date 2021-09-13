@@ -117,7 +117,6 @@ async fn handle_user_requests(
         tokio::spawn(async move {
             single_user_request(conn, tx_c, node_c).await;
             info!("user connection has closed");
-
         });
     }
 }
@@ -134,7 +133,7 @@ async fn single_user_request(
             Ok(req) => {
                 info!("a user request has been received");
                 req
-            },
+            }
             Err(e) => {
                 error!("error reading user request: {}", e);
                 return;
@@ -144,17 +143,17 @@ async fn single_user_request(
         match request {
             transport::UserMessageToServer::AddJobSet(set) => {
                 debug!("the new request was AddJobSet");
-                if let None = tx
-                    .send(JobRequest::AddJobSet(set))
-                    .await
-                    .map_err(|e| {
-                        error!(
-                            "error sending job set to pool (this should not happen): {}",
-                            e
-                        )
-                    })
-                    .ok()
-                {
+
+                // the output of sending the message to the server
+                let tx_result = tx.send(JobRequest::AddJobSet(set)).await.map_err(|e| {
+                    error!(
+                        "error sending job set to pool (this should not happen): {}",
+                        e
+                    );
+                });
+
+                // if we were able to add the job set to the scheduler
+                if let Ok(_) = tx_result {
                     if let Err(e) = conn
                         .transport_data(&transport::ServerResponseToUser::JobSetAdded)
                         .await
@@ -163,7 +162,26 @@ async fn single_user_request(
                             "could not respond to the user that the job set was added: {}",
                             e
                         );
+                    } else {
+                        debug!("alerted the client that the job set was added");
                     }
+                } 
+                // we were NOT able to schedule the job
+                else {
+                    debug!("job set was successfully added to the server");
+
+                    conn.transport_data(&transport::ServerResponseToUser::JobSetAddedFailed)
+                        .await
+                        // we told the  user about it
+                        .map(|_| {
+                            debug!("alterted that the client that the job set could not be added")
+                        })
+                        // we errored when trying to tell the user about it
+                        // this should probably not happen unless the client aborted the connection
+                        .map_err(|e| {
+                            error!("could not alert the client that the job was added successfully: {}", e)
+                        })
+                        .ok();
                 }
             }
             transport::UserMessageToServer::QueryCapabilities => {
