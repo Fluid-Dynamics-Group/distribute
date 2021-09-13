@@ -107,13 +107,31 @@ async fn handle_user_requests(
             .map_err(error::TcpConnection::from)
             .unwrap();
 
-        let mut conn = transport::ServerConnectionToUser::new(tcp_conn);
+        let conn = transport::ServerConnectionToUser::new(tcp_conn);
 
+        let tx_c = tx.clone();
+        let node_c = node_capabilities.clone();
+
+        tokio::spawn(async move {
+            single_user_request(conn, tx_c, node_c)
+
+        });
+    }
+}
+
+// TODO: add user message to end the connection
+// so that this function does not hang forever and generate extra tasks
+async fn single_user_request(
+    mut conn: transport::ServerConnectionToUser,
+    tx: mpsc::Sender<JobRequest>,
+    node_capabilities: Vec<Arc<Requirements<NodeProvidedCaps>>>,
+) {
+    loop {
         let request = match conn.receive_data().await {
             Ok(req) => req,
             Err(e) => {
                 error!("error reading user request: {}", e);
-                continue;
+                return;
             }
         };
 
