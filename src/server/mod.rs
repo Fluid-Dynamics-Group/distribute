@@ -101,11 +101,13 @@ async fn handle_user_requests(
         .unwrap();
 
     loop {
-        let (tcp_conn, _address) = listener
+        let (tcp_conn, address) = listener
             .accept()
             .await
             .map_err(error::TcpConnection::from)
             .unwrap();
+
+        info!("new user connection from {}", address);
 
         let conn = transport::ServerConnectionToUser::new(tcp_conn);
 
@@ -113,7 +115,8 @@ async fn handle_user_requests(
         let node_c = node_capabilities.clone();
 
         tokio::spawn(async move {
-            single_user_request(conn, tx_c, node_c)
+            single_user_request(conn, tx_c, node_c).await;
+            info!("user connection has closed");
 
         });
     }
@@ -128,7 +131,10 @@ async fn single_user_request(
 ) {
     loop {
         let request = match conn.receive_data().await {
-            Ok(req) => req,
+            Ok(req) => {
+                info!("a user request has been received");
+                req
+            },
             Err(e) => {
                 error!("error reading user request: {}", e);
                 return;
@@ -137,6 +143,7 @@ async fn single_user_request(
 
         match request {
             transport::UserMessageToServer::AddJobSet(set) => {
+                debug!("the new request was AddJobSet");
                 if let None = tx
                     .send(JobRequest::AddJobSet(set))
                     .await
@@ -157,19 +164,10 @@ async fn single_user_request(
                             e
                         );
                     }
-                } else {
-                    if let Err(e) = conn
-                        .transport_data(&transport::ServerResponseToUser::JobSetAddedFailed)
-                        .await
-                    {
-                        error!(
-                            "could not respond to the user that the job set failed to add: {}",
-                            e
-                        );
-                    }
                 }
             }
             transport::UserMessageToServer::QueryCapabilities => {
+                debug!("the new request was QueryCapabilities");
                 // clone all the data so that we have non-Arc'd data
                 // this can be circumvented by
                 let caps: Vec<Requirements<_>> =
