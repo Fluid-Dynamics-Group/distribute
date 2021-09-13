@@ -1,8 +1,8 @@
 use crate::cli;
-use crate::error::{self, Error};
-use crate::transport;
-use crate::server;
 use crate::config;
+use crate::error::{self, Error};
+use crate::server;
+use crate::transport;
 
 use std::net::SocketAddr;
 
@@ -29,14 +29,13 @@ pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
 
     let mut conn = transport::UserConnectionToServer::new(addr).await?;
 
-    conn.transport_data(&transport::UserMessageToServer::QueryCapabilities).await?;
+    conn.transport_data(&transport::UserMessageToServer::QueryCapabilities)
+        .await?;
 
     let caps = match conn.receive_data().await {
         Ok(transport::ServerResponseToUser::Capabilities(x)) => x,
-        Ok(x) => {
-            return Err(Error::from(error::AddError::NotCapabilities(x)))
-        }
-        Err(e) => Err(e)?
+        Ok(x) => return Err(Error::from(error::AddError::NotCapabilities(x))),
+        Err(e) => Err(e)?,
     };
 
     if args.show_caps {
@@ -60,29 +59,38 @@ pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
         }
     }
 
-    println!("these jobs can be run on {}/{} of the nodes", working_nodes, total_nodes);
+    println!(
+        "these jobs can be run on {}/{} of the nodes",
+        working_nodes, total_nodes
+    );
 
     if working_nodes == 0 {
-        return Err(error::AddError::NoCompatableNodes)?
+        return Err(error::AddError::NoCompatableNodes)?;
     }
-
 
     //
     // construct the job set and send it off
     //
 
-    let job_set = server::JobSet::new(loaded_build, jobs.init.capabilities, loaded_jobs, 0, jobs.init.batch_name);
+    let job_set = server::JobSet::new(
+        loaded_build,
+        jobs.init.capabilities,
+        loaded_jobs,
+        0,
+        jobs.init.batch_name,
+    );
 
     debug!("sending job set to server");
-    conn.transport_data(&transport::UserMessageToServer::AddJobSet(job_set)).await?;
-    
+    conn.transport_data(&transport::UserMessageToServer::AddJobSet(job_set))
+        .await?;
+
     match conn.receive_data().await {
         Ok(transport::ServerResponseToUser::JobSetAdded) => (),
-        Ok(transport::ServerResponseToUser::JobSetAddedFailed) => Err(error::AddError::FailedToAdd)?,
-        Ok(x) => {
-            return Err(Error::from(error::AddError::NotCapabilities(x)))
+        Ok(transport::ServerResponseToUser::JobSetAddedFailed) => {
+            Err(error::AddError::FailedToAdd)?
         }
-        Err(e) => Err(e)?
+        Ok(x) => return Err(Error::from(error::AddError::NotCapabilities(x))),
+        Err(e) => Err(e)?,
     };
 
     Ok(())

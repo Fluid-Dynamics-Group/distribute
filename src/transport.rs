@@ -30,11 +30,11 @@ pub(crate) enum UserMessageToServer {
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap, Display)]
 pub(crate) enum ServerResponseToUser {
-    #[display(fmt="job set added")]
+    #[display(fmt = "job set added")]
     JobSetAdded,
-    #[display(fmt="job set failed to add")]
+    #[display(fmt = "job set failed to add")]
     JobSetAddedFailed,
-    #[display(fmt="capabilities")]
+    #[display(fmt = "capabilities")]
     Capabilities(Vec<server::Requirements<server::NodeProvidedCaps>>),
 }
 
@@ -146,7 +146,10 @@ impl ServerConnection {
         Ok(Self { conn, addr })
     }
 
-    pub(crate) async fn transport_data(&mut self, request: &RequestFromServer) -> Result<(), Error> {
+    pub(crate) async fn transport_data(
+        &mut self,
+        request: &RequestFromServer,
+    ) -> Result<(), Error> {
         transport(&mut self.conn, request).await
     }
 
@@ -176,7 +179,7 @@ impl UserConnectionToServer {
             .map_err(error::TcpConnection::from)?;
 
         Ok(Self { conn, addr })
-    }   
+    }
 
     pub(crate) async fn transport_data(
         &mut self,

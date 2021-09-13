@@ -3,8 +3,8 @@ use crate::transport;
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 
-use std::fmt;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::sync::Arc;
 
 pub(crate) trait Schedule {
@@ -242,12 +242,15 @@ impl Requirements<JobRequiredCaps> {
     }
 }
 
-impl <T> fmt::Display for Requirements<T> {
+impl<T> fmt::Display for Requirements<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let formatted = self.reqs.iter().map(|x| format!("{}, ", x)).collect::<String>();
+        let formatted = self
+            .reqs
+            .iter()
+            .map(|x| format!("{}, ", x))
+            .collect::<String>();
         write!(f, "{}", formatted)
     }
-
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -284,7 +287,10 @@ mod tests {
 
     fn check_job(response: JobResponse, expected_job: transport::Job) {
         match response {
-            JobResponse::SetupOrRun { task, identifier: _ } => {
+            JobResponse::SetupOrRun {
+                task,
+                identifier: _,
+            } => {
                 assert_eq!(task.unwrap_job(), expected_job);
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),

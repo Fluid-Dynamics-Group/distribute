@@ -30,6 +30,7 @@ where
                 match new_req {
                     // we want a new job from the scheduler
                     JobRequest::NewJob(new_req) => {
+                        debug!("a node has asked for a new job");
                         let new_task: JobResponse = self
                             .remaining_jobs
                             .fetch_new_task(new_req.initialized_job, new_req.capabilities);
@@ -37,6 +38,8 @@ where
                     }
                     // a job failed to execute on the node
                     JobRequest::DeadNode(pending_job) => {
+                        debug!("a node has died for now, the job is returning to the scheduler");
+
                         match pending_job.task {
                             JobOrInit::Job(job) => {
                                 self.remaining_jobs.add_job_back(job, pending_job.ident);
@@ -108,7 +111,7 @@ impl NodeConnection {
         tokio::task::spawn(async move {
             // now we just pull jobs from the server until we are done
             while let Ok(response) = self.fetch_new_job().await {
-                info!("launching new job for node {}", self.addr());
+                info!("request for job on node {}", self.addr());
 
                 // load the response into `self.current_job` or
                 // pause for a bit while we wait for more jobs to be added to the

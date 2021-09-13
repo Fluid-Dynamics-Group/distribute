@@ -24,7 +24,7 @@ pub(crate) enum Error {
     #[error("{0}")]
     Pause(#[from] PauseError),
     #[error("{0}")]
-    Add(#[from] AddError)
+    Add(#[from] AddError),
 }
 
 #[derive(Debug, Display, thiserror::Error, From)]
@@ -132,7 +132,7 @@ pub enum ServerError {
     NodesConfigError(NodesConfigError),
     #[error("{0}")]
     JobsConfigError(JobsConfigError),
-    #[error("error: Cannot automatically infer format for types with more than 1 field")]
+    #[error("error: One node failed to respond correctly. The server will not start")]
     MissingNode,
     #[error("{0}")]
     LoadJobs(LoadJobsError),
@@ -265,5 +265,5 @@ pub(crate) enum AddError {
     #[error("None of the nodes could run the jobs. Aborted")]
     NoCompatableNodes,
     #[error("Could not add the job set on the server side. This is generally a really really bad error. You should tell brooks about this.")]
-    FailedToAdd
+    FailedToAdd,
 }

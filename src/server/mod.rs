@@ -130,13 +130,25 @@ async fn handle_user_requests(
                     })
                     .ok()
                 {
-                    conn.transport_data(&transport::ServerResponseToUser::JobSetAdded)
+                    if let Err(e) = conn
+                        .transport_data(&transport::ServerResponseToUser::JobSetAdded)
                         .await
-                        .ok();
+                    {
+                        error!(
+                            "could not respond to the user that the job set was added: {}",
+                            e
+                        );
+                    }
                 } else {
-                    conn.transport_data(&transport::ServerResponseToUser::JobSetAddedFailed)
+                    if let Err(e) = conn
+                        .transport_data(&transport::ServerResponseToUser::JobSetAddedFailed)
                         .await
-                        .ok();
+                    {
+                        error!(
+                            "could not respond to the user that the job set failed to add: {}",
+                            e
+                        );
+                    }
                 }
             }
             transport::UserMessageToServer::QueryCapabilities => {
@@ -144,12 +156,13 @@ async fn handle_user_requests(
                 // this can be circumvented by
                 let caps: Vec<Requirements<_>> =
                     node_capabilities.iter().map(|x| (**x).clone()).collect();
-                conn.transport_data(&transport::ServerResponseToUser::Capabilities(caps))
+
+                if let Err(e) = conn
+                    .transport_data(&transport::ServerResponseToUser::Capabilities(caps))
                     .await
-                    .map_err(|e| {
-                        error!("error sending caps to user (this should not happen): {}", e)
-                    })
-                    .ok();
+                {
+                    error!("error sending caps to user (this should not happen): {}", e)
+                }
             }
         }
         //

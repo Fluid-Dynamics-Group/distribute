@@ -1,6 +1,6 @@
 use argh::FromArgs;
-use std::path::PathBuf;
 use std::net::IpAddr;
+use std::path::PathBuf;
 
 pub const SERVER_PORT: u16 = 8952;
 pub const CLIENT_PORT: u16 = 8953;
@@ -109,5 +109,5 @@ pub struct Add {
 
     #[argh(switch)]
     /// print out the capabilities of each node
-    pub show_caps: bool
+    pub show_caps: bool,
 }
