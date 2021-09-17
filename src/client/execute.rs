@@ -114,7 +114,10 @@ async fn run_job(job: transport::Job, base_path: &Path) -> Result<transport::Fin
     let original_dir = enter_output_dir(base_path);
 
     let output = tokio::process::Command::new("python3")
-        .args(&["run.py"])
+        .args(&[
+              "run.py", 
+              &num_cpus::get_physical().to_string()
+        ])
         .output()
         .await
         .map_err(|e| error::CommandExecutionError::from(e))

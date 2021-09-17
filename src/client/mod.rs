@@ -143,8 +143,6 @@ async fn start_server_connection(
                                     )
                                     .await?;
 
-                                    
-
                                     if let Ok(transport::RequestFromServer::FileReceived) =
                                         conn.receive_data().await
                                     {
