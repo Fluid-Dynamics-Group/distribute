@@ -71,6 +71,9 @@ where
                             })
                             .ok();
                     }
+                    JobRequest::CancelBatchByName(cancel_query) => {
+                        //
+                    }
                 };
                 //
             }
@@ -92,6 +95,7 @@ pub(crate) enum JobRequest {
     DeadNode(PendingJob),
     AddJobSet(schedule::JobSet),
     QueryRemainingJobs(RemainingJobsQuery),
+    CancelBatchByName(CancelBatchQuery)
 }
 
 pub(crate) struct NewJobRequest {
@@ -103,6 +107,12 @@ pub(crate) struct NewJobRequest {
 #[derive(derive_more::Constructor)]
 pub(crate) struct RemainingJobsQuery {
     pub tx: oneshot::Sender<Vec<super::schedule::RemainingJobs>>,
+}
+
+#[derive(derive_more::Constructor)]
+pub(crate) struct CancelBatchQuery{
+    cancel_batch: oneshot::Sender<bool>,
+    batch_name: String
 }
 
 #[derive(Clone)]
