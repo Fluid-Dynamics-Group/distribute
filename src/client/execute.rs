@@ -6,8 +6,8 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::broadcast;
 use tokio::sync::mpsc;
-use tokio::sync::oneshot;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,7 +17,7 @@ use std::sync::Arc;
 pub(super) async fn general_request(
     request: transport::RequestFromServer,
     base_path: &Path,
-    cancel: oneshot::Receiver<()>,
+    cancel: &mut broadcast::Receiver<()>,
 ) -> Result<PrerequisiteOperations, Error> {
     let output = match request {
         transport::RequestFromServer::StatusCheck => {
@@ -60,6 +60,10 @@ pub(super) async fn general_request(
             warn!("got a file recieved message from the server but we didnt send any files");
             PrerequisiteOperations::DoNothing
         }
+        transport::RequestFromServer::KillJob => {
+            warn!("got request to kill the job from the server but we dont have an actively running job");
+            PrerequisiteOperations::DoNothing
+        }
     };
 
     Ok(output)
@@ -92,7 +96,11 @@ impl FileMetadata {
     }
 }
 
-async fn run_job(job: transport::Job, base_path: &Path, cancel: oneshot::Receiver<()>) -> Result<transport::FinishedJob, Error> {
+async fn run_job(
+    job: transport::Job,
+    base_path: &Path,
+    cancel: &mut broadcast::Receiver<()>,
+) -> Result<transport::FinishedJob, Error> {
     info!("running general job");
 
     let file_path = base_path.join("run.py");
@@ -116,10 +124,7 @@ async fn run_job(job: transport::Job, base_path: &Path, cancel: oneshot::Receive
     let original_dir = enter_output_dir(base_path);
 
     let output = tokio::process::Command::new("python3")
-        .args(&[
-              "run.py", 
-              &num_cpus::get_physical().to_string()
-        ])
+        .args(&["run.py", &num_cpus::get_physical().to_string()])
         .output()
         .await
         .map_err(|e| error::CommandExecutionError::from(e))
@@ -156,7 +161,11 @@ async fn write_init_file<T: AsRef<Path>>(
     Ok(())
 }
 
-async fn initialize_job(init: transport::JobInit, base_path: &Path, cancel: oneshot::Receiver<()>) -> Result<(), Error> {
+async fn initialize_job(
+    init: transport::JobInit,
+    base_path: &Path,
+    cancel: &mut broadcast::Receiver<()>,
+) -> Result<(), Error> {
     info!("running initialization for new job");
     write_init_file(base_path, "run.py", &init.python_setup_file).await?;
 

@@ -21,13 +21,15 @@ pub enum RequestFromServer {
     AssignJobInit(JobInit),
     AssignJob(Job),
     FileReceived,
-    KillJob
+    KillJob,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
 pub(crate) enum UserMessageToServer {
     AddJobSet(server::JobSet),
     QueryCapabilities,
+    QueryJobNames,
+    KillJob(String)
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap, Display)]
@@ -38,6 +40,10 @@ pub(crate) enum ServerResponseToUser {
     JobSetAddedFailed,
     #[display(fmt = "capabilities")]
     Capabilities(Vec<server::Requirements<server::NodeProvidedCaps>>),
+    #[display(fmt = "job names")]
+    JobNames(Vec<server::RemainingJobs>),
+    #[display(fmt = "job names failed to query")]
+    JobNamesFailed
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]

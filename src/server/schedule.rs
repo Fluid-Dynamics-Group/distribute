@@ -19,6 +19,9 @@ pub(crate) trait Schedule {
     fn add_job_back(&mut self, job: transport::Job, identifier: JobIdentifier);
 
     fn finish_job(&mut self, job: JobIdentifier);
+
+    /// fetch all of the batch names and associated jobs that are still running
+    fn remaining_jobs(&self) -> Vec<RemainingJobs>;
 }
 
 #[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug)]
@@ -177,6 +180,10 @@ impl Schedule for GpuPriority {
             )
         }
     }
+
+    fn remaining_jobs(&self) -> Vec<RemainingJobs> {
+        self.map.iter().map(|(_, job_set)| job_set.remaining_jobs()).collect()
+    }
 }
 
 #[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
@@ -218,6 +225,21 @@ impl JobSet {
     pub(crate) fn name(&self) -> &str {
         &self.batch_name
     }
+
+    fn remaining_jobs(&self) -> RemainingJobs {
+        RemainingJobs {
+            batch_name: self.batch_name.clone(),
+            jobs_left: self.remaining_jobs.iter().map(|x| x.job_name.to_string()).collect(),
+            running_jobs: self.currently_running_jobs
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub(crate) struct RemainingJobs {
+    pub(crate) batch_name: String,
+    pub(crate) jobs_left: Vec<String>,
+    pub(crate) running_jobs: usize
 }
 
 #[derive(From, Debug, Clone, Deserialize, Serialize)]

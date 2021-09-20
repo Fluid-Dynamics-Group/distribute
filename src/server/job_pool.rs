@@ -56,6 +56,14 @@ where
                         self.remaining_jobs.insert_new_batch(set);
                         continue;
                     }
+                    JobRequest::QueryRemainingJobs(responder) => {
+                        let remaining_jobs = self.remaining_jobs.remaining_jobs();
+                        responder.tx.send(remaining_jobs)
+                            .map_err(|e| error!("could not respond back to \
+                                                the server task with information \
+                                                on the remaining jobs: {:?}", e))
+                            .ok();
+                    }
                 };
                 //
             }
@@ -72,20 +80,26 @@ pub(crate) enum JobResponse {
 }
 
 #[derive(derive_more::From)]
-pub(super) enum JobRequest {
+pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
     DeadNode(PendingJob),
     AddJobSet(schedule::JobSet),
+    QueryRemainingJobs(RemainingJobsQuery)
 }
 
-pub(super) struct NewJobRequest {
+pub(crate) struct NewJobRequest {
     tx: oneshot::Sender<JobResponse>,
     initialized_job: JobIdentifier,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
 }
 
+#[derive(derive_more::Constructor)]
+pub(crate) struct RemainingJobsQuery{
+    pub tx: oneshot::Sender<Vec<super::schedule::RemainingJobs>>,
+}
+
 #[derive(Clone)]
-pub(super) struct PendingJob {
+pub(crate) struct PendingJob {
     task: JobOrInit,
     ident: JobIdentifier,
 }

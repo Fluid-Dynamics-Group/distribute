@@ -9,8 +9,8 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::broadcast;
 use tokio::sync::mpsc;
-use tokio::sync::oneshot;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,7 +29,7 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
         .await
         .map_err(error::TcpConnection::from)?;
 
-    let (mut tx_cancel, rx_cancel) = oneshot::channel();
+    let (mut tx_cancel, rx_cancel) = broadcast::channel(5);
 
     loop {
         let (tcp_conn, _address) = listener
@@ -45,13 +45,17 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
             debug!("received new TCP connection on port - we answer the connection since we are not busy");
 
             // setup a new cancel channel to notify the task taht we need to kill it
-            let (tx_cancel_new, rx_cancel) = oneshot::channel();
-            tx_cancel = tx_cancel_new;
+            let rx_cancel = tx_cancel.subscribe();
 
             ready_for_job.swap(false, Ordering::Relaxed);
             tokio::task::spawn(async move {
-                if let Err(e) =
-                    start_server_connection(tcp_conn, base_path_clone, ready_for_job_clone, rx_cancel).await
+                if let Err(e) = start_server_connection(
+                    tcp_conn,
+                    base_path_clone,
+                    ready_for_job_clone,
+                    rx_cancel,
+                )
+                .await
                 {
                     error!("failure to respond to server connection: {}", e);
                 }
@@ -79,9 +83,11 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
                             //
                         }
                         transport::RequestFromServer::KillJob => {
-                            kill_job(tx_cancel);
+                            kill_job(&mut tx_cancel);
                         }
-                        _ => {
+                        transport::RequestFromServer::AssignJobInit(_)
+                        | transport::RequestFromServer::AssignJob(_)
+                        | transport::RequestFromServer::FileReceived => {
                             // TODO: log that we have gotten a real job request even though we are marked as
                             // not-ready
                             client_conn
@@ -105,15 +111,19 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
     Ok(())
 }
 
-async fn kill_job(tx_cancel: oneshot::Sender<()>) {
-    tx_cancel.send(());
+fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {
+    // try to send out the cancelation order to all children.
+    // since this function is called when there is an actively running
+    // job task. However, there is probably a race condition in there somewhere
+    // so we just ignore this possible error
+    tx_cancel.send(()).ok();
 }
 
 async fn start_server_connection(
     tcp_conn: TcpStream,
     base_path: PathBuf,
     ready_for_job: Arc<AtomicBool>,
-    cancel: oneshot::Receiver<()>
+    mut cancel: broadcast::Receiver<()>,
 ) -> Result<(), Error> {
     let mut conn = transport::ClientConnection::new(tcp_conn);
 
@@ -121,7 +131,7 @@ async fn start_server_connection(
         let new_data = conn.receive_data().await;
         if let Ok(request) = new_data {
             info!("executing general request handler from main task");
-            let result_response = execute::general_request(request, &base_path).await;
+            let result_response = execute::general_request(request, &base_path, &mut cancel).await;
 
             // make sure the request from the client was actually handled correctly
             if let Ok(prereq_client_response) = result_response {
