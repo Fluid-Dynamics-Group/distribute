@@ -35,26 +35,31 @@ pub(super) async fn general_request(
                 .await
                 .map_err(|e| error::RemovePreviousDir::new(e, base_path.to_owned()))
                 .map_err(error::InitJobError::from)?;
-            //
+
             initialize_job(init, base_path, cancel).await?;
+
             PrerequisiteOperations::None(transport::ClientResponse::RequestNewJob(
                 transport::NewJobRequest,
             ))
         }
         transport::RequestFromServer::AssignJob(job) => {
             info!("running job request");
-            //
-            run_job(job, base_path, cancel).await?;
-            let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-            let paths = walkdir::WalkDir::new(base_path.join("distribute_save"))
-                .into_iter()
-                .flat_map(|x| x.ok())
-                .map(|x| FileMetadata {
-                    file_path: x.path().to_owned(),
-                    is_file: x.file_type().is_file(),
-                })
-                .collect();
-            PrerequisiteOperations::SendFiles { paths, after }
+
+            if let Some(_) = run_job(job, base_path, cancel).await? {
+                let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
+                let paths = walkdir::WalkDir::new(base_path.join("distribute_save"))
+                    .into_iter()
+                    .flat_map(|x| x.ok())
+                    .map(|x| FileMetadata {
+                        file_path: x.path().to_owned(),
+                        is_file: x.file_type().is_file(),
+                    })
+                    .collect();
+                PrerequisiteOperations::SendFiles { paths, after }
+            } else {
+                // we cancelled this job early - dont send any files
+                PrerequisiteOperations::DoNothing
+            }
         }
         transport::RequestFromServer::FileReceived => {
             warn!("got a file recieved message from the server but we didnt send any files");
@@ -96,11 +101,14 @@ impl FileMetadata {
     }
 }
 
+/// execute a job after the build file has already been built
+///
+/// returns None if the job was cancelled
 async fn run_job(
     job: transport::Job,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
-) -> Result<transport::FinishedJob, Error> {
+) -> Result<Option<transport::FinishedJob>, Error> {
     info!("running general job");
 
     let file_path = base_path.join("run.py");
@@ -123,22 +131,33 @@ async fn run_job(
     debug!("wrote all job file bytes to file - running job");
     let original_dir = enter_output_dir(base_path);
 
-    let output = tokio::process::Command::new("python3")
+    let command = tokio::process::Command::new("python3")
         .args(&["run.py", &num_cpus::get_physical().to_string()])
-        .output()
-        .await
-        .map_err(|e| error::CommandExecutionError::from(e))
-        .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
+        .output();
 
-    enter_output_dir(&original_dir);
+    tokio::select!(
+       output = command => {
+           // command has finished -> return to the original dir so we dont accidentally
+           // bubble the error up with `?` before we have fixed the directory
+           enter_output_dir(&original_dir);
 
-    debug!("job successfully finished - returning to main process");
+           let output = output
+               .map_err(|e| error::CommandExecutionError::from(e))
+               .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
 
-    // write the stdout and stderr to a file
-    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
-    command_output_to_file(output, output_file_path).await;
+           debug!("job successfully finished - returning to main process");
 
-    Ok(transport::FinishedJob)
+           // write the stdout and stderr to a file
+           let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+           command_output_to_file(output, output_file_path).await;
+
+           Ok(Some(transport::FinishedJob))
+       }
+       _ = cancel.recv() => {
+           info!("run_job has been canceled for job name {}", job.job_name);
+           Ok(None)
+       }
+    )
 }
 
 async fn write_init_file<T: AsRef<Path>>(
@@ -161,11 +180,14 @@ async fn write_init_file<T: AsRef<Path>>(
     Ok(())
 }
 
+/// run the build file for a job
+///
+/// returns None if the process was cancelled
 async fn initialize_job(
     init: transport::JobInit,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
-) -> Result<(), Error> {
+) -> Result<Option<()>, Error> {
     info!("running initialization for new job");
     write_init_file(base_path, "run.py", &init.python_setup_file).await?;
 
@@ -189,29 +211,40 @@ async fn initialize_job(
     let original_dir = enter_output_dir(base_path);
     debug!("current file path is {:?}", std::env::current_dir());
 
-    let output = tokio::process::Command::new("python3")
+    let command = tokio::process::Command::new("python3")
         .args(&["run.py"])
-        //.gid(EXEC_GROUP_ID)
-        //.env_clear()
-        .output()
-        .await
-        .map_err(|e| error::CommandExecutionError::from(e))
-        .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
+        .output();
 
-    // return to original directory
-    enter_output_dir(&original_dir);
-    debug!("current file path is {:?}", std::env::current_dir());
+    tokio::select!(
+        // this is the path for running the command and writing stuff to the files
+        // etc
+        output = command => {
+            // return to original directory
+            enter_output_dir(&original_dir);
+            debug!("current file path is {:?}", std::env::current_dir());
 
-    // write stdout / stderr to file
-    let output_file_path = base_path.join(format!(
-        "distribute_save/{}_init_output.txt",
-        init.batch_name
-    ));
-    command_output_to_file(output, output_file_path).await;
+            let output = output
+                .map_err(|e| error::CommandExecutionError::from(e))
+                .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
 
-    debug!("finished init command, returning to main process");
+            // write stdout / stderr to file
+            let output_file_path = base_path.join(format!(
+                "distribute_save/{}_init_output.txt",
+                init.batch_name
+            ));
 
-    Ok(())
+            command_output_to_file(output, output_file_path).await;
+
+            debug!("finished init command, returning to main process");
+
+            Ok(Some(()))
+        }
+        // this branch allows for an early exit if a broadcast is received
+        _ = cancel.recv() => {
+           info!("initialize_job has been canceled for job name {}", init.batch_name);
+           Ok(None)
+        }
+    )
 }
 
 fn enter_output_dir(base_path: &Path) -> PathBuf {

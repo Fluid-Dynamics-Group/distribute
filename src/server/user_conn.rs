@@ -7,7 +7,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
 
-use super::{JobRequest, Requirements, NodeProvidedCaps, schedule};
+use super::{schedule, JobRequest, NodeProvidedCaps, Requirements};
 
 /// handle incomming requests from the user over CLI on any node
 pub(crate) async fn handle_user_requests(
@@ -64,7 +64,6 @@ async fn single_user_request(
             transport::UserMessageToServer::AddJobSet(set) => {
                 add_job_set(&tx, set, &mut conn).await;
                 debug!("the new request was AddJobSet");
-
             }
             transport::UserMessageToServer::QueryCapabilities => {
                 debug!("the new request was QueryCapabilities");
@@ -83,8 +82,11 @@ async fn single_user_request(
     }
 }
 
-
-async fn add_job_set(tx: &mpsc::Sender<JobRequest>, set: schedule::JobSet, conn: &mut transport::ServerConnectionToUser) {
+async fn add_job_set(
+    tx: &mpsc::Sender<JobRequest>,
+    set: schedule::JobSet,
+    conn: &mut transport::ServerConnectionToUser,
+) {
     // the output of sending the message to the server
     let tx_result = tx.send(JobRequest::AddJobSet(set)).await.map_err(|e| {
         error!(
@@ -114,23 +116,26 @@ async fn add_job_set(tx: &mpsc::Sender<JobRequest>, set: schedule::JobSet, conn:
         conn.transport_data(&transport::ServerResponseToUser::JobSetAddedFailed)
             .await
             // we told the  user about it
-            .map(|_| {
-                debug!("alterted that the client that the job set could not be added")
-            })
+            .map(|_| debug!("alterted that the client that the job set could not be added"))
             // we errored when trying to tell the user about it
             // this should probably not happen unless the client aborted the connection
             .map_err(|e| {
-                error!("could not alert the client that the job was added successfully: {}", e)
+                error!(
+                    "could not alert the client that the job was added successfully: {}",
+                    e
+                )
             })
             .ok();
     }
 }
 
-async fn query_capabilities(conn: &mut transport::ServerConnectionToUser, node_capabilities: &Vec<Arc<Requirements<NodeProvidedCaps>>>) {
+async fn query_capabilities(
+    conn: &mut transport::ServerConnectionToUser,
+    node_capabilities: &Vec<Arc<Requirements<NodeProvidedCaps>>>,
+) {
     // clone all the data so that we have non-Arc'd data
     // this can be circumvented by
-    let caps: Vec<Requirements<_>> =
-        node_capabilities.iter().map(|x| (**x).clone()).collect();
+    let caps: Vec<Requirements<_>> = node_capabilities.iter().map(|x| (**x).clone()).collect();
 
     if let Err(e) = conn
         .transport_data(&transport::ServerResponseToUser::Capabilities(caps))
@@ -140,15 +145,29 @@ async fn query_capabilities(conn: &mut transport::ServerConnectionToUser, node_c
     }
 }
 
-async fn query_job_names(tx: &mpsc::Sender<JobRequest>, conn: &mut transport::ServerConnectionToUser) {
+async fn query_job_names(
+    tx: &mpsc::Sender<JobRequest>,
+    conn: &mut transport::ServerConnectionToUser,
+) {
     let (tx_respond, rx_respond) = oneshot::channel();
-    
-    if let Err(e) = tx.send(JobRequest::QueryRemainingJobs(super::job_pool::RemainingJobsQuery::new(tx_respond))).await {
-        error!("could not send message to job pool for `query_job_names`. This should not happen. {}", e);
+
+    if let Err(e) = tx
+        .send(JobRequest::QueryRemainingJobs(
+            super::job_pool::RemainingJobsQuery::new(tx_respond),
+        ))
+        .await
+    {
+        error!(
+            "could not send message to job pool for `query_job_names`. This should not happen. {}",
+            e
+        );
 
         let response = transport::ServerResponseToUser::JobNamesFailed;
         if let Err(e) = conn.transport_data(&response).await {
-            error!("failed to respond to the user with failure to query job names: {}", e);
+            error!(
+                "failed to respond to the user with failure to query job names: {}",
+                e
+            );
         }
     }
 
@@ -161,7 +180,10 @@ async fn query_job_names(tx: &mpsc::Sender<JobRequest>, conn: &mut transport::Se
             }
         }
         Err(e) => {
-            error!("job pool did not respond over the oneshot channel. This should not happen: {:?}",e );
+            error!(
+                "job pool did not respond over the oneshot channel. This should not happen: {:?}",
+                e
+            );
 
             let response = transport::ServerResponseToUser::JobNamesFailed;
 

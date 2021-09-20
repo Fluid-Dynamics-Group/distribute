@@ -182,7 +182,10 @@ impl Schedule for GpuPriority {
     }
 
     fn remaining_jobs(&self) -> Vec<RemainingJobs> {
-        self.map.iter().map(|(_, job_set)| job_set.remaining_jobs()).collect()
+        self.map
+            .iter()
+            .map(|(_, job_set)| job_set.remaining_jobs())
+            .collect()
     }
 }
 
@@ -229,8 +232,12 @@ impl JobSet {
     fn remaining_jobs(&self) -> RemainingJobs {
         RemainingJobs {
             batch_name: self.batch_name.clone(),
-            jobs_left: self.remaining_jobs.iter().map(|x| x.job_name.to_string()).collect(),
-            running_jobs: self.currently_running_jobs
+            jobs_left: self
+                .remaining_jobs
+                .iter()
+                .map(|x| x.job_name.to_string())
+                .collect(),
+            running_jobs: self.currently_running_jobs,
         }
     }
 }
@@ -239,7 +246,7 @@ impl JobSet {
 pub(crate) struct RemainingJobs {
     pub(crate) batch_name: String,
     pub(crate) jobs_left: Vec<String>,
-    pub(crate) running_jobs: usize
+    pub(crate) running_jobs: usize,
 }
 
 #[derive(From, Debug, Clone, Deserialize, Serialize)]

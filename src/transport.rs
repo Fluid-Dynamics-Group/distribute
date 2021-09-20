@@ -29,7 +29,7 @@ pub(crate) enum UserMessageToServer {
     AddJobSet(server::JobSet),
     QueryCapabilities,
     QueryJobNames,
-    KillJob(String)
+    KillJob(String),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap, Display)]
@@ -43,7 +43,7 @@ pub(crate) enum ServerResponseToUser {
     #[display(fmt = "job names")]
     JobNames(Vec<server::RemainingJobs>),
     #[display(fmt = "job names failed to query")]
-    JobNamesFailed
+    JobNamesFailed,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]

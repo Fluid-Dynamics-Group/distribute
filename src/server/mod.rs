@@ -5,7 +5,7 @@ mod user_conn;
 pub(crate) use job_pool::JobResponse;
 use job_pool::{JobPool, JobRequest, NodeConnection};
 pub(crate) use schedule::{
-    JobRequiredCaps, JobSet, NodeProvidedCaps, Requirement, Requirements, Schedule, RemainingJobs
+    JobRequiredCaps, JobSet, NodeProvidedCaps, RemainingJobs, Requirement, Requirements, Schedule,
 };
 
 use crate::{cli, config, error, error::Error, status, transport};
@@ -89,7 +89,6 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
 
     Ok(())
 }
-
 
 pub(crate) fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io::Error> {
     match x {

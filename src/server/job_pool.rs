@@ -58,10 +58,17 @@ where
                     }
                     JobRequest::QueryRemainingJobs(responder) => {
                         let remaining_jobs = self.remaining_jobs.remaining_jobs();
-                        responder.tx.send(remaining_jobs)
-                            .map_err(|e| error!("could not respond back to \
+                        responder
+                            .tx
+                            .send(remaining_jobs)
+                            .map_err(|e| {
+                                error!(
+                                    "could not respond back to \
                                                 the server task with information \
-                                                on the remaining jobs: {:?}", e))
+                                                on the remaining jobs: {:?}",
+                                    e
+                                )
+                            })
                             .ok();
                     }
                 };
@@ -84,7 +91,7 @@ pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
     DeadNode(PendingJob),
     AddJobSet(schedule::JobSet),
-    QueryRemainingJobs(RemainingJobsQuery)
+    QueryRemainingJobs(RemainingJobsQuery),
 }
 
 pub(crate) struct NewJobRequest {
@@ -94,7 +101,7 @@ pub(crate) struct NewJobRequest {
 }
 
 #[derive(derive_more::Constructor)]
-pub(crate) struct RemainingJobsQuery{
+pub(crate) struct RemainingJobsQuery {
     pub tx: oneshot::Sender<Vec<super::schedule::RemainingJobs>>,
 }
 
