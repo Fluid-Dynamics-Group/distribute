@@ -42,6 +42,8 @@ pub struct BuildJob {
     #[serde(default)]
     required_files: Vec<PathBuf>,
     pub(crate) batch_name: String,
+    pub(crate) namespace: String,
+    pub(crate) matrix: Option<matrix_notify::UserId>,
     pub(crate) capabilities: server::Requirements<server::JobRequiredCaps>,
 }
 

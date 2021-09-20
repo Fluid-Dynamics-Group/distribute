@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -28,6 +29,8 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
         .await
         .map_err(error::TcpConnection::from)?;
 
+    let (mut tx_cancel, rx_cancel) = oneshot::channel();
+
     loop {
         let (tcp_conn, _address) = listener
             .accept()
@@ -39,11 +42,16 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
 
         // if we have no current jobs running ...
         if ready_for_job.load(Ordering::Relaxed) {
-            debug!("received new TCP connection on port - we answer the connection");
+            debug!("received new TCP connection on port - we answer the connection since we are not busy");
+
+            // setup a new cancel channel to notify the task taht we need to kill it
+            let (tx_cancel_new, rx_cancel) = oneshot::channel();
+            tx_cancel = tx_cancel_new;
+
             ready_for_job.swap(false, Ordering::Relaxed);
             tokio::task::spawn(async move {
                 if let Err(e) =
-                    start_server_connection(tcp_conn, base_path_clone, ready_for_job_clone).await
+                    start_server_connection(tcp_conn, base_path_clone, ready_for_job_clone, rx_cancel).await
                 {
                     error!("failure to respond to server connection: {}", e);
                 }
@@ -70,6 +78,9 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
 
                             //
                         }
+                        transport::RequestFromServer::KillJob => {
+                            kill_job(tx_cancel);
+                        }
                         _ => {
                             // TODO: log that we have gotten a real job request even though we are marked as
                             // not-ready
@@ -94,10 +105,15 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
     Ok(())
 }
 
+async fn kill_job(tx_cancel: oneshot::Sender<()>) {
+    tx_cancel.send(());
+}
+
 async fn start_server_connection(
     tcp_conn: TcpStream,
     base_path: PathBuf,
     ready_for_job: Arc<AtomicBool>,
+    cancel: oneshot::Receiver<()>
 ) -> Result<(), Error> {
     let mut conn = transport::ClientConnection::new(tcp_conn);
 

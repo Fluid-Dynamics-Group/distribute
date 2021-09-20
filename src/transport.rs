@@ -21,6 +21,7 @@ pub enum RequestFromServer {
     AssignJobInit(JobInit),
     AssignJob(Job),
     FileReceived,
+    KillJob
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
