@@ -65,51 +65,57 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
         // request
         else {
             debug!("received new TCP connection, however we are busy");
-            let mut client_conn = transport::ClientConnection::new(tcp_conn);
-            match client_conn.receive_data().await {
-                Ok(request) => {
-                    match request {
-                        transport::RequestFromServer::StatusCheck => {
-                            let response = transport::StatusResponse::new(
-                                transport::Version::current_version(),
-                                ready_for_job.load(Ordering::Relaxed),
-                            );
-                            let wrapped_response = transport::ClientResponse::StatusCheck(response);
+            let client_conn = transport::ClientConnection::new(tcp_conn);
 
-                            if let Err(e) = client_conn.transport_data(&wrapped_response).await {
-                                error!("could not send status check response to client on main thread (currently busy): {}",e);
-                            }
-
-                            //
-                        }
-                        transport::RequestFromServer::KillJob => {
-                            kill_job(&mut tx_cancel);
-                            // the server does not expect a reply in this situation
-                        }
-                        transport::RequestFromServer::AssignJobInit(_)
-                        | transport::RequestFromServer::AssignJob(_)
-                        | transport::RequestFromServer::FileReceived => {
-                            // TODO: log that we have gotten a real job request even though we are marked as
-                            // not-ready
-                            client_conn
-                                .transport_data(&transport::ClientResponse::Error(
-                                    transport::ClientError::NotReady,
-                                ))
-                                .await
-                                .ok();
-                        }
-                    }
-                }
-                Err(e) => {
-                    //
-                    error!("error when reading socket: {}", e);
-                }
-            }
+            // handle the connection on the current thread
+            handle_connection_local(client_conn, ready_for_job.clone(), &mut tx_cancel).await;
         }
     }
 
     #[allow(unreachable_code)]
     Ok(())
+}
+
+async fn handle_connection_local(mut client_conn: transport::ClientConnection, ready_for_job: Arc<AtomicBool>, tx_cancel: &mut broadcast::Sender<()>) {
+    match client_conn.receive_data().await {
+        Ok(request) => {
+            match request {
+                transport::RequestFromServer::StatusCheck => {
+                    let response = transport::StatusResponse::new(
+                        transport::Version::current_version(),
+                        ready_for_job.load(Ordering::Relaxed),
+                    );
+                    let wrapped_response = transport::ClientResponse::StatusCheck(response);
+
+                    if let Err(e) = client_conn.transport_data(&wrapped_response).await {
+                        error!("could not send status check response to client on main thread (currently busy): {}",e);
+                    }
+
+                    //
+                }
+                transport::RequestFromServer::KillJob => {
+                    kill_job(tx_cancel);
+                    // the server does not expect a reply in this situation
+                }
+                transport::RequestFromServer::AssignJobInit(_)
+                | transport::RequestFromServer::AssignJob(_)
+                | transport::RequestFromServer::FileReceived => {
+                    // TODO: log that we have gotten a real job request even though we are marked as
+                    // not-ready
+                    client_conn
+                        .transport_data(&transport::ClientResponse::Error(
+                            transport::ClientError::NotReady,
+                        ))
+                        .await
+                        .ok();
+                }
+            }
+        }
+        Err(e) => {
+            //
+            error!("error when reading socket: {}", e);
+        }
+    }
 }
 
 fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {

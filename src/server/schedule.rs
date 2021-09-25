@@ -22,6 +22,9 @@ pub(crate) trait Schedule {
 
     /// fetch all of the batch names and associated jobs that are still running
     fn remaining_jobs(&self) -> Vec<RemainingJobs>;
+
+    /// find a job identifier associated with the name of a certain job
+    fn identifier_by_name(&self, batch_name: &str) -> Option<JobIdentifier>;
 }
 
 #[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug)]
@@ -186,6 +189,14 @@ impl Schedule for GpuPriority {
             .iter()
             .map(|(_, job_set)| job_set.remaining_jobs())
             .collect()
+    }
+
+    fn identifier_by_name(&self, batch_name: &str) -> Option<JobIdentifier> {
+        self.map
+            .iter()
+            .filter(|(_, set)| set.batch_name == batch_name)
+            .map(|(identifier, _)| *identifier)
+            .next()
     }
 }
 

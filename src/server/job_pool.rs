@@ -3,8 +3,8 @@ use super::schedule::{self, JobIdentifier, NodeProvidedCaps, Requirements, Sched
 use crate::{cli, config, error, error::Error, status, transport};
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -74,7 +74,32 @@ where
                             .ok();
                     }
                     JobRequest::CancelBatchByName(cancel_query) => {
-                        //
+                        let identifier = self
+                            .remaining_jobs
+                            .identifier_by_name(&cancel_query.batch_name);
+
+                        if let Some(found_identifier) = identifier {
+                            if let Ok(_) = self.broadcast_cancel.send(found_identifier) {
+                                debug!(
+                                    "successfully sent cancellation message for batch name {}",
+                                    &cancel_query.batch_name
+                                );
+                                cancel_query.cancel_batch.send(CancelResult::Success).ok();
+                            } else {
+                                cancel_query
+                                    .cancel_batch
+                                    .send(CancelResult::NoBroadcastNodes)
+                                    .ok();
+                                error!("cancellation broadcast has no receivers! This should only happen if there
+                                       were no nodes initialized");
+                            }
+                        } else {
+                            warn!("batch name {} was missing from the job set - unable to cancel the jobs", &cancel_query.batch_name);
+                            cancel_query
+                                .cancel_batch
+                                .send(CancelResult::BatchNameMissing)
+                                .ok();
+                        }
                     }
                 };
                 //
@@ -113,8 +138,14 @@ pub(crate) struct RemainingJobsQuery {
 
 #[derive(derive_more::Constructor)]
 pub(crate) struct CancelBatchQuery {
-    cancel_batch: oneshot::Sender<bool>,
+    cancel_batch: oneshot::Sender<CancelResult>,
     batch_name: String,
+}
+
+pub(crate) enum CancelResult {
+    BatchNameMissing,
+    NoBroadcastNodes,
+    Success,
 }
 
 #[derive(Clone)]
@@ -223,7 +254,7 @@ impl NodeConnection {
                             true
                         }
                         // check if this message was cancelled. the function will return when any
-                        // message in the broadcast queue matches that of the current value of 
+                        // message in the broadcast queue matches that of the current value of
                         // self.current_job
                         _ = check_cancellation(current_job, broadcast) => {
                             false
@@ -232,12 +263,14 @@ impl NodeConnection {
 
                     // check if the job was cancelled
                     if job_result == false {
-
                         // the job was cancelled, spin off a separate connection to the node so
                         // that we can message them
                         match transport::ServerConnection::new(self.conn.addr).await {
                             Ok(mut tmp_conn) => {
-                                if let Err(e) = tmp_conn.transport_data(&transport::RequestFromServer::KillJob).await {
+                                if let Err(e) = tmp_conn
+                                    .transport_data(&transport::RequestFromServer::KillJob)
+                                    .await
+                                {
                                     error!("could not kill the job on the node: {}", e);
                                 }
 
@@ -253,7 +286,6 @@ impl NodeConnection {
                                 self.current_job = None;
                                 self.schedule_reconnect().await;
                             }
-
                         }
                     }
                 }
@@ -319,7 +351,10 @@ async fn check_cancellation(
 ///
 /// save any files that they sent us and return a simplified
 /// version of the response they had
-async fn handle_client_response(conn: &mut transport::ServerConnection, save_path: &Path) -> Result<NodeNextStep, Error> {
+async fn handle_client_response(
+    conn: &mut transport::ServerConnection,
+    save_path: &Path,
+) -> Result<NodeNextStep, Error> {
     loop {
         let response = conn.receive_data().await?;
 
@@ -349,8 +384,7 @@ async fn handle_client_response(conn: &mut transport::ServerConnection, save_pat
 
                 // after we have received the file, let the client know this and send another
                 // file
-                conn
-                    .transport_data(&transport::RequestFromServer::FileReceived)
+                conn.transport_data(&transport::RequestFromServer::FileReceived)
                     .await?;
             }
             _ => unimplemented!(),

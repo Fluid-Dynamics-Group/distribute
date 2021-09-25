@@ -30,9 +30,28 @@ impl Node {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Jobs {
-    pub init: BuildJob,
-    pub jobs: Vec<Job>,
+pub enum Jobs {
+    Python { meta: Meta, python: PythonDescription},
+    Singularity { meta: Meta, python: SingularityDescription},
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PythonDescription {
+    initialize: PythonInitialize,
+    jobs: Vec<PythonJob>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SingularityDescription {
+    jobs: Vec<PythonJob>
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct Meta {
+    pub(crate) batch_name: String,
+    pub(crate) namespace: String,
+    pub(crate) matrix: Option<matrix_notify::UserId>,
+    pub(crate) capabilities: server::Requirements<server::JobRequiredCaps>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -41,14 +60,10 @@ pub struct BuildJob {
     pub python_build_file_path: PathBuf,
     #[serde(default)]
     required_files: Vec<PathBuf>,
-    pub(crate) batch_name: String,
-    pub(crate) namespace: String,
-    pub(crate) matrix: Option<matrix_notify::UserId>,
-    pub(crate) capabilities: server::Requirements<server::JobRequiredCaps>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Job {
+pub struct PythonJob {
     name: String,
     #[serde(rename = "file")]
     job_file: PathBuf,
