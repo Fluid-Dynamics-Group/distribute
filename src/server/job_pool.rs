@@ -4,12 +4,13 @@ use crate::{cli, config, error, error::Error, status, transport};
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
 use derive_more::From;
@@ -18,6 +19,7 @@ use derive_more::From;
 pub(super) struct JobPool<T> {
     remaining_jobs: T,
     receive_requests: mpsc::Receiver<JobRequest>,
+    broadcast_cancel: broadcast::Sender<JobIdentifier>,
 }
 
 impl<T> JobPool<T>
@@ -95,7 +97,7 @@ pub(crate) enum JobRequest {
     DeadNode(PendingJob),
     AddJobSet(schedule::JobSet),
     QueryRemainingJobs(RemainingJobsQuery),
-    CancelBatchByName(CancelBatchQuery)
+    CancelBatchByName(CancelBatchQuery),
 }
 
 pub(crate) struct NewJobRequest {
@@ -110,9 +112,9 @@ pub(crate) struct RemainingJobsQuery {
 }
 
 #[derive(derive_more::Constructor)]
-pub(crate) struct CancelBatchQuery{
+pub(crate) struct CancelBatchQuery {
     cancel_batch: oneshot::Sender<bool>,
-    batch_name: String
+    batch_name: String,
 }
 
 #[derive(Clone)]
@@ -132,6 +134,7 @@ pub(crate) enum JobOrInit {
 pub(super) struct NodeConnection {
     conn: transport::ServerConnection,
     request_job_tx: mpsc::Sender<JobRequest>,
+    receive_cancellation: broadcast::Receiver<JobIdentifier>,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
     save_path: PathBuf,
     current_job: Option<PendingJob>,
@@ -168,6 +171,8 @@ impl NodeConnection {
 
                 let send_response = self.conn.transport_data(&server_request).await;
 
+                // we were not able to send the job to the node, send it back
+                // to the scheduler so that someone else can take it instead
                 if let Err(e) = send_response {
                     error!(
                         "error sending the request to the server on node at {}: {}",
@@ -176,30 +181,79 @@ impl NodeConnection {
                     );
 
                     self.request_job_tx
-                        .send(JobRequest::DeadNode(self.current_job.clone().unwrap()))
+                        .send(JobRequest::DeadNode(self.current_job.take().unwrap()))
                         .await
                         .ok()
                         .unwrap();
 
+                    // since it was a TCP error we reconnect to the node
+                    // before doing anything else
+                    self.schedule_reconnect().await;
+
                     continue;
                 }
-                // we ere able to send the data to the client without issue
+                // we were able to send the data to the client without issue
                 else {
-                    // check if we could read from the TCP socket without issue:
-                    match self.handle_client_response().await {
-                        Ok(response) => {
-                            // TODO: add some logic to schedule other jobs on this node
-                            // if this job was a initialization job
-                            // since that means that the packages were not correctly built on the
-                            // machine
+                    let current_job = self.current_job.as_ref();
+                    let broadcast = &mut self.receive_cancellation;
+
+                    let save_path = &self.save_path;
+                    let conn = &mut self.conn;
+
+                    let job_result = tokio::select!(
+                        // check if we could read from the TCP socket without issue:
+                        response = handle_client_response(conn, save_path) => {
+                            match response {
+                                Ok(response) => {
+                                    // TODO: add some logic to schedule other jobs on this node
+                                    // if this job was a initialization job
+                                    // since that means that the packages were not correctly built on the
+                                    // machine
+                                }
+                                Err(e) => {
+                                    error!(
+                                        "error receiving job response from node {}: {}",
+                                        self.addr(),
+                                        e
+                                    );
+                                    self.schedule_reconnect().await;
+                                }
+                            };
+
+                            true
                         }
-                        Err(e) => {
-                            error!(
-                                "error receiving job response from node {}: {}",
-                                self.addr(),
-                                e
-                            );
-                            self.schedule_reconnect().await;
+                        // check if this message was cancelled. the function will return when any
+                        // message in the broadcast queue matches that of the current value of 
+                        // self.current_job
+                        _ = check_cancellation(current_job, broadcast) => {
+                            false
+                        }
+                    );
+
+                    // check if the job was cancelled
+                    if job_result == false {
+
+                        // the job was cancelled, spin off a separate connection to the node so
+                        // that we can message them
+                        match transport::ServerConnection::new(self.conn.addr).await {
+                            Ok(mut tmp_conn) => {
+                                if let Err(e) = tmp_conn.transport_data(&transport::RequestFromServer::KillJob).await {
+                                    error!("could not kill the job on the node: {}", e);
+                                }
+
+                                // we dont expect the child to reply with a message in this
+                                // instance, we can kill the job and continue
+                                //
+                                // this is because the child may have already sent us a message
+                                // for the finished job and there would be a race condition created
+                            }
+                            Err(e) => {
+                                error!("failed to form temp connection to {} to notify of task cancellation. Setting current job to None
+                                       and scheduling a reconnect on the main thread. Error: {}", self.addr(), e);
+                                self.current_job = None;
+                                self.schedule_reconnect().await;
+                            }
+
                         }
                     }
                 }
@@ -229,51 +283,6 @@ impl NodeConnection {
         &self.conn.addr
     }
 
-    /// check what the client responded to the job request (not init) that we sent them
-    ///
-    /// save any files that they sent us and return a simplified
-    /// version of the response they had
-    async fn handle_client_response(&mut self) -> Result<NodeNextStep, Error> {
-        loop {
-            let response = self.conn.receive_data().await?;
-
-            match response {
-                transport::ClientResponse::StatusCheck(_) => todo!(),
-                transport::ClientResponse::RequestNewJob(_) => {
-                    return Ok(NodeNextStep::RequestNextJob)
-                }
-                transport::ClientResponse::SendFile(send_file) => {
-                    // we need to store this file
-                    let save_location = self.save_path.join(send_file.file_path);
-                    info!("saving solver file to {:?}", save_location);
-                    if send_file.is_file {
-                        // TODO: fix these unwraps
-                        let mut file = tokio::fs::File::create(&save_location)
-                            .await
-                            .map_err(|error| error::WriteFile::from((error, save_location.clone())))
-                            .map_err(|e| error::ServerError::from(e))?;
-
-                        file.write_all(&send_file.bytes).await.unwrap();
-                    } else {
-                        // just create the directory
-                        ok_if_exists(tokio::fs::create_dir(&save_location).await)
-                            .map_err(|error| {
-                                error::CreateDirError::from((error, save_location.clone()))
-                            })
-                            .map_err(|e| error::ServerError::from(e))?;
-                    }
-
-                    // after we have received the file, let the client know this and send another
-                    // file
-                    self.conn
-                        .transport_data(&transport::RequestFromServer::FileReceived)
-                        .await?;
-                }
-                _ => unimplemented!(),
-            }
-        }
-    }
-
     async fn schedule_reconnect(&mut self) {
         while let Err(e) = self._schedule_reconnect().await {
             error!("could not reconnect to node at {}: {}", self.addr(), e);
@@ -286,6 +295,68 @@ impl NodeConnection {
     }
 }
 
+// monitor the broadcast queue to see if a cancellation message is received
+//
+// this is broken out into a separate function since the tokio::select! requires
+// two mutable borrows to &mut self
+async fn check_cancellation(
+    current_job: Option<&PendingJob>,
+    rx_cancel: &mut broadcast::Receiver<JobIdentifier>,
+) {
+    loop {
+        if let Ok(identifier) = rx_cancel.recv().await {
+            if current_job
+                .map(|job| job.ident == identifier)
+                .unwrap_or(false)
+            {
+                return;
+            }
+        }
+    }
+}
+
+/// check what the client responded to the job request (not init) that we sent them
+///
+/// save any files that they sent us and return a simplified
+/// version of the response they had
+async fn handle_client_response(conn: &mut transport::ServerConnection, save_path: &Path) -> Result<NodeNextStep, Error> {
+    loop {
+        let response = conn.receive_data().await?;
+
+        match response {
+            transport::ClientResponse::StatusCheck(_) => todo!(),
+            transport::ClientResponse::RequestNewJob(_) => return Ok(NodeNextStep::RequestNextJob),
+            transport::ClientResponse::SendFile(send_file) => {
+                // we need to store this file
+                let save_location = save_path.join(send_file.file_path);
+                info!("saving solver file to {:?}", save_location);
+                if send_file.is_file {
+                    // TODO: fix these unwraps
+                    let mut file = tokio::fs::File::create(&save_location)
+                        .await
+                        .map_err(|error| error::WriteFile::from((error, save_location.clone())))
+                        .map_err(|e| error::ServerError::from(e))?;
+
+                    file.write_all(&send_file.bytes).await.unwrap();
+                } else {
+                    // just create the directory
+                    ok_if_exists(tokio::fs::create_dir(&save_location).await)
+                        .map_err(|error| {
+                            error::CreateDirError::from((error, save_location.clone()))
+                        })
+                        .map_err(|e| error::ServerError::from(e))?;
+                }
+
+                // after we have received the file, let the client know this and send another
+                // file
+                conn
+                    .transport_data(&transport::RequestFromServer::FileReceived)
+                    .await?;
+            }
+            _ => unimplemented!(),
+        }
+    }
+}
 enum NodeNextStep {
     RequestNextJob,
     ClientError,

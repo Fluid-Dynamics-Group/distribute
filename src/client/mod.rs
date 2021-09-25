@@ -29,7 +29,7 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
         .await
         .map_err(error::TcpConnection::from)?;
 
-    let (mut tx_cancel, rx_cancel) = broadcast::channel(5);
+    let (mut tx_cancel, _) = broadcast::channel(5);
 
     loop {
         let (tcp_conn, _address) = listener
@@ -84,6 +84,7 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
                         }
                         transport::RequestFromServer::KillJob => {
                             kill_job(&mut tx_cancel);
+                            // the server does not expect a reply in this situation
                         }
                         transport::RequestFromServer::AssignJobInit(_)
                         | transport::RequestFromServer::AssignJob(_)

@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
 pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
@@ -67,7 +67,8 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
     let scheduler = schedule::GpuPriority::default();
 
     info!("starting job pool task");
-    let handle = JobPool::new(scheduler, job_pool_holder).spawn();
+    let (tx_cancel, _) = broadcast::channel(20);
+    let handle = JobPool::new(scheduler, job_pool_holder, tx_cancel.clone()).spawn();
 
     let mut handles = vec![handle];
 
@@ -77,6 +78,7 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
         let handle = NodeConnection::new(
             server_connection,
             request_job.clone(),
+            tx_cancel.subscribe(),
             caps,
             server.save_path.clone(),
             None,
