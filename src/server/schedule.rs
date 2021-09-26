@@ -70,7 +70,9 @@ impl GpuPriority {
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
             .next()
         {
-            let init = job_set.init_file();
+            // TODO: fix this unwrap - its not that good but i dont have a better way to handle
+            // it right now
+            let init = job_set.init_file().unwrap();
             JobResponse::SetupOrRun {
                 task: JobOrInit::JobInit(init),
                 identifier: *ident,
@@ -130,7 +132,9 @@ impl Schedule for GpuPriority {
                     identifier: current_compiled_job,
                 }
             } else {
-                let init = gpu_job_set.init_file();
+                // TODO: fix this unwrap - there has to be a better way
+                // to do this but i have not worked around it right now
+                let init = gpu_job_set.init_file().unwrap();
                 JobResponse::SetupOrRun {
                     task: JobOrInit::JobInit(init),
                     identifier: *gpu_ident,

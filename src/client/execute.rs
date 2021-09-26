@@ -28,7 +28,7 @@ pub(super) async fn general_request(
                 transport::StatusResponse::new(transport::Version::current_version(), true);
             PrerequisiteOperations::None(transport::ClientResponse::StatusCheck(response))
         }
-        transport::RequestFromServer::InitPytonJob(init) => {
+        transport::RequestFromServer::InitPythonJob(init) => {
             info!("running init python job request");
 
             utils::clean_output_dir(base_path)
@@ -74,6 +74,25 @@ pub(super) async fn general_request(
             PrerequisiteOperations::None(transport::ClientResponse::RequestNewJob(
                 transport::NewJobRequest,
             ))
+        }
+        transport::RequestFromServer::RunSingularityJob(job) => {
+            info!("running singularity job job");
+
+            if let Some(_) = run_singularity_job(job, base_path, cancel).await? {
+                let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
+                let paths = walkdir::WalkDir::new(base_path.join("distribute_save"))
+                    .into_iter()
+                    .flat_map(|x| x.ok())
+                    .map(|x| FileMetadata {
+                        file_path: x.path().to_owned(),
+                        is_file: x.file_type().is_file(),
+                    })
+                    .collect();
+                PrerequisiteOperations::SendFiles { paths, after }
+            } else {
+                // we cancelled this job early - dont send any files
+                PrerequisiteOperations::DoNothing
+            }
         }
         transport::RequestFromServer::FileReceived => {
             warn!("got a file recieved message from the server but we didnt send any files");
@@ -269,7 +288,7 @@ async fn initialize_singularity_job(
 ///
 /// returns None if the job was cancelled
 async fn run_singularity_job(
-    job: transport::PythonJob,
+    job: transport::SingularityJob,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
 ) -> Result<Option<()>, Error> {
@@ -278,7 +297,7 @@ async fn run_singularity_job(
     // reset the input files directory
     utils::clear_input_files(base_path).await
         .map_err(|e| error::CreateDirError::new( e, base_path.to_owned()))
-        .map_err(|e| error::RunJobError::CreateDir(e));
+        .map_err(|e| error::RunJobError::CreateDir(e))?;
 
     // copy all the files for this job to the directory
     write_all_init_files(&base_path.join("input"), &job.job_files).await?;

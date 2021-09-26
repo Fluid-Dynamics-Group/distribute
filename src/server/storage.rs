@@ -121,6 +121,7 @@ impl StoredJob {
     }
 }
 
+#[derive(Clone)]
 pub(crate) enum JobOpt {
     Singularity(transport::SingularityJob),
     Python(transport::PythonJob),

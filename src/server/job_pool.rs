@@ -158,8 +158,8 @@ pub(crate) struct PendingJob {
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone)]
 pub(crate) enum JobOrInit {
-    Job(transport::Job),
-    JobInit(transport::JobInit),
+    Job(storage::JobOpt),
+    JobInit(config::BuildOpts),
 }
 
 #[derive(derive_more::Constructor)]

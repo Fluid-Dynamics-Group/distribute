@@ -9,7 +9,7 @@ pub(crate) use schedule::{
     JobRequiredCaps, JobSet, NodeProvidedCaps, RemainingJobs, Requirement, Requirements, Schedule,
 };
 
-pub(crate) use storage::OwnedJobSet;
+pub(crate) use storage::{OwnedJobSet, JobOpt};
 
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;

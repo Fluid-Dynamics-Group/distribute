@@ -16,8 +16,8 @@ pub struct File {
 
 impl File {
     pub(crate) fn filename(&self) -> Result<String, error::LoadJobsError> {
-        if let Some(alias) = self.alias {
-            Ok(alias)
+        if let Some(alias) = &self.alias {
+            Ok(alias.to_string())
         } else {
             let out = self
                 .path

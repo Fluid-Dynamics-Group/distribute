@@ -46,7 +46,7 @@ pub enum Jobs {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct Meta {
+pub struct Meta {
     pub(crate) batch_name: String,
     pub(crate) namespace: String,
     pub(crate) matrix: Option<matrix_notify::UserId>,
@@ -80,7 +80,7 @@ impl Jobs {
         }
     }
 
-    pub fn capabilities(&self) -> &server::Requirements<server::JobRequiredCaps> {
+    pub(crate) fn capabilities(&self) -> &server::Requirements<server::JobRequiredCaps> {
         match &self {
             Self::Python {meta , ..} => &meta.capabilities,
             Self::Singularity {meta,  ..} => &meta.capabilities,

@@ -101,7 +101,7 @@ async fn handle_connection_local(
                     kill_job(tx_cancel);
                     // the server does not expect a reply in this situation
                 }
-                transport::RequestFromServer::InitPytonJob(_)
+                transport::RequestFromServer::InitPythonJob(_)
                 | transport::RequestFromServer::RunPythonJob(_)
                 | transport::RequestFromServer::InitSingularityJob(_)
                 | transport::RequestFromServer::RunSingularityJob(_)

@@ -9,6 +9,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::error;
+use crate::config;
 use crate::error::Error;
 use crate::server;
 use bincode::config::Options;
@@ -18,12 +19,30 @@ use bincode::config::Options;
 )]
 pub enum RequestFromServer {
     StatusCheck,
-    InitPytonJob(PythonJobInit),
+    InitPythonJob(PythonJobInit),
     RunPythonJob(PythonJob),
     InitSingularityJob(SingularityJobInit),
     RunSingularityJob(SingularityJob),
     FileReceived,
     KillJob,
+}
+
+impl From<crate::server::JobOpt> for RequestFromServer {
+    fn from(x:crate::server::JobOpt) -> Self {
+        match x {
+            crate::server::JobOpt::Python(p) => Self::RunPythonJob(p),
+            crate::server::JobOpt::Singularity(s) => Self::RunSingularityJob(s),
+        }
+    }
+}
+
+impl From<config::BuildOpts> for RequestFromServer {
+    fn from(x: config::BuildOpts) -> Self {
+        match x {
+            config::BuildOpts::Python(p) => Self::InitPythonJob(p),
+            config::BuildOpts::Singularity(s) => Self::InitSingularityJob(s),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
