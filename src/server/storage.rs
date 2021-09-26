@@ -148,15 +148,8 @@ pub(crate) struct LazyPythonJob {
 impl LazyPythonJob {
     pub(crate) fn load_job(self) -> Result<transport::PythonJob, io::Error> {
         let python_file = std::fs::read(&self.python_setup_file_path)?;
-        let mut job_files = vec![];
 
-        for lazy_file in self.required_files {
-            let bytes = std::fs::read(&lazy_file.path)?;
-            job_files.push(transport::File {
-                file_name: lazy_file.file_name,
-                file_bytes: bytes,
-            });
-        }
+        let job_files = load_files(&self.required_files, true)?;
 
         Ok(transport::PythonJob {
             job_name: self.job_name,
@@ -174,7 +167,7 @@ pub(crate) struct LazySingularityJob {
 
 impl LazySingularityJob {
     pub(crate) fn load_job(self) -> Result<transport::SingularityJob, io::Error> {
-        let job_files = load_files(&self.required_files)?;
+        let job_files = load_files(&self.required_files, true)?;
 
         Ok(transport::SingularityJob {
             job_name: self.job_name,
@@ -294,6 +287,15 @@ impl StoredJobInit {
         }
     }
 
+    pub(crate) fn delete(&self) -> Result<(), io::Error> {
+        match self {
+            Self::Python(x) => x.delete()?,
+            Self::Singularity(x) => x.delete()?,
+        };
+
+        Ok(())
+    }
+
     pub(crate) fn from_opt(opt: config::BuildOpts, output_dir: &Path) -> Result<Self, io::Error> {
         match opt {
             config::BuildOpts::Singularity(s) => Self::from_singularity(s, output_dir),
@@ -313,7 +315,7 @@ impl LazyPythonInit {
     fn load_build(&self) -> Result<transport::PythonJobInit, io::Error> {
         let python_setup_file = std::fs::read(&self.python_setup_file_path)?;
 
-        let additional_build_files = load_files(&self.required_files)?;
+        let additional_build_files = load_files(&self.required_files, false)?;
 
         let out = transport::PythonJobInit {
             batch_name: self.batch_name.clone(),
@@ -322,6 +324,14 @@ impl LazyPythonInit {
         };
 
         Ok(out)
+    }
+
+    fn delete(&self) -> Result<(), io::Error> {
+        std::fs::remove_file(&self.python_setup_file_path)?;
+        for file in &self.required_files {
+            std::fs::remove_file(&file.path)?;
+        }
+        Ok(())
     }
 }
 
@@ -336,7 +346,7 @@ impl LazySingularityInit {
     fn load_build(&self) -> Result<transport::SingularityJobInit, io::Error> {
         let sif_bytes = std::fs::read(&self.sif_path)?;
 
-        let build_files = load_files(&self.required_files)?;
+        let build_files = load_files(&self.required_files, false)?;
 
         let out = transport::SingularityJobInit {
             batch_name: self.batch_name.clone(),
@@ -345,9 +355,19 @@ impl LazySingularityInit {
         };
         Ok(out)
     }
+
+    fn delete(&self) -> Result<(), io::Error> {
+        std::fs::remove_file(&self.sif_path)?;
+
+        for file in &self.required_files {
+            std::fs::remove_file(&file.path)?;
+        }
+
+        Ok(())
+    }
 }
 
-fn load_files(files: &[LazyFile]) -> Result<Vec<transport::File>, io::Error> {
+fn load_files(files: &[LazyFile], delete: bool) -> Result<Vec<transport::File>, io::Error> {
     let mut job_files = vec![];
 
     for lazy_file in files {
@@ -356,6 +376,10 @@ fn load_files(files: &[LazyFile]) -> Result<Vec<transport::File>, io::Error> {
             file_name: lazy_file.file_name.clone(),
             file_bytes: bytes,
         });
+
+        if delete {
+            std::fs::remove_file(&lazy_file.path)?;
+        }
     }
 
     Ok(job_files)
@@ -368,4 +392,5 @@ pub(crate) struct OwnedJobSet {
     pub(crate) remaining_jobs: config::JobOpts,
     pub(crate) currently_running_jobs: usize,
     pub(crate) batch_name: String,
+    pub(crate) matrix_user: Option<matrix_notify::UserId>,
 }

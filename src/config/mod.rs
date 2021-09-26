@@ -93,6 +93,13 @@ impl Jobs {
             Self::Singularity { meta, .. } => meta.batch_name,
         }
     }
+
+    pub fn matrix_user(&self) -> Option<matrix_notify::UserId> {
+        match self {
+            Self::Python { meta, .. } => meta.matrix.clone() ,
+            Self::Singularity { meta, .. } => meta.matrix.clone(),
+        }
+    }
 }
 
 #[derive(derive_more::From, Serialize, Deserialize, Clone, Debug)]

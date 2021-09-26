@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::convert::TryFrom;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -188,7 +189,25 @@ impl Schedule for GpuPriority {
                     identifier
                 );
 
-                self.map.remove(&identifier);
+
+                let removed_set = self.map.remove(&identifier).unwrap();
+
+                // since we are done with this job set then we should deallocate the build file
+                removed_set.build.delete().ok();
+
+                if let Some(matrix_id) = removed_set.matrix_user {
+                    let client = matrix_notify::client("https://matrix.org".to_string());
+                    let self_id = matrix_notify::UserId::try_from("@compute-notify:matrix.org").unwrap();
+                    let msg = format!("your distributed compute job {} has finished", removed_set.batch_name);
+
+                    info!("sending message to matrix user {} for batch finish `{}`", matrix_id, removed_set.batch_name);
+
+                    tokio::task::spawn( async move {
+                        if let Err(e) = matrix_notify::send_text_message(&client, msg, matrix_id, self_id).await {
+                            error!("failed to send message to user on matrix: {}", e);
+                        }
+                    });
+                }
             }
         } else {
             error!(
@@ -222,6 +241,7 @@ pub(crate) struct JobSet {
     remaining_jobs: Vec<StoredJob>,
     currently_running_jobs: usize,
     batch_name: String,
+    matrix_user: Option<matrix_notify::UserId>,
 }
 
 impl JobSet {
@@ -285,6 +305,7 @@ impl JobSet {
             remaining_jobs,
             currently_running_jobs,
             batch_name,
+            matrix_user
         } = owned;
         let build = StoredJobInit::from_opt(build, base_path)?;
         let remaining_jobs = match remaining_jobs {
@@ -312,6 +333,7 @@ impl JobSet {
             remaining_jobs,
             currently_running_jobs,
             batch_name,
+            matrix_user
         })
     }
 }
