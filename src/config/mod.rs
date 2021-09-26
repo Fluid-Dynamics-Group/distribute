@@ -79,6 +79,20 @@ impl Jobs {
             }
         }
     }
+
+    pub fn capabilities(&self) -> &server::Requirements<server::JobRequiredCaps> {
+        match &self {
+            Self::Python {meta , ..} => &meta.capabilities,
+            Self::Singularity {meta,  ..} => &meta.capabilities,
+        }
+    }
+
+    pub fn batch_name(self) -> String {
+        match self {
+            Self::Python {meta , ..} => meta.batch_name,
+            Self::Singularity {meta,  ..} => meta.batch_name,
+        }
+    }
 }
 
 #[derive(derive_more::From)]
@@ -92,6 +106,7 @@ pub enum BuildOpts {
     Python(transport::PythonJobInit),
     Singularity(transport::SingularityJobInit),
 }
+
 pub fn load_config<T: DeserializeOwned>(path: &str) -> Result<T, ConfigurationError> {
     let file =
         std::fs::File::open(path).map_err(|e| (path.to_string(), ConfigErrorReason::from(e)))?;
@@ -104,12 +119,12 @@ pub fn load_config<T: DeserializeOwned>(path: &str) -> Result<T, ConfigurationEr
 
 #[test]
 fn serialize_nodes() {
-    let bytes = include_str!("../static/example-nodes.yaml");
+    let bytes = include_str!("../../static/example-nodes.yaml");
     let _out: Nodes = serde_yaml::from_str(bytes).unwrap();
 }
 
 #[test]
 fn serialize_jobs() {
-    let bytes = include_str!("../static/example-jobs.yaml");
+    let bytes = include_str!("../../static/example-jobs.yaml");
     let _out: Jobs = serde_yaml::from_str(bytes).unwrap();
 }
