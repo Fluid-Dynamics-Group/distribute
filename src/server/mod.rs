@@ -1,7 +1,7 @@
 mod job_pool;
 mod schedule;
-mod user_conn;
 mod storage;
+mod user_conn;
 
 pub(crate) use job_pool::JobResponse;
 use job_pool::{JobPool, JobRequest, NodeConnection};
@@ -9,7 +9,7 @@ pub(crate) use schedule::{
     JobRequiredCaps, JobSet, NodeProvidedCaps, RemainingJobs, Requirement, Requirements, Schedule,
 };
 
-pub(crate) use storage::{OwnedJobSet, JobOpt};
+pub(crate) use storage::{JobOpt, OwnedJobSet};
 
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;
@@ -67,7 +67,8 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
 
     // spawn off a job pool that we can query from different tasks
 
-    let scheduler = schedule::GpuPriority::new(Default::default(), Default::default(), server.temp_dir);
+    let scheduler =
+        schedule::GpuPriority::new(Default::default(), Default::default(), server.temp_dir);
 
     info!("starting job pool task");
     let (tx_cancel, _) = broadcast::channel(20);

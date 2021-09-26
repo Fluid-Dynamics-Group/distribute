@@ -1,5 +1,5 @@
 use super::job_pool::{JobOrInit, JobResponse};
-use super::storage::{StoredJob, StoredJobInit, self};
+use super::storage::{self, StoredJob, StoredJobInit};
 
 use crate::config;
 use crate::error::{self, ScheduleError};
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub(crate) trait Schedule {
@@ -153,8 +153,8 @@ impl Schedule for GpuPriority {
     }
 
     fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError> {
-        let jobs = JobSet::from_owned(jobs, &self.base_path)
-            .map_err(|e| error::StoreSet::from(e))?;
+        let jobs =
+            JobSet::from_owned(jobs, &self.base_path).map_err(|e| error::StoreSet::from(e))?;
 
         self.last_identifier += 1;
         let ident = JobIdentifier::new(self.last_identifier);
@@ -245,11 +245,10 @@ impl JobSet {
     fn add_errored_job(&mut self, job: storage::JobOpt, base_path: &Path) {
         self.currently_running_jobs -= 1;
 
-        match StoredJob::from_opt(job, base_path){
+        match StoredJob::from_opt(job, base_path) {
             Ok(job) => self.remaining_jobs.push(job),
-            Err(e) => error!("could not add job back to lazy storage: {}", e)
+            Err(e) => error!("could not add job back to lazy storage: {}", e),
         }
-
     }
 
     fn job_finished(&mut self) {
@@ -276,8 +275,17 @@ impl JobSet {
         }
     }
 
-    pub(crate) fn from_owned(owned: storage::OwnedJobSet, base_path: &Path) -> Result<Self, std::io::Error> {
-        let storage::OwnedJobSet { build, requirements, remaining_jobs, currently_running_jobs, batch_name} = owned;
+    pub(crate) fn from_owned(
+        owned: storage::OwnedJobSet,
+        base_path: &Path,
+    ) -> Result<Self, std::io::Error> {
+        let storage::OwnedJobSet {
+            build,
+            requirements,
+            remaining_jobs,
+            currently_running_jobs,
+            batch_name,
+        } = owned;
         let build = StoredJobInit::from_opt(build, base_path)?;
         let remaining_jobs = match remaining_jobs {
             config::JobOpts::Python(python_jobs) => {
@@ -287,7 +295,7 @@ impl JobSet {
                     out.push(stored_job);
                 }
                 out
-            },
+            }
             config::JobOpts::Singularity(python_jobs) => {
                 let mut out = vec![];
                 for job in python_jobs {
@@ -298,7 +306,13 @@ impl JobSet {
             }
         };
 
-        Ok(Self { build, requirements, remaining_jobs, currently_running_jobs, batch_name})
+        Ok(Self {
+            build,
+            requirements,
+            remaining_jobs,
+            currently_running_jobs,
+            batch_name,
+        })
     }
 }
 

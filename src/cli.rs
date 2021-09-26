@@ -50,7 +50,7 @@ pub struct Server {
     pub save_path: std::path::PathBuf,
 
     #[argh(option)]
-    /// all stored files sent to the server saved to 
+    /// all stored files sent to the server saved to
     pub temp_dir: std::path::PathBuf,
 
     #[argh(option, default = "SERVER_PORT", short = 'p')]

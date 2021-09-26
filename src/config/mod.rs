@@ -82,15 +82,15 @@ impl Jobs {
 
     pub(crate) fn capabilities(&self) -> &server::Requirements<server::JobRequiredCaps> {
         match &self {
-            Self::Python {meta , ..} => &meta.capabilities,
-            Self::Singularity {meta,  ..} => &meta.capabilities,
+            Self::Python { meta, .. } => &meta.capabilities,
+            Self::Singularity { meta, .. } => &meta.capabilities,
         }
     }
 
     pub fn batch_name(self) -> String {
         match self {
-            Self::Python {meta , ..} => meta.batch_name,
-            Self::Singularity {meta,  ..} => meta.batch_name,
+            Self::Python { meta, .. } => meta.batch_name,
+            Self::Singularity { meta, .. } => meta.batch_name,
         }
     }
 }

@@ -1,23 +1,26 @@
-use std::path::{PathBuf, Path};
 use crate::transport;
-use std::io;
 use std::convert::TryFrom;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use super::{JobRequiredCaps, Requirements};
 
+use crate::config;
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
-use crate::config;
 
 /// stores job data on disk
 #[derive(Debug)]
 pub(crate) enum StoredJob {
     Python(LazyPythonJob),
-    Singularity(LazySingularityJob)
+    Singularity(LazySingularityJob),
 }
 
 impl StoredJob {
-    pub(crate) fn from_python(x: transport::PythonJob, output_dir: &Path) -> Result<Self, io::Error> {
+    pub(crate) fn from_python(
+        x: transport::PythonJob,
+        output_dir: &Path,
+    ) -> Result<Self, io::Error> {
         let mut sha = sha1::Sha1::new();
         sha.update(&x.python_file);
         sha.update(&x.job_name.as_bytes());
@@ -27,7 +30,7 @@ impl StoredJob {
         }
 
         let hash = sha.digest().to_string();
-        
+
         // write the python setup file
 
         let python_setup_file_path = output_dir.join(&format!("{}_py_job.dist", hash));
@@ -42,14 +45,12 @@ impl StoredJob {
 
             std::fs::write(&path, file.file_bytes)?;
 
-            required_files.push(
-                LazyFile {
-                    file_name: file.file_name,
-                    path
-                }
-            );
+            required_files.push(LazyFile {
+                file_name: file.file_name,
+                path,
+            });
 
-            i +=1
+            i += 1
         }
 
         let job = LazyPythonJob {
@@ -61,8 +62,11 @@ impl StoredJob {
         Ok(Self::Python(job))
     }
 
-    pub(crate) fn from_singularity(x: transport::SingularityJob, output_dir: &Path) -> Result<Self, io::Error> {
-        // compute the hash 
+    pub(crate) fn from_singularity(
+        x: transport::SingularityJob,
+        output_dir: &Path,
+    ) -> Result<Self, io::Error> {
+        // compute the hash
         let mut sha = sha1::Sha1::new();
         sha.update(&x.job_name.as_bytes());
         for file in &x.job_files {
@@ -71,7 +75,7 @@ impl StoredJob {
         }
 
         let hash = sha.digest().to_string();
-        
+
         // write the required files
         let mut required_files = vec![];
 
@@ -81,14 +85,12 @@ impl StoredJob {
 
             std::fs::write(&path, file.file_bytes)?;
 
-            required_files.push(
-                LazyFile {
-                    file_name: file.file_name,
-                    path
-                }
-            );
+            required_files.push(LazyFile {
+                file_name: file.file_name,
+                path,
+            });
 
-            i +=1
+            i += 1
         }
 
         let job = LazySingularityJob {
@@ -140,7 +142,7 @@ impl JobOpt {
 pub(crate) struct LazyPythonJob {
     job_name: String,
     python_setup_file_path: PathBuf,
-    required_files: Vec<LazyFile>
+    required_files: Vec<LazyFile>,
 }
 
 impl LazyPythonJob {
@@ -150,13 +152,16 @@ impl LazyPythonJob {
 
         for lazy_file in self.required_files {
             let bytes = std::fs::read(&lazy_file.path)?;
-            job_files.push(transport::File{ file_name: lazy_file.file_name, file_bytes: bytes });
+            job_files.push(transport::File {
+                file_name: lazy_file.file_name,
+                file_bytes: bytes,
+            });
         }
 
         Ok(transport::PythonJob {
             job_name: self.job_name,
             python_file,
-            job_files
+            job_files,
         })
     }
 }
@@ -164,16 +169,16 @@ impl LazyPythonJob {
 #[derive(Debug)]
 pub(crate) struct LazySingularityJob {
     job_name: String,
-    required_files: Vec<LazyFile>
+    required_files: Vec<LazyFile>,
 }
 
 impl LazySingularityJob {
     pub(crate) fn load_job(self) -> Result<transport::SingularityJob, io::Error> {
         let job_files = load_files(&self.required_files)?;
 
-        Ok(transport::SingularityJob{
+        Ok(transport::SingularityJob {
             job_name: self.job_name,
-            job_files
+            job_files,
         })
     }
 }
@@ -188,22 +193,25 @@ pub(crate) struct LazyFile {
 #[derive(Debug)]
 pub(crate) enum StoredJobInit {
     Python(LazyPythonInit),
-    Singularity(LazySingularityInit)
+    Singularity(LazySingularityInit),
 }
 
 impl StoredJobInit {
-    pub(crate) fn from_python(x: transport::PythonJobInit, output_dir: &Path) -> Result<Self, io::Error> {
+    pub(crate) fn from_python(
+        x: transport::PythonJobInit,
+        output_dir: &Path,
+    ) -> Result<Self, io::Error> {
         // compute the hash
         let mut sha = sha1::Sha1::new();
         sha.update(&x.python_setup_file);
         sha.update(&x.batch_name.as_bytes());
-        for file in &x.additional_build_files{
+        for file in &x.additional_build_files {
             sha.update(&file.file_name.as_bytes());
             sha.update(&file.file_bytes);
         }
 
         let hash = sha.digest().to_string();
-        
+
         // write the python setup file
 
         let python_setup_file_path = output_dir.join(&format!("{}_py_setup.dist", hash));
@@ -218,14 +226,12 @@ impl StoredJobInit {
 
             std::fs::write(&path, file.file_bytes)?;
 
-            required_files.push(
-                LazyFile {
-                    file_name: file.file_name,
-                    path
-                }
-            );
+            required_files.push(LazyFile {
+                file_name: file.file_name,
+                path,
+            });
 
-            i +=1
+            i += 1
         }
 
         let job = LazyPythonInit {
@@ -237,8 +243,11 @@ impl StoredJobInit {
         Ok(Self::Python(job))
     }
 
-    pub(crate) fn from_singularity(x: transport::SingularityJobInit, output_dir: &Path) -> Result<Self, io::Error> {
-        // compute the hash 
+    pub(crate) fn from_singularity(
+        x: transport::SingularityJobInit,
+        output_dir: &Path,
+    ) -> Result<Self, io::Error> {
+        // compute the hash
         let mut sha = sha1::Sha1::new();
         sha.update(&x.batch_name.as_bytes());
         for file in &x.build_files {
@@ -249,9 +258,9 @@ impl StoredJobInit {
         let hash = sha.digest().to_string();
 
         // write a sif file
-        let sif_path= output_dir.join(&format!("{}_setup.distribute", hash));
+        let sif_path = output_dir.join(&format!("{}_setup.distribute", hash));
         std::fs::write(&sif_path, &x.sif_bytes)?;
-        
+
         // write the required files
         let mut required_files = vec![];
 
@@ -261,14 +270,12 @@ impl StoredJobInit {
 
             std::fs::write(&path, file.file_bytes)?;
 
-            required_files.push(
-                LazyFile {
-                    file_name: file.file_name,
-                    path
-                }
-            );
+            required_files.push(LazyFile {
+                file_name: file.file_name,
+                path,
+            });
 
-            i +=1
+            i += 1
         }
 
         let job = LazySingularityInit {
@@ -299,12 +306,11 @@ impl StoredJobInit {
 pub(crate) struct LazyPythonInit {
     batch_name: String,
     python_setup_file_path: PathBuf,
-    required_files: Vec<LazyFile>
+    required_files: Vec<LazyFile>,
 }
 
 impl LazyPythonInit {
-    fn load_build(&self) -> Result< transport::PythonJobInit, io::Error> {
-
+    fn load_build(&self) -> Result<transport::PythonJobInit, io::Error> {
         let python_setup_file = std::fs::read(&self.python_setup_file_path)?;
 
         let additional_build_files = load_files(&self.required_files)?;
@@ -312,23 +318,22 @@ impl LazyPythonInit {
         let out = transport::PythonJobInit {
             batch_name: self.batch_name.clone(),
             python_setup_file,
-            additional_build_files
+            additional_build_files,
         };
 
         Ok(out)
     }
-}        
+}
 
 #[derive(Debug)]
 pub(crate) struct LazySingularityInit {
     batch_name: String,
     sif_path: PathBuf,
-    required_files: Vec<LazyFile>
+    required_files: Vec<LazyFile>,
 }
 
 impl LazySingularityInit {
-    fn load_build(&self) -> Result< transport::SingularityJobInit, io::Error> {
-
+    fn load_build(&self) -> Result<transport::SingularityJobInit, io::Error> {
         let sif_bytes = std::fs::read(&self.sif_path)?;
 
         let build_files = load_files(&self.required_files)?;
@@ -336,18 +341,21 @@ impl LazySingularityInit {
         let out = transport::SingularityJobInit {
             batch_name: self.batch_name.clone(),
             sif_bytes,
-            build_files
+            build_files,
         };
         Ok(out)
     }
-}        
+}
 
 fn load_files(files: &[LazyFile]) -> Result<Vec<transport::File>, io::Error> {
     let mut job_files = vec![];
 
     for lazy_file in files {
         let bytes = std::fs::read(&lazy_file.path)?;
-        job_files.push(transport::File{ file_name: lazy_file.file_name.clone(), file_bytes: bytes });
+        job_files.push(transport::File {
+            file_name: lazy_file.file_name.clone(),
+            file_bytes: bytes,
+        });
     }
 
     Ok(job_files)

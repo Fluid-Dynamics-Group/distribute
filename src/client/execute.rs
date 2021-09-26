@@ -152,7 +152,6 @@ async fn run_python_job(
             path: file_path.clone(),
         })?;
 
-
     debug!("created run file");
 
     file.write_all(&job.python_file)
@@ -165,8 +164,9 @@ async fn run_python_job(
     debug!("wrote bytes to run file");
 
     // reset the input files directory
-    utils::clear_input_files(base_path).await
-        .map_err(|e| error::CreateDirError::new( e, base_path.to_owned()))
+    utils::clear_input_files(base_path)
+        .await
+        .map_err(|e| error::CreateDirError::new(e, base_path.to_owned()))
         .map_err(|e| error::RunJobError::CreateDir(e));
 
     // write all of _our_ job files to the output directory
@@ -246,15 +246,15 @@ async fn initialize_python_job(
         output_file_path,
         &init.batch_name,
         true,
-        cancel
-    ).await
-
+        cancel,
+    )
+    .await
 }
 
 async fn initialize_singularity_job(
     init: transport::SingularityJobInit,
     base_path: &Path,
-    cancel: &mut broadcast::Receiver<()>
+    cancel: &mut broadcast::Receiver<()>,
 ) -> Result<Option<()>, Error> {
     // write the .sif file to the root
     write_init_file(base_path, "singularity.sif", &init.sif_bytes).await?;
@@ -280,8 +280,9 @@ async fn initialize_singularity_job(
         output_file_path,
         &init.batch_name,
         true,
-        cancel
-    ).await
+        cancel,
+    )
+    .await
 }
 
 /// execute a job after the build file has already been built
@@ -295,8 +296,9 @@ async fn run_singularity_job(
     info!("running singularity job");
 
     // reset the input files directory
-    utils::clear_input_files(base_path).await
-        .map_err(|e| error::CreateDirError::new( e, base_path.to_owned()))
+    utils::clear_input_files(base_path)
+        .await
+        .map_err(|e| error::CreateDirError::new(e, base_path.to_owned()))
         .map_err(|e| error::RunJobError::CreateDir(e))?;
 
     // copy all the files for this job to the directory
@@ -306,7 +308,11 @@ async fn run_singularity_job(
     let original_dir = enter_output_dir(base_path);
 
     let command = tokio::process::Command::new("singularity")
-        .args(&["run", "singularity.sif", &num_cpus::get_physical().to_string()])
+        .args(&[
+            "run",
+            "singularity.sif",
+            &num_cpus::get_physical().to_string(),
+        ])
         .output();
 
     let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
