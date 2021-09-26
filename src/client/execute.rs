@@ -28,24 +28,24 @@ pub(super) async fn general_request(
                 transport::StatusResponse::new(transport::Version::current_version(), true);
             PrerequisiteOperations::None(transport::ClientResponse::StatusCheck(response))
         }
-        transport::RequestFromServer::AssignJobInit(init) => {
-            info!("running init job request");
+        transport::RequestFromServer::InitPytonJob(init) => {
+            info!("running init python job request");
 
             utils::clean_output_dir(base_path)
                 .await
                 .map_err(|e| error::RemovePreviousDir::new(e, base_path.to_owned()))
                 .map_err(error::InitJobError::from)?;
 
-            initialize_job(init, base_path, cancel).await?;
+            initialize_python_job(init, base_path, cancel).await?;
 
             PrerequisiteOperations::None(transport::ClientResponse::RequestNewJob(
                 transport::NewJobRequest,
             ))
         }
-        transport::RequestFromServer::AssignJob(job) => {
-            info!("running job request");
+        transport::RequestFromServer::RunPythonJob(job) => {
+            info!("running python job");
 
-            if let Some(_) = run_job(job, base_path, cancel).await? {
+            if let Some(_) = run_python_job(job, base_path, cancel).await? {
                 let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
                 let paths = walkdir::WalkDir::new(base_path.join("distribute_save"))
                     .into_iter()
@@ -60,6 +60,20 @@ pub(super) async fn general_request(
                 // we cancelled this job early - dont send any files
                 PrerequisiteOperations::DoNothing
             }
+        }
+        transport::RequestFromServer::InitSingularityJob(init_job) => {
+            info!("initializing a singularity job");
+
+            utils::clean_output_dir(base_path)
+                .await
+                .map_err(|e| error::RemovePreviousDir::new(e, base_path.to_owned()))
+                .map_err(error::InitJobError::from)?;
+
+            initialize_singularity_job(init_job, base_path, cancel).await?;
+
+            PrerequisiteOperations::None(transport::ClientResponse::RequestNewJob(
+                transport::NewJobRequest,
+            ))
         }
         transport::RequestFromServer::FileReceived => {
             warn!("got a file recieved message from the server but we didnt send any files");
@@ -104,11 +118,11 @@ impl FileMetadata {
 /// execute a job after the build file has already been built
 ///
 /// returns None if the job was cancelled
-async fn run_job(
-    job: transport::Job,
+async fn run_python_job(
+    job: transport::PythonJob,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
-) -> Result<Option<transport::FinishedJob>, Error> {
+) -> Result<Option<()>, Error> {
     info!("running general job");
 
     let file_path = base_path.join("run.py");
@@ -119,6 +133,7 @@ async fn run_job(
             path: file_path.clone(),
         })?;
 
+
     debug!("created run file");
 
     file.write_all(&job.python_file)
@@ -128,6 +143,16 @@ async fn run_job(
             path: file_path.clone(),
         })?;
 
+    debug!("wrote bytes to run file");
+
+    // reset the input files directory
+    utils::clear_input_files(base_path).await
+        .map_err(|e| error::CreateDirError::new( e, base_path.to_owned()))
+        .map_err(|e| error::RunJobError::CreateDir(e));
+
+    // write all of _our_ job files to the output directory
+    write_all_init_files(&base_path.join("input"), &job.job_files).await?;
+
     debug!("wrote all job file bytes to file - running job");
     let original_dir = enter_output_dir(base_path);
 
@@ -135,29 +160,17 @@ async fn run_job(
         .args(&["run.py", &num_cpus::get_physical().to_string()])
         .output();
 
-    tokio::select!(
-       output = command => {
-           // command has finished -> return to the original dir so we dont accidentally
-           // bubble the error up with `?` before we have fixed the directory
-           enter_output_dir(&original_dir);
+    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
 
-           let output = output
-               .map_err(|e| error::CommandExecutionError::from(e))
-               .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
-
-           debug!("job successfully finished - returning to main process");
-
-           // write the stdout and stderr to a file
-           let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
-           command_output_to_file(output, output_file_path).await;
-
-           Ok(Some(transport::FinishedJob))
-       }
-       _ = cancel.recv() => {
-           info!("run_job has been canceled for job name {}", job.job_name);
-           Ok(None)
-       }
+    command_with_cancellation(
+        &original_dir,
+        command,
+        output_file_path,
+        &job.job_name,
+        false,
+        cancel,
     )
+    .await
 }
 
 async fn write_init_file<T: AsRef<Path>>(
@@ -183,27 +196,15 @@ async fn write_init_file<T: AsRef<Path>>(
 /// run the build file for a job
 ///
 /// returns None if the process was cancelled
-async fn initialize_job(
-    init: transport::JobInit,
+async fn initialize_python_job(
+    init: transport::PythonJobInit,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
 ) -> Result<Option<()>, Error> {
     info!("running initialization for new job");
     write_init_file(base_path, "run.py", &init.python_setup_file).await?;
 
-    for additional_file in init.additional_build_files {
-        debug!(
-            "init file {} number of bytes written: {}",
-            additional_file.file_name,
-            additional_file.file_bytes.len()
-        );
-        write_init_file(
-            base_path,
-            additional_file.file_name,
-            &additional_file.file_bytes,
-        )
-        .await?;
-    }
+    write_all_init_files(base_path, &init.additional_build_files).await?;
 
     debug!("initialized all init files");
 
@@ -215,36 +216,107 @@ async fn initialize_job(
         .args(&["run.py"])
         .output();
 
-    tokio::select!(
-        // this is the path for running the command and writing stuff to the files
-        // etc
-        output = command => {
-            // return to original directory
-            enter_output_dir(&original_dir);
-            debug!("current file path is {:?}", std::env::current_dir());
+    let output_file_path = base_path.join(format!(
+        "distribute_save/{}_init_output.txt",
+        init.batch_name
+    ));
 
-            let output = output
-                .map_err(|e| error::CommandExecutionError::from(e))
-                .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
+    command_with_cancellation(
+        &original_dir,
+        command,
+        output_file_path,
+        &init.batch_name,
+        true,
+        cancel
+    ).await
 
-            // write stdout / stderr to file
-            let output_file_path = base_path.join(format!(
-                "distribute_save/{}_init_output.txt",
-                init.batch_name
-            ));
+}
 
-            command_output_to_file(output, output_file_path).await;
+async fn initialize_singularity_job(
+    init: transport::SingularityJobInit,
+    base_path: &Path,
+    cancel: &mut broadcast::Receiver<()>
+) -> Result<Option<()>, Error> {
+    // write the .sif file to the root
+    write_init_file(base_path, "singularity.sif", &init.sif_bytes).await?;
+    // write any included files for the initialization to the `initial_files` directory
+    // and they will be copied over to `input` at the start of each job run
+    write_all_init_files(&base_path.join("initial_files"), &init.build_files).await?;
 
-            debug!("finished init command, returning to main process");
+    let original_dir = enter_output_dir(base_path);
 
-            Ok(Some(()))
-        }
-        // this branch allows for an early exit if a broadcast is received
-        _ = cancel.recv() => {
-           info!("initialize_job has been canceled for job name {}", init.batch_name);
-           Ok(None)
-        }
+    // TODO: figure out what the singularity command here is
+    let command = tokio::process::Command::new("python3")
+        .args(&["run.py"])
+        .output();
+
+    let output_file_path = base_path.join(format!(
+        "distribute_save/{}_init_output.txt",
+        init.batch_name
+    ));
+
+    command_with_cancellation(
+        &original_dir,
+        command,
+        output_file_path,
+        &init.batch_name,
+        true,
+        cancel
+    ).await
+}
+
+/// execute a job after the build file has already been built
+///
+/// returns None if the job was cancelled
+async fn run_singularity_job(
+    job: transport::PythonJob,
+    base_path: &Path,
+    cancel: &mut broadcast::Receiver<()>,
+) -> Result<Option<()>, Error> {
+    info!("running singularity job");
+
+    // reset the input files directory
+    utils::clear_input_files(base_path).await
+        .map_err(|e| error::CreateDirError::new( e, base_path.to_owned()))
+        .map_err(|e| error::RunJobError::CreateDir(e));
+
+    // copy all the files for this job to the directory
+    write_all_init_files(&base_path.join("input"), &job.job_files).await?;
+
+    debug!("wrote all job file bytes to file - running job");
+    let original_dir = enter_output_dir(base_path);
+
+    let command = tokio::process::Command::new("singularity")
+        .args(&["run", "singularity.sif", &num_cpus::get_physical().to_string()])
+        .output();
+
+    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+
+    command_with_cancellation(
+        &original_dir,
+        command,
+        output_file_path,
+        &job.job_name,
+        false,
+        cancel,
     )
+    .await
+}
+async fn write_all_init_files(base_path: &Path, files: &[transport::File]) -> Result<(), Error> {
+    for additional_file in files {
+        debug!(
+            "init file {} number of bytes written: {}",
+            additional_file.file_name,
+            additional_file.file_bytes.len()
+        );
+        write_init_file(
+            base_path,
+            &additional_file.file_name,
+            &additional_file.file_bytes,
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 fn enter_output_dir(base_path: &Path) -> PathBuf {
@@ -253,6 +325,45 @@ fn enter_output_dir(base_path: &Path) -> PathBuf {
     std::env::set_current_dir(base_path).unwrap();
 
     current_path
+}
+
+/// run a future producing a command till completion while also
+/// checking for a cancellation signal from the host
+async fn command_with_cancellation(
+    original_dir: &Path,
+    command: impl std::future::Future<Output = Result<std::process::Output, std::io::Error>>,
+    output_file_path: PathBuf,
+    name: &str,
+    is_job_init: bool,
+    cancel: &mut broadcast::Receiver<()>,
+) -> Result<Option<()>, Error> {
+    tokio::select!(
+       output = command => {
+           // command has finished -> return to the original dir so we dont accidentally
+           // bubble the error up with `?` before we have fixed the directory
+           enter_output_dir(&original_dir);
+            debug!("current file path is {:?}", std::env::current_dir());
+
+           let output = output
+               .map_err(|e| error::CommandExecutionError::from(e))
+               .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
+
+           debug!("job successfully finished - returning to main process");
+
+           // write the stdout and stderr to a file
+           command_output_to_file(output, output_file_path).await;
+
+           Ok(Some(()))
+       }
+       _ = cancel.recv() => {
+           if is_job_init {
+               info!("initialize_job has been canceled for batch name {}", name);
+           } else {
+               info!("run_job has been canceled for job name {}", name);
+           }
+           Ok(None)
+       }
+    )
 }
 
 pub(super) enum PrerequisiteOperations {

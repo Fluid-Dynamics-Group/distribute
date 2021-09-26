@@ -18,8 +18,10 @@ use bincode::config::Options;
 )]
 pub enum RequestFromServer {
     StatusCheck,
-    AssignJobInit(JobInit),
-    AssignJob(Job),
+    InitPytonJob(PythonJobInit),
+    RunPythonJob(PythonJob),
+    InitSingularityJob(SingularityJobInit),
+    RunSingularityJob(SingularityJob),
     FileReceived,
     KillJob,
 }
@@ -47,22 +49,36 @@ pub(crate) enum ServerResponseToUser {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct JobInit {
+pub struct PythonJobInit {
     pub batch_name: String,
     pub python_setup_file: Vec<u8>,
-    pub additional_build_files: Vec<BuildFile>,
+    pub additional_build_files: Vec<File>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct BuildFile {
+pub struct File {
     pub file_name: String,
     pub file_bytes: Vec<u8>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct Job {
+pub struct PythonJob {
     pub python_file: Vec<u8>,
     pub job_name: String,
+    pub job_files: Vec<File>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct SingularityJobInit {
+    pub batch_name: String,
+    pub sif_bytes: Vec<u8>,
+    pub build_files: Vec<File>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct SingularityJob {
+    job_name: String,
+    job_files: Vec<File>,
 }
 
 #[derive(Deserialize, Serialize, Display, Debug)]

@@ -91,6 +91,8 @@ pub enum RunJobError {
         path: std::path::PathBuf,
         full_error: std::io::Error,
     },
+    #[error("{0}")]
+    CreateDir(CreateDirError),
     #[error("could not open file `{path}`, full error: {full_error}")]
     OpenFile {
         path: std::path::PathBuf,

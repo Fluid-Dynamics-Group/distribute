@@ -76,7 +76,11 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
     Ok(())
 }
 
-async fn handle_connection_local(mut client_conn: transport::ClientConnection, ready_for_job: Arc<AtomicBool>, tx_cancel: &mut broadcast::Sender<()>) {
+async fn handle_connection_local(
+    mut client_conn: transport::ClientConnection,
+    ready_for_job: Arc<AtomicBool>,
+    tx_cancel: &mut broadcast::Sender<()>,
+) {
     match client_conn.receive_data().await {
         Ok(request) => {
             match request {
@@ -97,8 +101,10 @@ async fn handle_connection_local(mut client_conn: transport::ClientConnection, r
                     kill_job(tx_cancel);
                     // the server does not expect a reply in this situation
                 }
-                transport::RequestFromServer::AssignJobInit(_)
-                | transport::RequestFromServer::AssignJob(_)
+                transport::RequestFromServer::InitPytonJob(_)
+                | transport::RequestFromServer::RunPythonJob(_)
+                | transport::RequestFromServer::InitSingularityJob(_)
+                | transport::RequestFromServer::RunSingularityJob(_)
                 | transport::RequestFromServer::FileReceived => {
                     // TODO: log that we have gotten a real job request even though we are marked as
                     // not-ready
