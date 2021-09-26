@@ -22,3 +22,4 @@ nix = "0.22.0"
 num_cpus = "1.13.0"
 matrix-notify = { path = "../matrix-notify" }
 tokio-stream = { version = "0.1.7", features = ["fs"] }
+sha1 = "0.6.0"

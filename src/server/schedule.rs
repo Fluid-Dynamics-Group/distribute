@@ -1,4 +1,5 @@
 use super::job_pool::{JobOrInit, JobResponse};
+use super::storage::StoredJob;
 use crate::transport;
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};

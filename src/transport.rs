@@ -77,8 +77,8 @@ pub struct SingularityJobInit {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct SingularityJob {
-    job_name: String,
-    job_files: Vec<File>,
+    pub job_name: String,
+    pub job_files: Vec<File>,
 }
 
 #[derive(Deserialize, Serialize, Display, Debug)]

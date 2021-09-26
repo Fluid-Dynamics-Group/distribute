@@ -1,6 +1,7 @@
 mod job_pool;
 mod schedule;
 mod user_conn;
+mod storage;
 
 pub(crate) use job_pool::JobResponse;
 use job_pool::{JobPool, JobRequest, NodeConnection};
