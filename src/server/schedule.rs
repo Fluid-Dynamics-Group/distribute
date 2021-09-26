@@ -1,11 +1,15 @@
 use super::job_pool::{JobOrInit, JobResponse};
-use super::storage::StoredJob;
+use super::storage::{StoredJob, StoredJobInit, self};
+
+use crate::config;
+use crate::error::{self, ScheduleError};
 use crate::transport;
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::path::{PathBuf, Path};
 use std::sync::Arc;
 
 pub(crate) trait Schedule {
@@ -15,9 +19,9 @@ pub(crate) trait Schedule {
         node_caps: Arc<Requirements<NodeProvidedCaps>>,
     ) -> JobResponse;
 
-    fn insert_new_batch(&mut self, jobs: JobSet);
+    fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError>;
 
-    fn add_job_back(&mut self, job: transport::Job, identifier: JobIdentifier);
+    fn add_job_back(&mut self, job: storage::JobOpt, identifier: JobIdentifier);
 
     fn finish_job(&mut self, job: JobIdentifier);
 
@@ -45,10 +49,11 @@ impl JobIdentifier {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Constructor)]
 pub(crate) struct GpuPriority {
     map: BTreeMap<JobIdentifier, JobSet>,
     last_identifier: u64,
+    base_path: PathBuf,
 }
 
 impl GpuPriority {
@@ -143,20 +148,25 @@ impl Schedule for GpuPriority {
         }
     }
 
-    fn insert_new_batch(&mut self, jobs: JobSet) {
+    fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError> {
+        let jobs = JobSet::from_owned(jobs, &self.base_path)
+            .map_err(|e| error::StoreSet::from(e))?;
+
         self.last_identifier += 1;
         let ident = JobIdentifier::new(self.last_identifier);
         self.map.insert(ident, jobs);
+
+        Ok(())
     }
 
-    fn add_job_back(&mut self, job: transport::Job, identifier: JobIdentifier) {
+    fn add_job_back(&mut self, job: storage::JobOpt, identifier: JobIdentifier) {
         if let Some(job_set) = self.map.get_mut(&identifier) {
-            job_set.add_errored_job(job)
+            job_set.add_errored_job(job, &self.base_path)
         } else {
             error!(
                 "job set for job {} was removed from the tree when there was still 
                 a job running - this job can no longer be run. This should not happen",
-                job.job_name
+                job.name()
             );
         }
     }
@@ -201,11 +211,11 @@ impl Schedule for GpuPriority {
     }
 }
 
-#[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
+#[derive(Constructor, Debug)]
 pub(crate) struct JobSet {
-    build: transport::JobInit,
+    build: StoredJobInit,
     requirements: Requirements<JobRequiredCaps>,
-    remaining_jobs: Vec<transport::Job>,
+    remaining_jobs: Vec<StoredJob>,
     currently_running_jobs: usize,
     batch_name: String,
 }
@@ -214,19 +224,28 @@ impl JobSet {
     fn has_remaining_jobs(&self) -> bool {
         self.remaining_jobs.len() > 0
     }
-    fn next_job(&mut self) -> Option<transport::Job> {
-        self.remaining_jobs.pop().map(|x| {
+
+    fn next_job(&mut self) -> Option<storage::JobOpt> {
+        if let Some(job) = self.remaining_jobs.pop() {
             self.currently_running_jobs += 1;
-            x
-        })
-    }
-    fn init_file(&mut self) -> transport::JobInit {
-        self.build.clone()
+            job.load_job().ok()
+        } else {
+            None
+        }
     }
 
-    fn add_errored_job(&mut self, job: transport::Job) {
+    fn init_file(&mut self) -> Result<config::BuildOpts, std::io::Error> {
+        self.build.load_build()
+    }
+
+    fn add_errored_job(&mut self, job: storage::JobOpt, base_path: &Path) {
         self.currently_running_jobs -= 1;
-        self.remaining_jobs.push(job)
+
+        match StoredJob::from_opt(job, base_path){
+            Ok(job) => self.remaining_jobs.push(job),
+            Err(e) => error!("could not add job back to lazy storage: {}", e)
+        }
+
     }
 
     fn job_finished(&mut self) {
@@ -247,10 +266,35 @@ impl JobSet {
             jobs_left: self
                 .remaining_jobs
                 .iter()
-                .map(|x| x.job_name.to_string())
+                .map(|x| x.job_name().to_string())
                 .collect(),
             running_jobs: self.currently_running_jobs,
         }
+    }
+
+    pub(crate) fn from_owned(owned: storage::OwnedJobSet, base_path: &Path) -> Result<Self, std::io::Error> {
+        let storage::OwnedJobSet { build, requirements, remaining_jobs, currently_running_jobs, batch_name} = owned;
+        let build = StoredJobInit::from_opt(build, base_path)?;
+        let remaining_jobs = match remaining_jobs {
+            config::JobOpts::Python(python_jobs) => {
+                let mut out = vec![];
+                for job in python_jobs {
+                    let stored_job = StoredJob::from_python(job, base_path)?;
+                    out.push(stored_job);
+                }
+                out
+            },
+            config::JobOpts::Singularity(python_jobs) => {
+                let mut out = vec![];
+                for job in python_jobs {
+                    let stored_job = StoredJob::from_singularity(job, base_path)?;
+                    out.push(stored_job);
+                }
+                out
+            }
+        };
+
+        Ok(Self { build, requirements, remaining_jobs, currently_running_jobs, batch_name})
     }
 }
 

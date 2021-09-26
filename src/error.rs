@@ -269,3 +269,15 @@ pub(crate) enum AddError {
     #[error("Could not add the job set on the server side. This is generally a really really bad error. You should tell brooks about this.")]
     FailedToAdd,
 }
+
+#[derive(Debug, From, thiserror::Error)]
+pub(crate) enum ScheduleError {
+    #[error("{0}")]
+    StoreSet(StoreSet),
+}
+
+#[derive(Debug, Display, From, Constructor, thiserror::Error)]
+#[display(fmt = "Failed to save job set to memory: {}", error)]
+pub struct StoreSet {
+    error: std::io::Error,
+}

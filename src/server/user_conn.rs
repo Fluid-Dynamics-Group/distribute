@@ -84,7 +84,7 @@ async fn single_user_request(
 
 async fn add_job_set(
     tx: &mpsc::Sender<JobRequest>,
-    set: schedule::JobSet,
+    set: super::OwnedJobSet,
     conn: &mut transport::ServerConnectionToUser,
 ) {
     // the output of sending the message to the server

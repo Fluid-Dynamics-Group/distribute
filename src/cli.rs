@@ -49,6 +49,10 @@ pub struct Server {
     /// directory where all files sent by nodes are saved
     pub save_path: std::path::PathBuf,
 
+    #[argh(option)]
+    /// all stored files sent to the server saved to 
+    pub temp_dir: std::path::PathBuf,
+
     #[argh(option, default = "SERVER_PORT", short = 'p')]
     /// the port to bind the server to (default 8952)
     pub port: u16,

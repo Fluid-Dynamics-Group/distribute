@@ -9,6 +9,8 @@ pub(crate) use schedule::{
     JobRequiredCaps, JobSet, NodeProvidedCaps, RemainingJobs, Requirement, Requirements, Schedule,
 };
 
+pub(crate) use storage::OwnedJobSet;
+
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -65,7 +67,7 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
 
     // spawn off a job pool that we can query from different tasks
 
-    let scheduler = schedule::GpuPriority::default();
+    let scheduler = schedule::GpuPriority::new(Default::default(), Default::default(), server.temp_dir);
 
     info!("starting job pool task");
     let (tx_cancel, _) = broadcast::channel(20);

@@ -28,7 +28,7 @@ pub enum RequestFromServer {
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
 pub(crate) enum UserMessageToServer {
-    AddJobSet(server::JobSet),
+    AddJobSet(server::OwnedJobSet),
     QueryCapabilities,
     QueryJobNames,
     KillJob(String),

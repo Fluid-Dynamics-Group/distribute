@@ -1,5 +1,6 @@
 use super::ok_if_exists;
 use super::schedule::{self, JobIdentifier, NodeProvidedCaps, Requirements, Schedule};
+use super::storage;
 use crate::{cli, config, error, error::Error, status, transport};
 
 use std::net::SocketAddr;
@@ -54,7 +55,7 @@ where
                     }
                     // the server got a request to add a new job set
                     JobRequest::AddJobSet(set) => {
-                        info!("added new job set `{}` to scheduler", set.name());
+                        info!("added new job set `{}` to scheduler", set.batch_name);
                         self.remaining_jobs.insert_new_batch(set);
                         continue;
                     }
@@ -120,7 +121,7 @@ pub(crate) enum JobResponse {
 pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
     DeadNode(PendingJob),
-    AddJobSet(schedule::JobSet),
+    AddJobSet(storage::OwnedJobSet),
     QueryRemainingJobs(RemainingJobsQuery),
     CancelBatchByName(CancelBatchQuery),
 }

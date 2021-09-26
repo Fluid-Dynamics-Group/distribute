@@ -6,7 +6,7 @@ use crate::error::{self, ConfigErrorReason, ConfigurationError};
 use crate::{server, transport};
 use derive_more::Display;
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -95,13 +95,13 @@ impl Jobs {
     }
 }
 
-#[derive(derive_more::From)]
+#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug)]
 pub enum JobOpts {
     Python(Vec<transport::PythonJob>),
     Singularity(Vec<transport::SingularityJob>),
 }
 
-#[derive(derive_more::From)]
+#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug)]
 pub enum BuildOpts {
     Python(transport::PythonJobInit),
     Singularity(transport::SingularityJobInit),

@@ -72,9 +72,9 @@ pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
     // construct the job set and send it off
     //
 
-    let job_set = server::JobSet::new(
+    let job_set = server::OwnedJobSet::new(
         loaded_build,
-         jobs.capabilities().clone(),
+        jobs.capabilities().clone(),
         loaded_jobs,
         0,
         jobs.batch_name(),
