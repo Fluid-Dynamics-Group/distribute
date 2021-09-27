@@ -396,6 +396,7 @@ impl From<&str> for Requirement {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::server::storage::OwnedJobSet;
 
     fn check_init(current_ident: &mut JobIdentifier, expected_ident: u64, response: JobResponse) {
         match response {
@@ -410,13 +411,13 @@ mod tests {
         }
     }
 
-    fn check_job(response: JobResponse, expected_job: transport::Job) {
+    fn check_job(response: JobResponse, expected_job: transport::PythonJob) {
         match response {
             JobResponse::SetupOrRun {
                 task,
                 identifier: _,
             } => {
-                assert_eq!(task.unwrap_job(), expected_job);
+                assert_eq!(task.unwrap_job(), storage::JobOpt::from(expected_job));
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),
         }
@@ -429,50 +430,55 @@ mod tests {
         }
     }
 
-    fn init() -> (JobSet, JobSet, GpuPriority) {
-        let scheduler = GpuPriority::default();
+    fn init(path: &Path) -> (OwnedJobSet, OwnedJobSet, GpuPriority) {
+        let scheduler = GpuPriority::new(Default::default(), Default::default(), path.to_owned());
 
-        let jgpu = transport::Job {
+        let jgpu = transport::PythonJob {
             python_file: vec![],
             job_name: "jgpu".into(),
+            job_files: vec![]
         };
-        let j1 = transport::Job {
+        let j1 = transport::PythonJob {
             python_file: vec![],
             job_name: "j1".into(),
+            job_files: vec![]
         };
-        let j2 = transport::Job {
+        let j2 = transport::PythonJob {
             python_file: vec![],
             job_name: "j2".into(),
+            job_files: vec![]
         };
 
-        let cpu_set = JobSet {
+        let cpu_set = OwnedJobSet {
             batch_name: "cpu_jobs".to_string(),
-            build: transport::JobInit {
+            build: transport::PythonJobInit {
                 batch_name: "cpu_jobs".to_string(),
                 python_setup_file: vec![0],
                 additional_build_files: vec![],
-            },
-            remaining_jobs: vec![j1.clone(), j2.clone()],
+            }.into(),
+            remaining_jobs: vec![j1.clone(), j2.clone()].into(),
             requirements: Requirements {
                 reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
                 marker: std::marker::PhantomData,
             },
             currently_running_jobs: 0,
+            matrix_user: None
         };
 
-        let gpu_set = JobSet {
+        let gpu_set = OwnedJobSet {
             batch_name: "gpu_jobs".to_string(),
-            build: transport::JobInit {
+            build: transport::PythonJobInit {
                 batch_name: "gpu_jobs".to_string(),
                 python_setup_file: vec![1],
                 additional_build_files: vec![],
-            },
-            remaining_jobs: vec![jgpu.clone()],
+            }.into(),
+            remaining_jobs: vec![jgpu.clone()].into(),
             requirements: Requirements {
                 reqs: vec!["gpu".into()].into_iter().collect(),
                 marker: std::marker::PhantomData,
             },
             currently_running_jobs: 0,
+            matrix_user: None
         };
 
         (cpu_set, gpu_set, scheduler)
@@ -481,14 +487,17 @@ mod tests {
     #[test]
     /// put both gpu and cpu sets in the queue and expect the gpu sets to be received first
     fn gpu_first() {
-        let (cpu_set, gpu_set, mut scheduler) = init();
+        let path = Path::new("gpu_first");
+        std::fs::create_dir_all(path).unwrap();
 
-        let jgpu = gpu_set.remaining_jobs[0].clone();
-        let j1 = cpu_set.remaining_jobs[0].clone();
-        let j2 = cpu_set.remaining_jobs[1].clone();
+        let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        scheduler.insert_new_batch(cpu_set);
-        scheduler.insert_new_batch(gpu_set);
+        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+
+        scheduler.insert_new_batch(cpu_set).unwrap();
+        scheduler.insert_new_batch(gpu_set).unwrap();
 
         let caps = Arc::new(Requirements {
             reqs: vec!["fortran".into(), "fftw".into(), "gpu".into()]
@@ -520,19 +529,25 @@ mod tests {
 
         // now there are no more jobs left
         let job = scheduler.fetch_new_task(current_ident, caps.clone());
-        check_empty(job)
+        check_empty(job);
+
+
+        std::fs::remove_dir_all(path).ok();
     }
 
     #[test]
     /// start with only cpu tasks, mid way through add gpu tasks and expect a switch
     fn gpu_added_later() {
-        let (cpu_set, gpu_set, mut scheduler) = init();
+        let path = Path::new("gpu_added_later");
+        std::fs::create_dir_all(path).unwrap();
 
-        let jgpu = gpu_set.remaining_jobs[0].clone();
-        let j1 = cpu_set.remaining_jobs[0].clone();
-        let j2 = cpu_set.remaining_jobs[1].clone();
+        let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        scheduler.insert_new_batch(cpu_set); // 1
+        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+
+        scheduler.insert_new_batch(cpu_set).unwrap(); // 1
 
         let caps = Arc::new(Requirements {
             reqs: vec!["fortran".into(), "fftw".into(), "gpu".into()]
@@ -550,7 +565,7 @@ mod tests {
         let job = scheduler.fetch_new_task(current_ident, caps.clone());
         check_job(job, j2);
 
-        scheduler.insert_new_batch(gpu_set); // 2
+        scheduler.insert_new_batch(gpu_set).unwrap(); // 2
 
         // now that there are gpu jobs available we expect to initialize
         let job = scheduler.fetch_new_task(current_ident, caps.clone());
@@ -570,22 +585,27 @@ mod tests {
 
         // now there are no more jobs left
         let job = scheduler.fetch_new_task(current_ident, caps.clone());
-        check_empty(job)
+        check_empty(job);
+
+        std::fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
     /// start with only cpu tasks, mid way through add gpu tasks and expect a switch
     fn different_caps() {
-        let (cpu_set, gpu_set, mut scheduler) = init();
+        let path = Path::new("different_caps");
+        std::fs::create_dir_all(path).unwrap();
 
-        let jgpu = gpu_set.remaining_jobs[0].clone();
-        let j1 = cpu_set.remaining_jobs[0].clone();
-        let j2 = cpu_set.remaining_jobs[1].clone();
+        let (cpu_set, gpu_set, mut scheduler) = init(path);
+
+        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
 
         let cpu_ident = 1;
         let gpu_ident = 2;
-        scheduler.insert_new_batch(cpu_set); // 1
-        scheduler.insert_new_batch(gpu_set); // 2
+        scheduler.insert_new_batch(cpu_set).unwrap(); // 1
+        scheduler.insert_new_batch(gpu_set).unwrap(); // 2
 
         let caps_gpu = Arc::new(Requirements {
             reqs: vec!["fortran".into(), "fftw".into(), "gpu".into()]
@@ -627,6 +647,8 @@ mod tests {
 
         // cpu task pulls and there is nothing left
         let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone());
-        check_empty(job)
+        check_empty(job);
+
+        std::fs::remove_dir_all(path).unwrap();
     }
 }

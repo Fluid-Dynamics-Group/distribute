@@ -123,7 +123,7 @@ impl StoredJob {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, From, Debug)]
 pub(crate) enum JobOpt {
     Singularity(transport::SingularityJob),
     Python(transport::PythonJob),
@@ -138,7 +138,7 @@ impl JobOpt {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct LazyPythonJob {
     job_name: String,
     python_setup_file_path: PathBuf,
@@ -159,7 +159,7 @@ impl LazyPythonJob {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct LazySingularityJob {
     job_name: String,
     required_files: Vec<LazyFile>,
@@ -176,7 +176,7 @@ impl LazySingularityJob {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct LazyFile {
     file_name: String,
     path: PathBuf,

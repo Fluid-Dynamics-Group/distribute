@@ -167,7 +167,7 @@ async fn run_python_job(
     utils::clear_input_files(base_path)
         .await
         .map_err(|e| error::CreateDirError::new(e, base_path.to_owned()))
-        .map_err(|e| error::RunJobError::CreateDir(e));
+        .map_err(|e| error::RunJobError::CreateDir(e))?;
 
     // write all of _our_ job files to the output directory
     write_all_init_files(&base_path.join("input"), &job.job_files).await?;

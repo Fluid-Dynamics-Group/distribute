@@ -371,9 +371,10 @@ mod tests {
             ClientConnection::new(client_listener.accept().await.unwrap().0);
 
         let file_bytes = (0..255).into_iter().collect::<Vec<u8>>();
-        let server_req = RequestFromServer::AssignJob(Job {
+        let server_req = RequestFromServer::RunPythonJob(PythonJob {
             python_file: file_bytes,
             job_name: "ensure_not_eof".into(),
+            job_files: vec![],
         });
 
         // serialize the data manually

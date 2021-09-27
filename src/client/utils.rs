@@ -30,7 +30,7 @@ pub(crate) async fn clear_input_files(base_path: &Path) -> Result<(), std::io::E
             if let Ok(file_type) = file.file_type().await {
                 // check that it is a file
                 if file_type.is_file() {
-                    tokio::fs::copy(file_source.join(file.path()), path.join(file.path())).await;
+                    tokio::fs::copy(file_source.join(file.path()), path.join(file.path())).await?;
                 } else {
                     continue;
                 }

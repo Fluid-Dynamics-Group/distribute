@@ -56,7 +56,11 @@ where
                     // the server got a request to add a new job set
                     JobRequest::AddJobSet(set) => {
                         info!("added new job set `{}` to scheduler", set.batch_name);
-                        self.remaining_jobs.insert_new_batch(set);
+                        if let Err(e) = self.remaining_jobs.insert_new_batch(set) {
+                            error!("failed to insert now job set: {}", e);
+                        }
+                        // TODO: add pipe back to the main process so that we can
+                        // alert the user if the job set was not added correctly
                         continue;
                     }
                     JobRequest::QueryRemainingJobs(responder) => {

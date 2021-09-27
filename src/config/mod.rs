@@ -4,7 +4,7 @@ mod singularity;
 
 use crate::error::{self, ConfigErrorReason, ConfigurationError};
 use crate::{server, transport};
-use derive_more::Display;
+use derive_more::{Display, Unwrap};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -34,6 +34,7 @@ impl Node {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
 pub enum Jobs {
     Python {
         meta: Meta,
@@ -56,12 +57,12 @@ pub struct Meta {
 impl Jobs {
     pub async fn load_jobs(&self) -> Result<JobOpts, error::LoadJobsError> {
         match &self {
-            Self::Python { meta, python } => {
+            Self::Python { meta: _, python } => {
                 let py_jobs = python.load_jobs().await?;
                 Ok(py_jobs.into())
             }
-            Self::Singularity { meta, singularity } => {
-                let sin_jobs = singularity.load_jobs(meta.batch_name.clone()).await?;
+            Self::Singularity { meta: _, singularity } => {
+                let sin_jobs = singularity.load_jobs().await?;
                 Ok(sin_jobs.into())
             }
         }
@@ -96,13 +97,13 @@ impl Jobs {
 
     pub fn matrix_user(&self) -> Option<matrix_notify::UserId> {
         match self {
-            Self::Python { meta, .. } => meta.matrix.clone() ,
+            Self::Python { meta, .. } => meta.matrix.clone(),
             Self::Singularity { meta, .. } => meta.matrix.clone(),
         }
     }
 }
 
-#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug)]
+#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, Unwrap)]
 pub enum JobOpts {
     Python(Vec<transport::PythonJob>),
     Singularity(Vec<transport::SingularityJob>),
@@ -131,7 +132,42 @@ fn serialize_nodes() {
 }
 
 #[test]
-fn serialize_jobs() {
-    let bytes = include_str!("../../static/example-jobs.yaml");
+fn serialize_jobs_python() {
+    let bytes = include_str!("../../static/example-jobs-python.yaml");
     let _out: Jobs = serde_yaml::from_str(bytes).unwrap();
+}
+
+#[test]
+fn serialize_jobs_singularity() {
+    let bytes = include_str!("../../static/example-jobs-singularity.yaml");
+    let _out: Jobs = serde_yaml::from_str(bytes).unwrap();
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[derive(Deserialize)]
+    struct PythonConfiguration {
+        meta:Meta,
+        python: python::Description
+    }
+
+    #[derive(Deserialize)]
+    struct SingularityConfiguration {
+        meta:Meta,
+        singularity: singularity::Description
+    }
+
+    #[test]
+    fn serialize_python() {
+        let bytes = include_str!("../../static/example-jobs-python.yaml");
+        let _out: PythonConfiguration= serde_yaml::from_str(bytes).unwrap();
+    }
+
+    #[test]
+    fn serialize_singularity() {
+        let bytes = include_str!("../../static/example-jobs-singularity.yaml");
+        let _out: SingularityConfiguration = serde_yaml::from_str(bytes).unwrap();
+    }
 }

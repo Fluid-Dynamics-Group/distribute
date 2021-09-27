@@ -16,7 +16,6 @@ pub struct Description {
 impl Description {
     pub(crate) async fn load_jobs(
         &self,
-        batch_name: String,
     ) -> Result<Vec<transport::SingularityJob>, error::LoadJobsError> {
         let mut out = Vec::with_capacity(self.jobs.len());
 
