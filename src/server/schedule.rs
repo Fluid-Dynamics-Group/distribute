@@ -1,4 +1,4 @@
-use super::job_pool::{JobOrInit, JobResponse};
+use super::job_pool::{JobOrInit, JobResponse, TaskInfo};
 use super::storage::{self, StoredJob, StoredJobInit};
 
 use crate::config;
@@ -74,10 +74,12 @@ impl GpuPriority {
             // TODO: fix this unwrap - its not that good but i dont have a better way to handle
             // it right now
             let init = job_set.init_file().unwrap();
-            JobResponse::SetupOrRun {
-                task: JobOrInit::JobInit(init),
-                identifier: *ident,
-            }
+            JobResponse::SetupOrRun(TaskInfo::new(
+                job_set.namespace.clone(),
+                job_set.batch_name.clone(),
+                *ident,
+                JobOrInit::JobInit(init)
+            ))
         } else {
             JobResponse::EmptyJobs
         }
@@ -94,10 +96,12 @@ impl GpuPriority {
                 // if it has nothing return None instead of JobResponse::EmptyJobs
                 if job_set.has_remaining_jobs() {
                     let job = job_set.next_job().unwrap();
-                    Some(JobResponse::SetupOrRun {
-                        task: JobOrInit::Job(job),
+                    Some(JobResponse::SetupOrRun(TaskInfo::new(
+                        job_set.namespace.clone(),
+                        job_set.batch_name.clone(),
                         identifier,
-                    })
+                        JobOrInit::Job(job),
+                    )))
                 } else {
                     None
                 }
@@ -128,18 +132,22 @@ impl Schedule for GpuPriority {
             // just send the next iteration of the job out
             if current_compiled_job == *gpu_ident {
                 let job = gpu_job_set.next_job().unwrap();
-                JobResponse::SetupOrRun {
-                    task: JobOrInit::Job(job),
-                    identifier: current_compiled_job,
-                }
+                JobResponse::SetupOrRun(TaskInfo::new(
+                    gpu_job_set.namespace.clone(),
+                    gpu_job_set.batch_name.clone(),
+                    current_compiled_job,
+                    JobOrInit::Job(job),
+                    ))
             } else {
                 // TODO: fix this unwrap - there has to be a better way
                 // to do this but i have not worked around it right now
                 let init = gpu_job_set.init_file().unwrap();
-                JobResponse::SetupOrRun {
-                    task: JobOrInit::JobInit(init),
-                    identifier: *gpu_ident,
-                }
+                JobResponse::SetupOrRun(TaskInfo::new(
+                    gpu_job_set.namespace.clone(),
+                    gpu_job_set.batch_name.clone(),
+                    *gpu_ident,
+                    JobOrInit::JobInit(init),
+                ))
             }
         }
         // we dont have any gpu jobs to run, just pull the first item from the map that has some
@@ -249,6 +257,7 @@ pub(crate) struct JobSet {
     remaining_jobs: Vec<StoredJob>,
     currently_running_jobs: usize,
     batch_name: String,
+    namespace: String,
     matrix_user: Option<matrix_notify::UserId>,
 }
 
@@ -260,7 +269,7 @@ impl JobSet {
     fn next_job(&mut self) -> Option<storage::JobOpt> {
         if let Some(job) = self.remaining_jobs.pop() {
             self.currently_running_jobs += 1;
-            job.load_job(&self.batch_name).ok()
+            job.load_job().ok()
         } else {
             None
         }
@@ -314,6 +323,7 @@ impl JobSet {
             currently_running_jobs,
             batch_name,
             matrix_user,
+            namespace
         } = owned;
         let build = StoredJobInit::from_opt(build, base_path)?;
         let remaining_jobs = match remaining_jobs {
@@ -342,6 +352,7 @@ impl JobSet {
             currently_running_jobs,
             batch_name,
             matrix_user,
+            namespace,
         })
     }
 }

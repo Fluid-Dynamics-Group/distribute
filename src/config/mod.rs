@@ -58,11 +58,11 @@ impl Jobs {
     pub async fn load_jobs(&self) -> Result<JobOpts, error::LoadJobsError> {
         match &self {
             Self::Python { meta, python } => {
-                let py_jobs = python.load_jobs(&meta.batch_name).await?;
+                let py_jobs = python.load_jobs().await?;
                 Ok(py_jobs.into())
             }
             Self::Singularity { meta, singularity } => {
-                let sin_jobs = singularity.load_jobs(&meta.batch_name).await?;
+                let sin_jobs = singularity.load_jobs().await?;
                 Ok(sin_jobs.into())
             }
         }
@@ -88,10 +88,10 @@ impl Jobs {
         }
     }
 
-    pub fn batch_name(self) -> String {
+    pub fn batch_name(&self) -> String {
         match self {
-            Self::Python { meta, .. } => meta.batch_name,
-            Self::Singularity { meta, .. } => meta.batch_name,
+            Self::Python { meta, .. } => meta.batch_name.clone(),
+            Self::Singularity { meta, .. } => meta.batch_name.clone(),
         }
     }
 
@@ -99,6 +99,13 @@ impl Jobs {
         match self {
             Self::Python { meta, .. } => meta.matrix.clone(),
             Self::Singularity { meta, .. } => meta.matrix.clone(),
+        }
+    }
+
+    pub fn namespace(&self) -> String {
+        match self {
+            Self::Python { meta, .. } => meta.namespace.clone(),
+            Self::Singularity { meta, .. } => meta.namespace.clone(),
         }
     }
 }

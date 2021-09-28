@@ -84,7 +84,6 @@ pub struct File {
 pub struct PythonJob {
     pub python_file: Vec<u8>,
     pub job_name: String,
-    pub batch_name: String,
     pub job_files: Vec<File>,
 }
 
@@ -98,7 +97,6 @@ pub struct SingularityJobInit {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct SingularityJob {
     pub job_name: String,
-    pub batch_name: String,
     pub job_files: Vec<File>,
 }
 

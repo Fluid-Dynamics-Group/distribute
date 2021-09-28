@@ -14,9 +14,9 @@ use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
-use derive_more::From;
+use derive_more::{From, Constructor};
 
-#[derive(derive_more::Constructor)]
+#[derive(Constructor)]
 pub(super) struct JobPool<T> {
     remaining_jobs: T,
     receive_requests: mpsc::Receiver<JobRequest>,
@@ -45,7 +45,7 @@ where
 
                         match pending_job.task {
                             JobOrInit::Job(job) => {
-                                self.remaining_jobs.add_job_back(job, pending_job.ident);
+                                self.remaining_jobs.add_job_back(job, pending_job.identifier);
                             }
                             // an initialization job does not need to be returned to the
                             // scheduler
@@ -114,17 +114,14 @@ where
 }
 
 pub(crate) enum JobResponse {
-    SetupOrRun {
-        task: JobOrInit,
-        identifier: JobIdentifier,
-    },
+    SetupOrRun(TaskInfo),
     EmptyJobs,
 }
 
 #[derive(derive_more::From)]
 pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
-    DeadNode(PendingJob),
+    DeadNode(TaskInfo),
     AddJobSet(storage::OwnedJobSet),
     QueryRemainingJobs(RemainingJobsQuery),
     CancelBatchByName(CancelBatchQuery),
@@ -159,18 +156,19 @@ pub(crate) struct PendingJob {
     ident: JobIdentifier,
 }
 
-#[cfg_attr(test, derive(derive_more::Unwrap))]
-#[derive(From, Clone)]
-pub(crate) enum JobOrInit {
-    Job(storage::JobOpt),
-    JobInit(config::BuildOpts),
+#[derive(From, Clone, Constructor)]
+pub(crate) struct TaskInfo {
+    namespace: String,
+    batch_name: String,
+    identifier: JobIdentifier,
+    task: JobOrInit,
 }
 
-impl JobOrInit {
+impl TaskInfo {
     async fn batch_save_path(&self, base_path: &Path) -> Result<PathBuf, std::io::Error> {
-        let path = match &self {
-            Self::Job(jobopt) => base_path.join(jobopt.batch()).join(jobopt.name()),
-            Self::JobInit(init) => base_path.join(init.batch_name()),
+        let path = match &self.task {
+            JobOrInit::Job(jobopt) => base_path.join(&self.namespace).join(&self.batch_name).join(jobopt.name()),
+            JobOrInit::JobInit(init) => base_path.join(&self.namespace).join(&self.batch_name)
         };
 
         debug!("creating path {}", path.display());
@@ -180,6 +178,14 @@ impl JobOrInit {
     }
 }
 
+
+#[cfg_attr(test, derive(derive_more::Unwrap))]
+#[derive(From, Clone)]
+pub(crate) enum JobOrInit {
+    Job(storage::JobOpt),
+    JobInit(config::BuildOpts),
+}
+
 #[derive(derive_more::Constructor)]
 pub(super) struct NodeConnection {
     conn: transport::ServerConnection,
@@ -187,7 +193,7 @@ pub(super) struct NodeConnection {
     receive_cancellation: broadcast::Receiver<JobIdentifier>,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
     save_path: PathBuf,
-    current_job: Option<PendingJob>,
+    current_job: Option<TaskInfo>,
 }
 
 impl NodeConnection {
@@ -205,11 +211,8 @@ impl NodeConnection {
                 // pause for a bit while we wait for more jobs to be added to the
                 // server
                 let new_job = match response {
-                    JobResponse::SetupOrRun { task, identifier } => {
-                        self.current_job = Some(PendingJob {
-                            task,
-                            ident: identifier,
-                        });
+                    JobResponse::SetupOrRun(task_info)=> {
+                        self.current_job = Some(task_info);
                         &self.current_job.as_ref().unwrap().task
                     }
                     JobResponse::EmptyJobs => {
@@ -260,7 +263,6 @@ impl NodeConnection {
                         .current_job
                         .as_ref()
                         .unwrap()
-                        .task
                         .batch_save_path(&save_path)
                         .await
                     {
@@ -343,7 +345,7 @@ impl NodeConnection {
                 initialized_job: self
                     .current_job
                     .clone()
-                    .map(|x| x.ident)
+                    .map(|x| x.identifier)
                     .or(Some(JobIdentifier::none()))
                     .unwrap(),
                 capabilities: self.capabilities.clone(),
@@ -374,13 +376,13 @@ impl NodeConnection {
 // this is broken out into a separate function since the tokio::select! requires
 // two mutable borrows to &mut self
 async fn check_cancellation(
-    current_job: Option<&PendingJob>,
+    current_job: Option<&TaskInfo>,
     rx_cancel: &mut broadcast::Receiver<JobIdentifier>,
 ) {
     loop {
         if let Ok(identifier) = rx_cancel.recv().await {
             if current_job
-                .map(|job| job.ident == identifier)
+                .map(|job| job.identifier == identifier)
                 .unwrap_or(false)
             {
                 return;

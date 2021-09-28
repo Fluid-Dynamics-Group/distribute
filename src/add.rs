@@ -72,14 +72,14 @@ pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
     // construct the job set and send it off
     //
 
-    let matrix = jobs.matrix_user();
     let job_set = server::OwnedJobSet::new(
         loaded_build,
         jobs.capabilities().clone(),
         loaded_jobs,
         0,
         jobs.batch_name(),
-        matrix,
+        jobs.matrix_user(),
+        jobs.namespace()
     );
 
     if !args.dry {
