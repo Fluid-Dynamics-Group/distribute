@@ -108,10 +108,10 @@ impl StoredJob {
         }
     }
 
-    pub(crate) fn load_job(self) -> Result<JobOpt, io::Error> {
+    pub(crate) fn load_job(self, batch_name: &str) -> Result<JobOpt, io::Error> {
         match self {
-            Self::Python(x) => Ok(JobOpt::Python(x.load_job()?)),
-            Self::Singularity(x) => Ok(JobOpt::Singularity(x.load_job()?)),
+            Self::Python(x) => Ok(JobOpt::Python(x.load_job(batch_name)?)),
+            Self::Singularity(x) => Ok(JobOpt::Singularity(x.load_job(batch_name)?)),
         }
     }
 
@@ -136,6 +136,13 @@ impl JobOpt {
             Self::Python(x) => &x.job_name,
         }
     }
+
+    pub(crate) fn batch(&self) -> &str {
+        match &self {
+            Self::Singularity(x) => &x.batch_name,
+            Self::Python(x) => &x.batch_name,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -146,7 +153,7 @@ pub(crate) struct LazyPythonJob {
 }
 
 impl LazyPythonJob {
-    pub(crate) fn load_job(self) -> Result<transport::PythonJob, io::Error> {
+    pub(crate) fn load_job(self, batch_name: &str) -> Result<transport::PythonJob, io::Error> {
         let python_file = std::fs::read(&self.python_setup_file_path)?;
 
         let job_files = load_files(&self.required_files, true)?;
@@ -155,6 +162,7 @@ impl LazyPythonJob {
             job_name: self.job_name,
             python_file,
             job_files,
+            batch_name: batch_name.to_string(),
         })
     }
 }
@@ -166,12 +174,13 @@ pub(crate) struct LazySingularityJob {
 }
 
 impl LazySingularityJob {
-    pub(crate) fn load_job(self) -> Result<transport::SingularityJob, io::Error> {
+    pub(crate) fn load_job(self, batch_name: &str) -> Result<transport::SingularityJob, io::Error> {
         let job_files = load_files(&self.required_files, true)?;
 
         Ok(transport::SingularityJob {
             job_name: self.job_name,
             job_files,
+            batch_name: batch_name.to_string(),
         })
     }
 }

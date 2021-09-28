@@ -212,6 +212,13 @@ async fn start_server_connection(
                             &base_path,
                         )
                         .await?;
+
+                        if let Err(e) = utils::clean_distribute_save(&base_path).await {
+                            error!(
+                                "could not clean distribute_save directory between runs!: {}",
+                                e
+                            );
+                        }
                     }
                     PrerequisiteOperations::DoNothing => {}
                 }

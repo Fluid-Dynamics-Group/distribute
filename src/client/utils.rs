@@ -1,4 +1,5 @@
 use futures::StreamExt;
+use super::execute::FileMetadata;
 use std::path::{Path, PathBuf};
 
 // clean out the tmp files from a build script from the output directory
@@ -14,10 +15,22 @@ pub(crate) async fn clean_output_dir(dir: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
+// clear all the files from the distribute_save directory
+pub(crate) async fn clean_distribute_save(base_path: &Path) -> Result<(), std::io::Error> {
+    let dist_save = base_path.join("distribute_save");
+    tokio::fs::remove_dir_all(&dist_save).await.ok();
+    tokio::fs::create_dir(&dist_save).await?;
+
+    Ok(())
+}
+
 pub(crate) async fn clear_input_files(base_path: &Path) -> Result<(), std::io::Error> {
+    debug!("running clear_input_files for {}", base_path.display());
     let path = base_path.join("input");
     tokio::fs::remove_dir_all(&path).await?;
     tokio::fs::create_dir(&path).await?;
+
+    debug!("removed and created ./input/ directory. Going to start copying form initial_files");
 
     let file_source = base_path.join("initial_files");
 
@@ -26,11 +39,20 @@ pub(crate) async fn clear_input_files(base_path: &Path) -> Result<(), std::io::E
 
     while let Some(file) = stream.next().await {
         if let Ok(file) = file {
+            debug!(
+                "handling the copying of file/ dir {}",
+                file.path().display()
+            );
+
             // read the file type
             if let Ok(file_type) = file.file_type().await {
                 // check that it is a file
                 if file_type.is_file() {
-                    tokio::fs::copy(file_source.join(file.path()), path.join(file.path())).await?;
+                    let from = file.path();
+                    let to = path.join(file.file_name());
+
+                    debug!("copying {} to {}", from.display(), to.display());
+                    tokio::fs::copy(from, to).await?;
                 } else {
                     continue;
                 }
@@ -50,4 +72,16 @@ pub(crate) fn remove_path_prefixes(path: PathBuf) -> PathBuf {
         .skip_while(|x| x.as_os_str() == "distribute_save")
         .skip(2)
         .collect()
+}
+
+pub(crate) async fn read_save_folder(base_path:&Path) -> Vec<FileMetadata> {
+    walkdir::WalkDir::new(base_path.join("distribute_save"))
+                    .into_iter()
+                    .flat_map(|x| x.ok())
+                    .map(|x| FileMetadata {
+                        file_path: x.path().to_owned(),
+                        is_file: x.file_type().is_file(),
+                    })
+                    .collect()
+
 }

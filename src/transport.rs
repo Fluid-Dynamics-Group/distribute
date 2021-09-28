@@ -84,6 +84,7 @@ pub struct File {
 pub struct PythonJob {
     pub python_file: Vec<u8>,
     pub job_name: String,
+    pub batch_name: String,
     pub job_files: Vec<File>,
 }
 
@@ -97,6 +98,7 @@ pub struct SingularityJobInit {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct SingularityJob {
     pub job_name: String,
+    pub batch_name: String,
     pub job_files: Vec<File>,
 }
 
@@ -138,8 +140,8 @@ impl Version {
         // TODO: pull this from cargo.toml
         Self {
             major: 0,
-            minor: 2,
-            patch: 0,
+            minor: 3,
+            patch: 6,
         }
     }
 }
@@ -375,6 +377,7 @@ mod tests {
             python_file: file_bytes,
             job_name: "ensure_not_eof".into(),
             job_files: vec![],
+            batch_name: "batch".into(),
         });
 
         // serialize the data manually

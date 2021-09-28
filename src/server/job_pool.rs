@@ -166,6 +166,20 @@ pub(crate) enum JobOrInit {
     JobInit(config::BuildOpts),
 }
 
+impl JobOrInit {
+    async fn batch_save_path(&self, base_path: &Path) -> Result<PathBuf, std::io::Error> {
+        let path = match &self {
+            Self::Job(jobopt) => base_path.join(jobopt.batch()).join(jobopt.name()),
+            Self::JobInit(init) => base_path.join(init.batch_name()),
+        };
+
+        debug!("creating path {}", path.display());
+        ok_if_exists(tokio::fs::create_dir_all(&path).await)?;
+
+        Ok(path)
+    }
+}
+
 #[derive(derive_more::Constructor)]
 pub(super) struct NodeConnection {
     conn: transport::ServerConnection,
@@ -180,6 +194,10 @@ impl NodeConnection {
     pub(super) fn spawn(mut self) -> JoinHandle<()> {
         tokio::task::spawn(async move {
             // now we just pull jobs from the server until we are done
+
+            // TODO: if there is an error in the handling of the response the loop will recycle 
+            // and the client will get a new connection instead of a response like FileReceived
+            // which may destroy everything
             while let Ok(response) = self.fetch_new_job().await {
                 info!("request for job on node {}", self.addr());
 
@@ -230,15 +248,34 @@ impl NodeConnection {
                 }
                 // we were able to send the data to the client without issue
                 else {
+                    let addr = self.addr().clone();
                     let current_job = self.current_job.as_ref();
                     let broadcast = &mut self.receive_cancellation;
 
                     let save_path = &self.save_path;
                     let conn = &mut self.conn;
 
+                    // todo: might repeat work here
+                    let batch_save_path = if let Ok(x) = self
+                        .current_job
+                        .as_ref()
+                        .unwrap()
+                        .task
+                        .batch_save_path(&save_path)
+                        .await
+                    {
+                        x
+                    } else {
+                        warn!(
+                            "could not create storage path for currnet batch on {}",
+                            addr
+                        );
+                        save_path.to_owned()
+                    };
+
                     let job_result = tokio::select!(
                         // check if we could read from the TCP socket without issue:
-                        response = handle_client_response(conn, save_path) => {
+                        response = handle_client_response(conn, &batch_save_path) => {
                             match response {
                                 Ok(response) => {
                                     // TODO: add some logic to schedule other jobs on this node
@@ -392,6 +429,9 @@ async fn handle_client_response(
                 conn.transport_data(&transport::RequestFromServer::FileReceived)
                     .await?;
             }
+            // this is possible if we errored handlign teh response from a thread and now we 
+            // have started a new tcp connection, the responses dont have to be the ones 
+            // above
             _ => unimplemented!(),
         }
     }

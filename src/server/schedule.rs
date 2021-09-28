@@ -8,8 +8,8 @@ use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt;
 use std::convert::TryFrom;
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -189,7 +189,6 @@ impl Schedule for GpuPriority {
                     identifier
                 );
 
-
                 let removed_set = self.map.remove(&identifier).unwrap();
 
                 // since we are done with this job set then we should deallocate the build file
@@ -197,13 +196,22 @@ impl Schedule for GpuPriority {
 
                 if let Some(matrix_id) = removed_set.matrix_user {
                     let client = matrix_notify::client("https://matrix.org".to_string());
-                    let self_id = matrix_notify::UserId::try_from("@compute-notify:matrix.org").unwrap();
-                    let msg = format!("your distributed compute job {} has finished", removed_set.batch_name);
+                    let self_id =
+                        matrix_notify::UserId::try_from("@compute-notify:matrix.org").unwrap();
+                    let msg = format!(
+                        "your distributed compute job {} has finished",
+                        removed_set.batch_name
+                    );
 
-                    info!("sending message to matrix user {} for batch finish `{}`", matrix_id, removed_set.batch_name);
+                    info!(
+                        "sending message to matrix user {} for batch finish `{}`",
+                        matrix_id, removed_set.batch_name
+                    );
 
-                    tokio::task::spawn( async move {
-                        if let Err(e) = matrix_notify::send_text_message(&client, msg, matrix_id, self_id).await {
+                    tokio::task::spawn(async move {
+                        if let Err(e) =
+                            matrix_notify::send_text_message(&client, msg, matrix_id, self_id).await
+                        {
                             error!("failed to send message to user on matrix: {}", e);
                         }
                     });
@@ -252,7 +260,7 @@ impl JobSet {
     fn next_job(&mut self) -> Option<storage::JobOpt> {
         if let Some(job) = self.remaining_jobs.pop() {
             self.currently_running_jobs += 1;
-            job.load_job().ok()
+            job.load_job(&self.batch_name).ok()
         } else {
             None
         }
@@ -305,7 +313,7 @@ impl JobSet {
             remaining_jobs,
             currently_running_jobs,
             batch_name,
-            matrix_user
+            matrix_user,
         } = owned;
         let build = StoredJobInit::from_opt(build, base_path)?;
         let remaining_jobs = match remaining_jobs {
@@ -333,7 +341,7 @@ impl JobSet {
             remaining_jobs,
             currently_running_jobs,
             batch_name,
-            matrix_user
+            matrix_user,
         })
     }
 }
@@ -436,17 +444,20 @@ mod tests {
         let jgpu = transport::PythonJob {
             python_file: vec![],
             job_name: "jgpu".into(),
-            job_files: vec![]
+            job_files: vec![],
+            batch_name: "gpu_jobs".into(),
         };
         let j1 = transport::PythonJob {
             python_file: vec![],
             job_name: "j1".into(),
-            job_files: vec![]
+            job_files: vec![],
+            batch_name: "cpu_jobs".into(),
         };
         let j2 = transport::PythonJob {
             python_file: vec![],
             job_name: "j2".into(),
-            job_files: vec![]
+            job_files: vec![],
+            batch_name: "cpu_jobs".into(),
         };
 
         let cpu_set = OwnedJobSet {
@@ -455,14 +466,15 @@ mod tests {
                 batch_name: "cpu_jobs".to_string(),
                 python_setup_file: vec![0],
                 additional_build_files: vec![],
-            }.into(),
+            }
+            .into(),
             remaining_jobs: vec![j1.clone(), j2.clone()].into(),
             requirements: Requirements {
                 reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
                 marker: std::marker::PhantomData,
             },
             currently_running_jobs: 0,
-            matrix_user: None
+            matrix_user: None,
         };
 
         let gpu_set = OwnedJobSet {
@@ -471,14 +483,15 @@ mod tests {
                 batch_name: "gpu_jobs".to_string(),
                 python_setup_file: vec![1],
                 additional_build_files: vec![],
-            }.into(),
+            }
+            .into(),
             remaining_jobs: vec![jgpu.clone()].into(),
             requirements: Requirements {
                 reqs: vec!["gpu".into()].into_iter().collect(),
                 marker: std::marker::PhantomData,
             },
             currently_running_jobs: 0,
-            matrix_user: None
+            matrix_user: None,
         };
 
         (cpu_set, gpu_set, scheduler)
@@ -530,7 +543,6 @@ mod tests {
         // now there are no more jobs left
         let job = scheduler.fetch_new_task(current_ident, caps.clone());
         check_empty(job);
-
 
         std::fs::remove_dir_all(path).ok();
     }

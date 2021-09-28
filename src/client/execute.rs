@@ -38,23 +38,20 @@ pub(super) async fn general_request(
 
             initialize_python_job(init, base_path, cancel).await?;
 
-            PrerequisiteOperations::None(transport::ClientResponse::RequestNewJob(
+            let after = transport::ClientResponse::RequestNewJob(
                 transport::NewJobRequest,
-            ))
+            );
+
+            let paths = utils::read_save_folder(&base_path).await;
+
+            PrerequisiteOperations::SendFiles { paths, after}
         }
         transport::RequestFromServer::RunPythonJob(job) => {
             info!("running python job");
 
             if let Some(_) = run_python_job(job, base_path, cancel).await? {
                 let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths = walkdir::WalkDir::new(base_path.join("distribute_save"))
-                    .into_iter()
-                    .flat_map(|x| x.ok())
-                    .map(|x| FileMetadata {
-                        file_path: x.path().to_owned(),
-                        is_file: x.file_type().is_file(),
-                    })
-                    .collect();
+                let paths =  utils::read_save_folder(base_path).await;               
                 PrerequisiteOperations::SendFiles { paths, after }
             } else {
                 // we cancelled this job early - dont send any files
@@ -71,23 +68,21 @@ pub(super) async fn general_request(
 
             initialize_singularity_job(init_job, base_path, cancel).await?;
 
-            PrerequisiteOperations::None(transport::ClientResponse::RequestNewJob(
+            let after = transport::ClientResponse::RequestNewJob(
                 transport::NewJobRequest,
-            ))
+            );
+
+            let paths = utils::read_save_folder(&base_path).await;
+
+            PrerequisiteOperations::SendFiles { paths, after}
         }
         transport::RequestFromServer::RunSingularityJob(job) => {
-            info!("running singularity job job");
+            info!("running singularity job");
 
             if let Some(_) = run_singularity_job(job, base_path, cancel).await? {
                 let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths = walkdir::WalkDir::new(base_path.join("distribute_save"))
-                    .into_iter()
-                    .flat_map(|x| x.ok())
-                    .map(|x| FileMetadata {
-                        file_path: x.path().to_owned(),
-                        is_file: x.file_type().is_file(),
-                    })
-                    .collect();
+                let paths = utils::read_save_folder(&base_path).await;
+
                 PrerequisiteOperations::SendFiles { paths, after }
             } else {
                 // we cancelled this job early - dont send any files
@@ -107,9 +102,9 @@ pub(super) async fn general_request(
     Ok(output)
 }
 
-pub(super) struct FileMetadata {
-    file_path: PathBuf,
-    is_file: bool,
+pub(crate) struct FileMetadata {
+    pub file_path: PathBuf,
+    pub is_file: bool,
 }
 
 impl FileMetadata {
@@ -223,7 +218,11 @@ async fn initialize_python_job(
     info!("running initialization for new job");
     write_init_file(base_path, "run.py", &init.python_setup_file).await?;
 
-    write_all_init_files(base_path, &init.additional_build_files).await?;
+    write_all_init_files(
+        &base_path.join("initial_files"),
+        &init.additional_build_files,
+    )
+    .await?;
 
     debug!("initialized all init files");
 

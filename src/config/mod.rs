@@ -57,12 +57,12 @@ pub struct Meta {
 impl Jobs {
     pub async fn load_jobs(&self) -> Result<JobOpts, error::LoadJobsError> {
         match &self {
-            Self::Python { meta: _, python } => {
-                let py_jobs = python.load_jobs().await?;
+            Self::Python { meta, python } => {
+                let py_jobs = python.load_jobs(&meta.batch_name).await?;
                 Ok(py_jobs.into())
             }
-            Self::Singularity { meta: _, singularity } => {
-                let sin_jobs = singularity.load_jobs().await?;
+            Self::Singularity { meta, singularity } => {
+                let sin_jobs = singularity.load_jobs(&meta.batch_name).await?;
                 Ok(sin_jobs.into())
             }
         }
@@ -115,6 +115,15 @@ pub enum BuildOpts {
     Singularity(transport::SingularityJobInit),
 }
 
+impl BuildOpts {
+    pub(crate) fn batch_name(&self) -> &str {
+        match &self {
+            Self::Singularity(s) => &s.batch_name,
+            Self::Python(p) => &p.batch_name,
+        }
+    }
+}
+
 pub fn load_config<T: DeserializeOwned>(path: &str) -> Result<T, ConfigurationError> {
     let file =
         std::fs::File::open(path).map_err(|e| (path.to_string(), ConfigErrorReason::from(e)))?;
@@ -144,25 +153,25 @@ fn serialize_jobs_singularity() {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[derive(Deserialize)]
     struct PythonConfiguration {
-        meta:Meta,
-        python: python::Description
+        meta: Meta,
+        python: python::Description,
     }
 
     #[derive(Deserialize)]
     struct SingularityConfiguration {
-        meta:Meta,
-        singularity: singularity::Description
+        meta: Meta,
+        singularity: singularity::Description,
     }
 
     #[test]
     fn serialize_python() {
         let bytes = include_str!("../../static/example-jobs-python.yaml");
-        let _out: PythonConfiguration= serde_yaml::from_str(bytes).unwrap();
+        let _out: PythonConfiguration = serde_yaml::from_str(bytes).unwrap();
     }
 
     #[test]

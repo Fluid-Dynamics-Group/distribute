@@ -16,6 +16,7 @@ pub struct Description {
 impl Description {
     pub(crate) async fn load_jobs(
         &self,
+        batch_name: &str,
     ) -> Result<Vec<transport::PythonJob>, error::LoadJobsError> {
         let mut out = Vec::with_capacity(self.jobs.len());
 
@@ -32,6 +33,7 @@ impl Description {
             let job = transport::PythonJob {
                 python_file: bytes,
                 job_name: job.name.clone(),
+                batch_name: batch_name.to_string(),
                 job_files,
             };
             out.push(job)
