@@ -7,7 +7,7 @@ meta:
 
   capabilities: [gpu, fortran, fftw]
 
-  matrix: "@your-usernmae:matrix.org"
+  matrix: "@karlik:matrix.org"
 
 singularity:
 

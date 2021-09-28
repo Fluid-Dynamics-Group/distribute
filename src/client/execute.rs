@@ -177,7 +177,7 @@ async fn run_python_job(
     let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
 
     command_with_cancellation(
-        &original_dir,
+        Some(&original_dir),
         command,
         output_file_path,
         &job.job_name,
@@ -240,7 +240,7 @@ async fn initialize_python_job(
     ));
 
     command_with_cancellation(
-        &original_dir,
+        Some(&original_dir),
         command,
         output_file_path,
         &init.batch_name,
@@ -253,7 +253,7 @@ async fn initialize_python_job(
 async fn initialize_singularity_job(
     init: transport::SingularityJobInit,
     base_path: &Path,
-    cancel: &mut broadcast::Receiver<()>,
+    _cancel: &mut broadcast::Receiver<()>,
 ) -> Result<Option<()>, Error> {
     // write the .sif file to the root
     write_init_file(base_path, "singularity.sif", &init.sif_bytes).await?;
@@ -261,27 +261,9 @@ async fn initialize_singularity_job(
     // and they will be copied over to `input` at the start of each job run
     write_all_init_files(&base_path.join("initial_files"), &init.build_files).await?;
 
-    let original_dir = enter_output_dir(base_path);
-
-    // TODO: figure out what the singularity command here is
-    let command = tokio::process::Command::new("python3")
-        .args(&["run.py"])
-        .output();
-
-    let output_file_path = base_path.join(format!(
-        "distribute_save/{}_init_output.txt",
-        init.batch_name
-    ));
-
-    command_with_cancellation(
-        &original_dir,
-        command,
-        output_file_path,
-        &init.batch_name,
-        true,
-        cancel,
-    )
-    .await
+    // TODO: I think we can ignore the cancel signal here since after initializing we are going to
+    // ask for a new job anyway
+    Ok(Some(()))
 }
 
 /// execute a job after the build file has already been built
@@ -303,13 +285,21 @@ async fn run_singularity_job(
     // copy all the files for this job to the directory
     write_all_init_files(&base_path.join("input"), &job.job_files).await?;
 
-    debug!("wrote all job file bytes to file - running job");
-    let original_dir = enter_output_dir(base_path);
+    // the local paths to the save and input directories
+    let dist_save = base_path.join("distribute_save").to_string_lossy().to_string();
+    let input = base_path.join("input").to_string_lossy().to_string();
+
+    let bind_arg = format!("{}:{},{}:{}", dist_save, "/distribute_save", input, "/input");
+
+    let singularity_path = base_path.join("singularity.sif").to_string_lossy().to_string();
 
     let command = tokio::process::Command::new("singularity")
         .args(&[
             "run",
-            "singularity.sif",
+            "--app", "distribute",
+            "--bind",
+            &bind_arg,
+            &singularity_path,
             &num_cpus::get_physical().to_string(),
         ])
         .output();
@@ -317,7 +307,7 @@ async fn run_singularity_job(
     let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
 
     command_with_cancellation(
-        &original_dir,
+        None,
         command,
         output_file_path,
         &job.job_name,
@@ -354,7 +344,7 @@ fn enter_output_dir(base_path: &Path) -> PathBuf {
 /// run a future producing a command till completion while also
 /// checking for a cancellation signal from the host
 async fn command_with_cancellation(
-    original_dir: &Path,
+    original_dir: Option<&Path>,
     command: impl std::future::Future<Output = Result<std::process::Output, std::io::Error>>,
     output_file_path: PathBuf,
     name: &str,
@@ -365,7 +355,9 @@ async fn command_with_cancellation(
        output = command => {
            // command has finished -> return to the original dir so we dont accidentally
            // bubble the error up with `?` before we have fixed the directory
-           enter_output_dir(&original_dir);
+           if let Some(original_dir) = original_dir {
+               enter_output_dir(&original_dir);
+           }
             debug!("current file path is {:?}", std::env::current_dir());
 
            let output = output

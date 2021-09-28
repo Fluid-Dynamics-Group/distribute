@@ -19,7 +19,7 @@ meta:
   # all of the jobs have finished
   #
   # makes sure you place these in quotes since they have invalid yaml characters!
-  matrix: "@your-usernmae:matrix.org"
+  matrix: "@karlik:matrix.org"
 
 python:
 

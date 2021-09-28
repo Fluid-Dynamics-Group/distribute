@@ -2,6 +2,7 @@ import os
 import random
 import pandas
 import matplotlib.pyplot as plt
+import sys
 
 # helper function to debug files
 def print_files():
@@ -31,10 +32,11 @@ def plot_csv(csv_name):
     return title
 
 def main():
-    _ = plot_csv("input/dataset_always.csv")
-    save_name = plot_csv("input/dataset.csv")
+    _ = plot_csv("/input/dataset_always.csv")
+    save_name = plot_csv("/input/dataset.csv")
 
 
-    plt.savefig("distribute_save/" + save_name + ".png", bbox_inches="tight")
+    plt.savefig("/distribute_save/" + save_name + ".png", bbox_inches="tight")
 if __name__ == "__main__":
+    print(sys.argv);
     main()

@@ -3,7 +3,7 @@ meta:
 
   namespace: "brooks-openfoam"
 
-  capabilities: [gfortran]
+  capabilities: [python3]
 
   matrix: "@karlik:matrix.org"
 

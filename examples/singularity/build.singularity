@@ -12,10 +12,19 @@ Stage: build
 	# install packages on the host system
 	apt update -y
 	apt-get update -y
+
+	# required to use add-apt-repository
+	apt-get install software-properties-common -y
+
+	# required for python3-pip 
+	# see https://packages.ubuntu.com/search?keywords=python3-pip
+	add-apt-repository universe 
+
+	# we can finally install python3-pip
 	apt-get install python3 python3-pip -y
 
+	# now we can install the dependencies that we need
+	pip3 install pandas matplotlib
 
 %apprun distribute
-	python3 run.py
-
-# % singularity run --app foo my_container.sif
+	python3 /run.py $1
