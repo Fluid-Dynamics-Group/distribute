@@ -12,6 +12,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::iter::FromIterator;
 
 pub(crate) trait Schedule {
     fn fetch_new_task(
@@ -185,6 +186,8 @@ impl Schedule for GpuPriority {
     }
 
     fn finish_job(&mut self, identifier: JobIdentifier) {
+        debug!("called finish job with {}", identifier);
+
         if let Some(job_set) = self.map.get_mut(&identifier) {
             job_set.job_finished();
 
@@ -202,21 +205,32 @@ impl Schedule for GpuPriority {
                 // since we are done with this job set then we should deallocate the build file
                 removed_set.build.delete().ok();
 
-                if let Some(matrix_id) = removed_set.matrix_user {
-                    let client = matrix_notify::client("https://matrix.org".to_string());
-                    let self_id =
-                        matrix_notify::UserId::try_from("@compute-notify:matrix.org").unwrap();
-                    let msg = format!(
-                        "your distributed compute job {} has finished",
-                        removed_set.batch_name
-                    );
+                if let Some(matrix_id) = &removed_set.matrix_user {
 
-                    info!(
-                        "sending message to matrix user {} for batch finish `{}`",
-                        matrix_id, removed_set.batch_name
-                    );
+                    let matrix_id = matrix_id.clone();
 
+                    // spawn off so that we can use async
                     tokio::task::spawn(async move {
+                        let client = match matrix_notify::client(&matrix_notify::ConfigInfo::new().unwrap()).await {
+                            Ok(c) => c,
+                            Err(e) => {
+                                error!("failed to create matrix client: {}", e);
+                                return
+                            }
+                        };
+
+                        let self_id =
+                            matrix_notify::UserId::try_from("@compute-notify:matrix.org").unwrap();
+
+                        let msg = format!(
+                            "your distributed compute job {} has finished",
+                            removed_set.batch_name
+                        );
+
+                        info!(
+                            "sending message to matrix user {} for batch finish `{}`",
+                            matrix_id, removed_set.batch_name
+                        );
                         if let Err(e) =
                             matrix_notify::send_text_message(&client, msg, matrix_id, self_id).await
                         {
@@ -366,7 +380,7 @@ pub(crate) struct RemainingJobs {
 
 #[derive(From, Debug, Clone, Deserialize, Serialize)]
 #[serde(transparent)]
-pub(crate) struct Requirements<T> {
+pub struct Requirements<T> {
     reqs: BTreeSet<Requirement>,
     #[serde(skip)]
     marker: std::marker::PhantomData<T>,
@@ -375,6 +389,19 @@ pub(crate) struct Requirements<T> {
 impl Requirements<NodeProvidedCaps> {
     pub(crate) fn can_accept_job(&self, job_reqs: &Requirements<JobRequiredCaps>) -> bool {
         self.reqs.is_superset(&job_reqs.reqs)
+    }
+}
+
+impl <T> FromIterator<Requirement> for Requirements<T> {
+    fn from_iter<V>(iter: V) -> Self
+    where
+        V: IntoIterator<Item = Requirement> {
+
+        Requirements {
+            reqs: iter.into_iter().collect(),
+            marker: std::marker::PhantomData::<T>
+        }
+
     }
 }
 
@@ -401,10 +428,10 @@ impl<T> fmt::Display for Requirements<T> {
 pub(crate) struct NodeProvidedCaps;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub(crate) struct JobRequiredCaps;
+pub struct JobRequiredCaps;
 
 #[derive(From, Ord, Eq, PartialEq, PartialOrd, Debug, Clone, Deserialize, Serialize, Display)]
-pub(crate) struct Requirement(String);
+pub struct Requirement(String);
 
 impl From<&str> for Requirement {
     fn from(x: &str) -> Self {

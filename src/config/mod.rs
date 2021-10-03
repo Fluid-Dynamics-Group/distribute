@@ -1,6 +1,6 @@
-mod common;
-mod python;
-mod singularity;
+pub mod common;
+pub mod python;
+pub mod singularity;
 
 use crate::error::{self, ConfigErrorReason, ConfigurationError};
 use crate::{server, transport};
@@ -33,7 +33,7 @@ impl Node {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Jobs {
     Python {
@@ -46,12 +46,12 @@ pub enum Jobs {
     },
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Meta {
-    pub(crate) batch_name: String,
-    pub(crate) namespace: String,
-    pub(crate) matrix: Option<matrix_notify::UserId>,
-    pub(crate) capabilities: server::Requirements<server::JobRequiredCaps>,
+    pub batch_name: String,
+    pub namespace: String,
+    pub matrix: Option<matrix_notify::UserId>,
+    pub capabilities: server::Requirements<server::JobRequiredCaps>,
 }
 
 impl Jobs {

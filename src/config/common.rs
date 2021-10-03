@@ -2,10 +2,10 @@ use crate::error::{self, ConfigErrorReason, ConfigurationError};
 use crate::{server, transport};
 use derive_more::Display;
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct File {
     // the path to the file locally
     pub path: PathBuf,

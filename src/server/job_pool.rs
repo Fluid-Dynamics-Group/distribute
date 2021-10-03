@@ -34,6 +34,11 @@ where
                     // we want a new job from the scheduler
                     JobRequest::NewJob(new_req) => {
                         debug!("a node has asked for a new job");
+                        // if we are requesting a new job -not- right after building a job
+                        if !new_req.after_building && new_req.initialized_job != JobIdentifier::none() {
+                            self.remaining_jobs.finish_job(new_req.initialized_job);
+                        }
+
                         let new_task: JobResponse = self
                             .remaining_jobs
                             .fetch_new_task(new_req.initialized_job, new_req.capabilities);
@@ -130,6 +135,7 @@ pub(crate) enum JobRequest {
 pub(crate) struct NewJobRequest {
     tx: oneshot::Sender<JobResponse>,
     initialized_job: JobIdentifier,
+    after_building: bool,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
 }
 
@@ -168,13 +174,20 @@ impl TaskInfo {
     async fn batch_save_path(&self, base_path: &Path) -> Result<PathBuf, std::io::Error> {
         let path = match &self.task {
             JobOrInit::Job(jobopt) => base_path.join(&self.namespace).join(&self.batch_name).join(jobopt.name()),
-            JobOrInit::JobInit(init) => base_path.join(&self.namespace).join(&self.batch_name)
+            JobOrInit::JobInit(_) => base_path.join(&self.namespace).join(&self.batch_name)
         };
 
         debug!("creating path {}", path.display());
         ok_if_exists(tokio::fs::create_dir_all(&path).await)?;
 
         Ok(path)
+    }
+
+    fn is_build_task(&self) -> bool {
+        match &self.task {
+            JobOrInit::Job(_) => false,
+            JobOrInit::JobInit(_) => true,
+        }
     }
 }
 
@@ -339,15 +352,26 @@ impl NodeConnection {
 
     async fn fetch_new_job(&mut self) -> Result<JobResponse, mpsc::error::SendError<JobRequest>> {
         let (tx, rx) = oneshot::channel();
+
+        // grab a job identifier and information on if the job was a build of not
+        // because if the job was a build we should not seek to reduce the total
+        // number of running jobs on the scheduler
+        let (after_building, initialized_job) = 
+            if let Some(curr_job) = self.current_job.clone() {
+                // set the current identifier to None so that we dont proc any strange issues with
+                // the total number of running jobs later
+                self.current_job.as_mut().unwrap().identifier = JobIdentifier::none();
+
+                (curr_job.is_build_task(), curr_job.identifier)
+            } else {
+                (true, JobIdentifier::none())
+            };
+
         self.request_job_tx
             .send(JobRequest::from(NewJobRequest {
                 tx,
-                initialized_job: self
-                    .current_job
-                    .clone()
-                    .map(|x| x.identifier)
-                    .or(Some(JobIdentifier::none()))
-                    .unwrap(),
+                initialized_job,
+                after_building,
                 capabilities: self.capabilities.clone(),
             }))
             .await?;

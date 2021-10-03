@@ -1,16 +1,16 @@
 use crate::error::{self, ConfigErrorReason, ConfigurationError};
 use crate::{server, transport};
-use derive_more::Display;
+use derive_more::{Display, Constructor};
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use super::common::{load_from_file, File};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Description {
-    initialize: Initialize,
-    jobs: Vec<Job>,
+    pub initialize: Initialize,
+    pub jobs: Vec<Job>,
 }
 
 impl Description {
@@ -50,15 +50,15 @@ impl Description {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct Initialize {
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+pub struct Initialize {
     sif: PathBuf,
     #[serde(default)]
     required_files: Vec<File>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct Job {
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+pub struct Job {
     name: String,
     #[serde(default)]
     required_files: Vec<File>,

@@ -288,8 +288,11 @@ async fn run_singularity_job(
     // the local paths to the save and input directories
     let dist_save = base_path.join("distribute_save").to_string_lossy().to_string();
     let input = base_path.join("input").to_string_lossy().to_string();
+    let work = base_path.join("work").to_string_lossy().to_string();
 
-    let bind_arg = format!("{}:{},{}:{}", dist_save, "/distribute_save", input, "/input");
+    tokio::fs::create_dir(&work).await.ok();
+
+    let bind_arg = format!("{}:{}:rw,{}:{}:rw,{}:{}:rw", dist_save, "/distribute_save", input, "/input", work, "/hit3d/src/output");
 
     let singularity_path = base_path.join("singularity.sif").to_string_lossy().to_string();
 

@@ -6,8 +6,10 @@ mod user_conn;
 pub(crate) use job_pool::JobResponse;
 use job_pool::{JobPool, JobRequest, NodeConnection};
 pub(crate) use schedule::{
-    JobRequiredCaps, JobSet, NodeProvidedCaps, RemainingJobs, Requirement, Requirements, Schedule,
+    JobSet, NodeProvidedCaps, RemainingJobs, Schedule,
 };
+
+pub use schedule::{Requirements, JobRequiredCaps, Requirement};
 
 pub(crate) use storage::{JobOpt, OwnedJobSet};
 
