@@ -96,6 +96,9 @@ impl GpuPriority {
                 // check if the process with the current id has any jobs remaining
                 // if it has nothing return None instead of JobResponse::EmptyJobs
                 if job_set.has_remaining_jobs() {
+                    // TODO: this can panic
+                    //
+                    debug!("fetching next job since there are jobs remaining in set {}", identifier);
                     let job = job_set.next_job().unwrap();
                     Some(JobResponse::SetupOrRun(TaskInfo::new(
                         job_set.namespace.clone(),

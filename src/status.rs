@@ -87,6 +87,9 @@ impl<'a> StatusCheckResponse<'a> {
                     "ip {} version match {} ready {}",
                     node, version_match, ready
                 );
+                if !version_match {
+                    dbg!(self_version, &version);
+                }
                 version_match
             }
             Self::InvalidResponse { node, response } => {

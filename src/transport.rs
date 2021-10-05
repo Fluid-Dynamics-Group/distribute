@@ -139,7 +139,7 @@ impl Version {
         Self {
             major: 0,
             minor: 3,
-            patch: 6,
+            patch: 7,
         }
     }
 }
