@@ -166,8 +166,8 @@ pub(crate) struct PendingJob {
 pub(crate) struct TaskInfo {
     namespace: String,
     batch_name: String,
-    identifier: JobIdentifier,
-    task: JobOrInit,
+    pub(crate) identifier: JobIdentifier,
+    pub(crate) task: JobOrInit,
 }
 
 impl TaskInfo {

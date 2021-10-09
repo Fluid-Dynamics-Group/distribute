@@ -139,7 +139,7 @@ impl Version {
         Self {
             major: 0,
             minor: 3,
-            patch: 7,
+            patch: 8,
         }
     }
 }
@@ -321,7 +321,7 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
     let mut starting_idx = 0;
 
     loop {
-        debug!(
+        trace!(
             "reading buffer bytes w/ index {} and buffer len {}",
             starting_idx,
             buffer.len()
@@ -375,7 +375,6 @@ mod tests {
             python_file: file_bytes,
             job_name: "ensure_not_eof".into(),
             job_files: vec![],
-            batch_name: "batch".into(),
         });
 
         // serialize the data manually

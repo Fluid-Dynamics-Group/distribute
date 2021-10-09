@@ -449,10 +449,10 @@ mod tests {
 
     fn check_init(current_ident: &mut JobIdentifier, expected_ident: u64, response: JobResponse) {
         match response {
-            JobResponse::SetupOrRun { task, identifier } => {
-                task.unwrap_job_init();
-                assert_eq!(identifier, JobIdentifier::Identity(expected_ident));
-                *current_ident = identifier;
+            JobResponse::SetupOrRun(task) => {
+                task.task.unwrap_job_init();
+                assert_eq!(task.identifier, JobIdentifier::Identity(expected_ident));
+                *current_ident = task.identifier;
             }
             JobResponse::EmptyJobs => {
                 panic!("empty jobs returned when all jobs still present")
@@ -462,11 +462,8 @@ mod tests {
 
     fn check_job(response: JobResponse, expected_job: transport::PythonJob) {
         match response {
-            JobResponse::SetupOrRun {
-                task,
-                identifier: _,
-            } => {
-                assert_eq!(task.unwrap_job(), storage::JobOpt::from(expected_job));
+            JobResponse::SetupOrRun(task) => {
+                assert_eq!(task.task.unwrap_job(), storage::JobOpt::from(expected_job));
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),
         }
@@ -486,23 +483,23 @@ mod tests {
             python_file: vec![],
             job_name: "jgpu".into(),
             job_files: vec![],
-            batch_name: "gpu_jobs".into(),
         };
+
         let j1 = transport::PythonJob {
             python_file: vec![],
             job_name: "j1".into(),
             job_files: vec![],
-            batch_name: "cpu_jobs".into(),
         };
+
         let j2 = transport::PythonJob {
             python_file: vec![],
             job_name: "j2".into(),
             job_files: vec![],
-            batch_name: "cpu_jobs".into(),
         };
 
         let cpu_set = OwnedJobSet {
             batch_name: "cpu_jobs".to_string(),
+            namespace: "test".to_string(),
             build: transport::PythonJobInit {
                 batch_name: "cpu_jobs".to_string(),
                 python_setup_file: vec![0],
@@ -520,6 +517,7 @@ mod tests {
 
         let gpu_set = OwnedJobSet {
             batch_name: "gpu_jobs".to_string(),
+            namespace: "test".to_string(),
             build: transport::PythonJobInit {
                 batch_name: "gpu_jobs".to_string(),
                 python_setup_file: vec![1],
