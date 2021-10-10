@@ -36,6 +36,7 @@ where
                         debug!("a node has asked for a new job");
                         // if we are requesting a new job -not- right after building a job
                         if !new_req.after_building && new_req.initialized_job != JobIdentifier::none() {
+                            info!("marking a finished job for {}", new_req.initialized_job);
                             self.remaining_jobs.finish_job(new_req.initialized_job);
                         }
 
@@ -170,27 +171,60 @@ pub(crate) struct TaskInfo {
     pub(crate) task: JobOrInit,
 }
 
+
 impl TaskInfo {
-    async fn batch_save_path(&self, base_path: &Path) -> Result<PathBuf, std::io::Error> {
-        let path = match &self.task {
-            JobOrInit::Job(jobopt) => base_path.join(&self.namespace).join(&self.batch_name).join(jobopt.name()),
-            JobOrInit::JobInit(_) => base_path.join(&self.namespace).join(&self.batch_name)
-        };
-
-        debug!("creating path {}", path.display());
-        ok_if_exists(tokio::fs::create_dir_all(&path).await)?;
-
-        Ok(path)
-    }
-
-    fn is_build_task(&self) -> bool {
-        match &self.task {
-            JobOrInit::Job(_) => false,
-            JobOrInit::JobInit(_) => true,
+    fn flatten(self) -> BuildTaskRunTask {
+        let TaskInfo { namespace, batch_name, identifier, task } = self;
+        match task {
+            JobOrInit::Job(task) => RunTaskInfo{ namespace, batch_name, identifier, task}.into(),
+            JobOrInit::JobInit(task) => BuildTaskInfo{ namespace, batch_name, identifier, task}.into()
         }
     }
 }
 
+#[derive(From)]
+enum BuildTaskRunTask {
+    Build(BuildTaskInfo),
+    Run(RunTaskInfo)
+}
+
+#[derive(From, Clone, Constructor)]
+pub(crate) struct BuildTaskInfo {
+    namespace: String,
+    batch_name: String,
+    pub(crate) identifier: JobIdentifier,
+    pub(crate) task: config::BuildOpts,
+}
+impl BuildTaskInfo {
+    async fn batch_save_path(&self, base_path: &Path) -> Result<PathBuf, (std::io::Error, PathBuf)> {
+        let path = base_path.join(&self.namespace).join(&self.batch_name);
+
+        debug!("creating path {} for build", path.display());
+        ok_if_exists(tokio::fs::create_dir_all(&path).await).map_err(|e| (e,path.clone()))?;
+
+        Ok(path)
+    }
+}
+
+#[derive(From, Clone, Constructor)]
+pub(crate) struct RunTaskInfo {
+    namespace: String,
+    batch_name: String,
+    pub(crate) identifier: JobIdentifier,
+    pub(crate) task: storage::JobOpt,
+}
+
+impl RunTaskInfo {
+    async fn batch_save_path(&self, base_path: &Path) -> Result<PathBuf, (std::io::Error, PathBuf)> {
+        let path = base_path.join(&self.namespace).join(&self.batch_name).join(self.task.name());
+
+        debug!("creating path {} for job", path.display());
+        // TODO: clear the contents of the folder if it already exists
+        ok_if_exists(tokio::fs::create_dir_all(&path).await).map_err(|e| (e,path.clone()))?;
+
+        Ok(path)
+    }
+}
 
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone)]
@@ -200,198 +234,193 @@ pub(crate) enum JobOrInit {
 }
 
 #[derive(derive_more::Constructor)]
-pub(super) struct NodeConnection {
-    conn: transport::ServerConnection,
-    request_job_tx: mpsc::Sender<JobRequest>,
-    receive_cancellation: broadcast::Receiver<JobIdentifier>,
-    capabilities: Arc<Requirements<NodeProvidedCaps>>,
-    save_path: PathBuf,
-    current_job: Option<TaskInfo>,
+pub(super) struct InitializedNode{
+    common: Common,
 }
 
-impl NodeConnection {
+impl InitializedNode {
     pub(super) fn spawn(mut self) -> JoinHandle<()> {
         tokio::task::spawn(async move {
+            let mut last_set = None;
             // now we just pull jobs from the server until we are done
+            loop {
 
-            // TODO: if there is an error in the handling of the response the loop will recycle 
-            // and the client will get a new connection instead of a response like FileReceived
-            // which may destroy everything
-            while let Ok(response) = self.fetch_new_job().await {
-                info!("request for job on node {}", self.addr());
-
-                // load the response into `self.current_job` or
-                // pause for a bit while we wait for more jobs to be added to the
-                // server
-                let new_job = match response {
-                    JobResponse::SetupOrRun(task_info)=> {
-                        self.current_job = Some(task_info);
-                        &self.current_job.as_ref().unwrap().task
-                    }
-                    JobResponse::EmptyJobs => {
-                        tokio::time::sleep(Duration::from_secs(60)).await;
-                        continue;
-                    }
-                };
-
-                let server_request = match new_job {
-                    JobOrInit::Job(job) => transport::RequestFromServer::from(job.clone()),
-                    JobOrInit::JobInit(init) => transport::RequestFromServer::from(init.clone()),
-                };
-
-                let send_response = self.conn.transport_data(&server_request).await;
-
-                // we were not able to send the job to the node, send it back
-                // to the scheduler so that someone else can take it instead
-                if let Err(e) = send_response {
-                    error!(
-                        "error sending the request to the server on node at {}: {}",
-                        self.addr(),
-                        e
-                    );
-
-                    self.request_job_tx
-                        .send(JobRequest::DeadNode(self.current_job.take().unwrap()))
-                        .await
-                        .ok()
-                        .unwrap();
-
-                    // since it was a TCP error we reconnect to the node
-                    // before doing anything else
-                    self.schedule_reconnect().await;
-
-                    continue;
-                }
-                // we were able to send the data to the client without issue
-                else {
-                    let addr = self.addr().clone();
-                    let current_job = self.current_job.as_ref();
-                    let broadcast = &mut self.receive_cancellation;
-
-                    let save_path = &self.save_path;
-                    let conn = &mut self.conn;
-
-                    // todo: might repeat work here
-                    let batch_save_path = if let Ok(x) = self
-                        .current_job
-                        .as_ref()
-                        .unwrap()
-                        .batch_save_path(&save_path)
-                        .await
-                    {
-                        x
-                    } else {
-                        warn!(
-                            "could not create storage path for currnet batch on {}",
-                            addr
-                        );
-                        save_path.to_owned()
-                    };
-
-                    let job_result = tokio::select!(
-                        // check if we could read from the TCP socket without issue:
-                        response = handle_client_response(conn, &batch_save_path) => {
-                            match response {
-                                Ok(response) => {
-                                    // TODO: add some logic to schedule other jobs on this node
-                                    // if this job was a initialization job
-                                    // since that means that the packages were not correctly built on the
-                                    // machine
-                                }
-                                Err(e) => {
-                                    error!(
-                                        "error receiving job response from node {}: {}",
-                                        self.addr(),
-                                        e
-                                    );
-                                    self.schedule_reconnect().await;
-                                }
-                            };
-
-                            true
-                        }
-                        // check if this message was cancelled. the function will return when any
-                        // message in the broadcast queue matches that of the current value of
-                        // self.current_job
-                        _ = check_cancellation(current_job, broadcast) => {
-                            false
-                        }
-                    );
-
-                    // check if the job was cancelled
-                    if job_result == false {
-                        // the job was cancelled, spin off a separate connection to the node so
-                        // that we can message them
-                        match transport::ServerConnection::new(self.conn.addr).await {
-                            Ok(mut tmp_conn) => {
-                                if let Err(e) = tmp_conn
-                                    .transport_data(&transport::RequestFromServer::KillJob)
-                                    .await
-                                {
-                                    error!("could not kill the job on the node: {}", e);
-                                }
-
-                                // we dont expect the child to reply with a message in this
-                                // instance, we can kill the job and continue
-                                //
-                                // this is because the child may have already sent us a message
-                                // for the finished job and there would be a race condition created
-                            }
-                            Err(e) => {
-                                error!("failed to form temp connection to {} to notify of task cancellation. Setting current job to None
-                                       and scheduling a reconnect on the main thread. Error: {}", self.addr(), e);
-                                self.current_job = None;
-                                self.schedule_reconnect().await;
-                            }
-                        }
+                // if we are at this point in the loop then we need to build
+                // a new job and execute it until there are no more remaining jobs
+                match self.execute_job_set(last_set.take()).await {
+                    Ok(new_set) => {
+                        last_set = Some(new_set);
+                        continue
+                    },
+                    Err(e) => {
+                        error!("error executing a set of jobs: {}", e);
                     }
                 }
+                //
             }
         })
     }
 
-    async fn fetch_new_job(&mut self) -> Result<JobResponse, mpsc::error::SendError<JobRequest>> {
-        let (tx, rx) = oneshot::channel();
+    async fn fetch_new_job(&mut self, initialized_job :JobIdentifier, after_building: bool ) -> BuildTaskRunTask {
 
-        // grab a job identifier and information on if the job was a build of not
-        // because if the job was a build we should not seek to reduce the total
-        // number of running jobs on the scheduler
-        let (after_building, initialized_job) = 
-            if let Some(curr_job) = self.current_job.clone() {
-                // set the current identifier to None so that we dont proc any strange issues with
-                // the total number of running jobs later
-                self.current_job.as_mut().unwrap().identifier = JobIdentifier::none();
+        loop {
+            let (tx, rx) = oneshot::channel();
+            let response = self.common.request_job_tx
+                .send(JobRequest::from(NewJobRequest {
+                    tx,
+                    initialized_job,
+                    after_building,
+                    capabilities: self.common.capabilities.clone(),
+                }))
+                .await;
 
-                (curr_job.is_build_task(), curr_job.identifier)
-            } else {
-                (true, JobIdentifier::none())
-            };
+            match response {
+                Ok(x) => x,
+                Err(e) => {
+                    error!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &self.common.conn.addr);
+                    panic!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &self.common.conn.addr);
+                }
+            }
 
-        self.request_job_tx
-            .send(JobRequest::from(NewJobRequest {
-                tx,
-                initialized_job,
-                after_building,
-                capabilities: self.capabilities.clone(),
-            }))
-            .await?;
-
-        Ok(rx.await.unwrap())
+            match rx.await.unwrap() {
+                JobResponse::SetupOrRun(t) => return t.flatten(),
+                EmptyJobs=> {
+                    debug!("no more jobs to run on {} - sleeping and asking for more", self.common.conn.addr);
+                    tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                    continue
+                }
+            }
+        }
     }
 
-    fn addr(&self) -> &std::net::SocketAddr {
-        &self.conn.addr
+    async fn execute_job_set(&mut self, default_build: Option<BuildTaskInfo>) -> Result<BuildTaskInfo, Error> {
+        // check to see if we were told what our build task would be already
+        let build_info = if let Some(def) = default_build {
+            def
+        } 
+        // this is the first time running this function - we need to fetch
+        // the building task ourselves
+        else {
+            let after_building = false;
+
+            let task = self.fetch_new_job(JobIdentifier::None, after_building).await;
+
+            match task {
+                BuildTaskRunTask::Build(b) => b,
+                BuildTaskRunTask::Run(_) => {
+                    return Err(Error::BuildJob(error::BuildJobError::SentExecutable))
+                }
+            }
+        };
+
+        // we now know what job it is that we are supposed to be building - lets build it
+        let build = BuildingNode { common: &mut self.common, task_info:build_info };
+
+        let ready_executable = build.run_build().await?;
+        let after_build = true;
+
+        loop {
+            let job_to_run = self.fetch_new_job(ready_executable.initialized_job, after_build).await;
+
+            // if we have been told to build a new set of tasks then we 
+            // return so that we can run this function from the top -
+            // otherwise we keep going
+            let job = match job_to_run {
+                BuildTaskRunTask::Build(x) => return Ok(x),
+                BuildTaskRunTask::Run(x) => x
+            };
+
+            let running_node = RunningNode::new(&ready_executable, job, &mut self.common);
+            // check that the task we were going to run was the task that we have currently
+            // built
+            if let Some(run) = running_node {
+                run.execute_task().await?
+            }
+            // what we were asked to run did not make sense
+            else{
+                return Err(Error::RunningJob(error::RunningNodeError::MissingBuildStep));
+            }
+        }
+
     }
 
     async fn schedule_reconnect(&mut self) {
         while let Err(e) = self._schedule_reconnect().await {
-            error!("could not reconnect to node at {}: {}", self.addr(), e);
+            error!("could not reconnect to node at {}: {}", self.common.conn.addr, e);
         }
     }
 
     async fn _schedule_reconnect(&mut self) -> Result<(), Error> {
         tokio::time::sleep(Duration::from_secs(60)).await;
-        self.conn.reconnect().await
+        self.common.conn.reconnect().await
+    }
+}
+
+#[derive(derive_more::Constructor)]
+pub(crate) struct Common {
+    conn: transport::ServerConnection,
+    request_job_tx: mpsc::Sender<JobRequest>,
+    receive_cancellation: broadcast::Receiver<JobIdentifier>,
+    capabilities: Arc<Requirements<NodeProvidedCaps>>,
+    save_path: PathBuf
+}
+
+struct BuildingNode<'a> {
+    common: &'a mut Common,
+    task_info: BuildTaskInfo
+}
+
+impl <'a> BuildingNode<'a>  {
+    async fn run_build(self) -> Result<WaitingExecutableNode, error::BuildJobError> {
+        let save_path : PathBuf= self.task_info.batch_save_path(&self.common.save_path).await
+            .map_err(|(error, path)| error::CreateDirError::new(error,path))?;
+
+        let req = transport::RequestFromServer::from(self.task_info.task);
+        self.common.conn.transport_data(&req).await;
+
+        let conn = &mut self.common.conn;
+
+        handle_client_response::<error::BuildJobError>(conn, &save_path).await?;
+
+        Ok(WaitingExecutableNode{initialized_job: self.task_info.identifier})
+    }
+}
+
+struct WaitingExecutableNode {
+    initialized_job: JobIdentifier,
+}
+
+struct RunningNode<'a> {
+    task_info: RunTaskInfo,
+    common: &'a mut Common,
+}
+
+impl <'a> RunningNode <'a> {
+    fn new(waiting_node: &WaitingExecutableNode, task_info: RunTaskInfo, common: &'a mut Common) -> Option<Self> {
+        if waiting_node.initialized_job != task_info.identifier {
+            error!("run task on {} scheduled from the job pool did not have the same identifier as us: {} (us) {} (given). This job will be lost",
+                common.conn.addr, waiting_node.initialized_job, task_info.identifier);
+            return None
+        }
+
+        Some(
+            Self {
+                common,
+                task_info
+            }
+        )
+    }
+
+    async fn execute_task(self) -> Result<(), error::RunningNodeError> {
+        let save_path : PathBuf= self.task_info.batch_save_path(&self.common.save_path).await
+            .map_err(|(error, path)| error::CreateDirError::new(error,path))?;
+
+        let req = transport::RequestFromServer::from(self.task_info.task.clone());
+        self.common.conn.transport_data(&req).await.map_err(Box::new)?;
+
+        handle_client_response::<error::RunningNodeError>(&mut self.common.conn, &save_path).await?;
+
+        Ok(())
     }
 }
 
@@ -419,48 +448,63 @@ async fn check_cancellation(
 ///
 /// save any files that they sent us and return a simplified
 /// version of the response they had
-async fn handle_client_response(
+async fn handle_client_response<E>(
     conn: &mut transport::ServerConnection,
     save_path: &Path,
-) -> Result<NodeNextStep, Error> {
-    loop {
-        let response = conn.receive_data().await?;
-
-        match response {
-            transport::ClientResponse::StatusCheck(_) => todo!(),
-            transport::ClientResponse::RequestNewJob(_) => return Ok(NodeNextStep::RequestNextJob),
-            transport::ClientResponse::SendFile(send_file) => {
-                // we need to store this file
-                let save_location = save_path.join(send_file.file_path);
-                info!("saving solver file to {:?}", save_location);
-                if send_file.is_file {
-                    // TODO: fix these unwraps
-                    let mut file = tokio::fs::File::create(&save_location)
-                        .await
-                        .map_err(|error| error::WriteFile::from((error, save_location.clone())))
-                        .map_err(|e| error::ServerError::from(e))?;
-
-                    file.write_all(&send_file.bytes).await.unwrap();
-                } else {
-                    // just create the directory
-                    ok_if_exists(tokio::fs::create_dir(&save_location).await)
-                        .map_err(|error| {
-                            error::CreateDirError::from((error, save_location.clone()))
-                        })
-                        .map_err(|e| error::ServerError::from(e))?;
+) -> Result<(), E> 
+where E: From<Box<Error>>
+{
+        loop {
+            let response = conn.receive_data().await.map_err(|e| Box::new(e))?;
+            match response {
+                transport::ClientResponse::SendFile(send_file) => {
+                    receive_file(conn, &save_path, send_file)
                 }
-
-                // after we have received the file, let the client know this and send another
-                // file
-                conn.transport_data(&transport::RequestFromServer::FileReceived)
-                    .await?;
-            }
-            // this is possible if we errored handlign teh response from a thread and now we 
-            // have started a new tcp connection, the responses dont have to be the ones 
-            // above
-            _ => unimplemented!(),
+                transport::ClientResponse::RequestNewJob(job_request) => {
+                    break
+                }
+                transport::ClientResponse::StatusCheck(s)  => {
+                    warn!("status check was received from the client on {}, we were expecting a file or job request: {}", &conn.addr, s); 
+                    continue
+                }
+                transport::ClientResponse::Error(e) => {
+                    warn!("client on {} experienced an error building the job: {:?}", conn.addr, e);
+                    continue
+                }
+            };
         }
+
+        Ok(())
+}
+
+async fn receive_file(conn: &mut transport::ServerConnection, save_path: &Path, send_file: transport::SendFile) -> Result<(), Error> {
+
+    // we need to store this file
+    let save_location = save_path.join(send_file.file_path);
+    info!("saving solver file to {:?}", save_location);
+    if send_file.is_file {
+        // TODO: fix these unwraps
+        let mut file = tokio::fs::File::create(&save_location)
+            .await
+            .map_err(|error| error::WriteFile::from((error, save_location.clone())))
+            .map_err(|e| error::ServerError::from(e))?;
+
+        file.write_all(&send_file.bytes).await.unwrap();
+    } else {
+        // just create the directory
+        ok_if_exists(tokio::fs::create_dir(&save_location).await)
+            .map_err(|error| {
+                error::CreateDirError::from((error, save_location.clone()))
+            })
+            .map_err(|e| error::ServerError::from(e))?;
     }
+
+    // after we have received the file, let the client know this and send another
+    // file
+    conn.transport_data(&transport::RequestFromServer::FileReceived)
+        .await?;
+
+    Ok(())
 }
 enum NodeNextStep {
     RequestNextJob,

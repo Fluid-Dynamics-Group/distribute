@@ -25,6 +25,10 @@ pub(crate) enum Error {
     Pause(#[from] PauseError),
     #[error("{0}")]
     Add(#[from] AddError),
+    #[error("Error when building a job: {0}")]
+    BuildJob(#[from] BuildJobError),
+    #[error("Error when executing a job on a node: {0}")]
+    RunningJob(#[from] RunningNodeError),
 }
 
 #[derive(Debug, Display, thiserror::Error, From)]
@@ -280,4 +284,24 @@ pub(crate) enum ScheduleError {
 #[display(fmt = "Failed to save job set to memory: {}", error)]
 pub struct StoreSet {
     error: std::io::Error,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub(crate) enum BuildJobError {
+    #[error("{0}")]
+    CreateDirector(CreateDirError),
+    #[error("{0}")]
+    Other(Box<Error>),
+    #[error("The scheduler returned a runnable job instead of an initialization job when we first requested a task.")]
+    SentExecutable
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub(crate) enum RunningNodeError {
+    #[error("{0}")]
+    CreateDirector(CreateDirError),
+    #[error("{0}")]
+    Other(Box<Error>),
+    #[error("The job returned to us has not been built before")]
+    MissingBuildStep
 }

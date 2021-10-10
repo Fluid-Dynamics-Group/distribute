@@ -4,7 +4,7 @@ mod storage;
 mod user_conn;
 
 pub(crate) use job_pool::JobResponse;
-use job_pool::{JobPool, JobRequest, NodeConnection};
+use job_pool::{JobPool, JobRequest, InitializedNode};
 pub(crate) use schedule::{
     JobSet, NodeProvidedCaps, RemainingJobs, Schedule,
 };
@@ -81,13 +81,15 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
     // spawn off each node connection to its own task
     for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
         info!("starting NodeConnection for {}", server_connection.addr);
-        let handle = NodeConnection::new(
+        let common = job_pool::Common::new(
             server_connection,
             request_job.clone(),
             tx_cancel.subscribe(),
             caps,
             server.save_path.clone(),
-            None,
+        );
+        let handle = InitializedNode::new(
+            common
         )
         .spawn();
         handles.push(handle);
