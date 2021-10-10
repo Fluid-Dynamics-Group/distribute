@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
+use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::iter::FromIterator;
 
 pub(crate) trait Schedule {
     fn fetch_new_task(
@@ -79,7 +79,7 @@ impl GpuPriority {
                 job_set.namespace.clone(),
                 job_set.batch_name.clone(),
                 *ident,
-                JobOrInit::JobInit(init)
+                JobOrInit::JobInit(init),
             ))
         } else {
             JobResponse::EmptyJobs
@@ -98,7 +98,10 @@ impl GpuPriority {
                 if job_set.has_remaining_jobs() {
                     // TODO: this can panic
                     //
-                    debug!("fetching next job since there are jobs remaining in set {}", identifier);
+                    debug!(
+                        "fetching next job since there are jobs remaining in set {}",
+                        identifier
+                    );
                     let job = job_set.next_job().unwrap();
                     Some(JobResponse::SetupOrRun(TaskInfo::new(
                         job_set.namespace.clone(),
@@ -141,7 +144,7 @@ impl Schedule for GpuPriority {
                     gpu_job_set.batch_name.clone(),
                     current_compiled_job,
                     JobOrInit::Job(job),
-                    ))
+                ))
             } else {
                 // TODO: fix this unwrap - there has to be a better way
                 // to do this but i have not worked around it right now
@@ -209,18 +212,20 @@ impl Schedule for GpuPriority {
                 removed_set.build.delete().ok();
 
                 if let Some(matrix_id) = &removed_set.matrix_user {
-
                     let matrix_id = matrix_id.clone();
 
                     // spawn off so that we can use async
                     tokio::task::spawn(async move {
-                        let client = match matrix_notify::client(&matrix_notify::ConfigInfo::new().unwrap()).await {
-                            Ok(c) => c,
-                            Err(e) => {
-                                error!("failed to create matrix client: {}", e);
-                                return
-                            }
-                        };
+                        let client =
+                            match matrix_notify::client(&matrix_notify::ConfigInfo::new().unwrap())
+                                .await
+                            {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    error!("failed to create matrix client: {}", e);
+                                    return;
+                                }
+                            };
 
                         let self_id =
                             matrix_notify::UserId::try_from("@compute-notify:matrix.org").unwrap();
@@ -340,7 +345,7 @@ impl JobSet {
             currently_running_jobs,
             batch_name,
             matrix_user,
-            namespace
+            namespace,
         } = owned;
         let build = StoredJobInit::from_opt(build, base_path)?;
         let remaining_jobs = match remaining_jobs {
@@ -395,16 +400,15 @@ impl Requirements<NodeProvidedCaps> {
     }
 }
 
-impl <T> FromIterator<Requirement> for Requirements<T> {
+impl<T> FromIterator<Requirement> for Requirements<T> {
     fn from_iter<V>(iter: V) -> Self
     where
-        V: IntoIterator<Item = Requirement> {
-
+        V: IntoIterator<Item = Requirement>,
+    {
         Requirements {
             reqs: iter.into_iter().collect(),
-            marker: std::marker::PhantomData::<T>
+            marker: std::marker::PhantomData::<T>,
         }
-
     }
 }
 

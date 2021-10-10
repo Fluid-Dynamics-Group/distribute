@@ -2,7 +2,7 @@ use crate::error::{self, ConfigErrorReason, ConfigurationError};
 use crate::{server, transport};
 use derive_more::Display;
 use serde::de::DeserializeOwned;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

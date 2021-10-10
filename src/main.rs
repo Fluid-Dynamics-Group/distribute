@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 
-mod cli;
 mod add;
+mod cli;
 mod client;
 mod config;
 mod error;

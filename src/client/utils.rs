@@ -1,5 +1,5 @@
-use futures::StreamExt;
 use super::execute::FileMetadata;
+use futures::StreamExt;
 use std::path::{Path, PathBuf};
 
 // clean out the tmp files from a build script from the output directory
@@ -74,14 +74,13 @@ pub(crate) fn remove_path_prefixes(path: PathBuf) -> PathBuf {
         .collect()
 }
 
-pub(crate) async fn read_save_folder(base_path:&Path) -> Vec<FileMetadata> {
+pub(crate) async fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {
     walkdir::WalkDir::new(base_path.join("distribute_save"))
-                    .into_iter()
-                    .flat_map(|x| x.ok())
-                    .map(|x| FileMetadata {
-                        file_path: x.path().to_owned(),
-                        is_file: x.file_type().is_file(),
-                    })
-                    .collect()
-
+        .into_iter()
+        .flat_map(|x| x.ok())
+        .map(|x| FileMetadata {
+            file_path: x.path().to_owned(),
+            is_file: x.file_type().is_file(),
+        })
+        .collect()
 }

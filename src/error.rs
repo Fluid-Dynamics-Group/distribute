@@ -293,7 +293,7 @@ pub(crate) enum BuildJobError {
     #[error("{0}")]
     Other(Box<Error>),
     #[error("The scheduler returned a runnable job instead of an initialization job when we first requested a task.")]
-    SentExecutable
+    SentExecutable,
 }
 
 #[derive(Debug, From, thiserror::Error)]
@@ -303,5 +303,5 @@ pub(crate) enum RunningNodeError {
     #[error("{0}")]
     Other(Box<Error>),
     #[error("The job returned to us has not been built before")]
-    MissingBuildStep
+    MissingBuildStep,
 }

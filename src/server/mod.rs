@@ -4,12 +4,10 @@ mod storage;
 mod user_conn;
 
 pub(crate) use job_pool::JobResponse;
-use job_pool::{JobPool, JobRequest, InitializedNode};
-pub(crate) use schedule::{
-    JobSet, NodeProvidedCaps, RemainingJobs, Schedule,
-};
+use job_pool::{InitializedNode, JobPool, JobRequest};
+pub(crate) use schedule::{JobSet, NodeProvidedCaps, RemainingJobs, Schedule};
 
-pub use schedule::{Requirements, JobRequiredCaps, Requirement};
+pub use schedule::{JobRequiredCaps, Requirement, Requirements};
 
 pub(crate) use storage::{JobOpt, OwnedJobSet};
 
@@ -88,10 +86,7 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
             caps,
             server.save_path.clone(),
         );
-        let handle = InitializedNode::new(
-            common
-        )
-        .spawn();
+        let handle = InitializedNode::new(common).spawn();
         handles.push(handle);
     }
 
