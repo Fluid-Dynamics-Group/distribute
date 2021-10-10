@@ -279,6 +279,11 @@ impl InitializedNode {
                         last_set = Some(new_set);
                         continue;
                     }
+                    Err(Error::TcpConnection(e)) => {
+                        error!("TCP error in main node loop, scheduling reconnect: {}", e);
+                        self.schedule_reconnect().await;
+                        continue
+                    },
                     Err(e) => {
                         error!("error executing a set of jobs: {}", e);
                     }
@@ -308,7 +313,7 @@ impl InitializedNode {
 
             match response {
                 Ok(x) => x,
-                Err(e) => {
+                Err(_) => {
                     error!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &self.common.conn.addr);
                     panic!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &self.common.conn.addr);
                 }
@@ -362,6 +367,10 @@ impl InitializedNode {
         let ready_executable = build.run_build().await?;
         let after_build = true;
 
+        // constantly ask for more jobs related to the job that we have 
+        // built on the node. If we receive a new job that is a build 
+        // request then we return out of this function to repeat
+        // the process from the top
         loop {
             let job_to_run = self
                 .fetch_new_job(ready_executable.initialized_job, after_build)
@@ -386,6 +395,7 @@ impl InitializedNode {
                 return Err(Error::RunningJob(error::RunningNodeError::MissingBuildStep));
             }
         }
+        //
     }
 
     async fn schedule_reconnect(&mut self) {
@@ -418,19 +428,20 @@ struct BuildingNode<'a> {
 }
 
 impl<'a> BuildingNode<'a> {
-    async fn run_build(self) -> Result<WaitingExecutableNode, error::BuildJobError> {
+    async fn run_build(self) -> Result<WaitingExecutableNode, Error> {
         let save_path: PathBuf = self
             .task_info
             .batch_save_path(&self.common.save_path)
             .await
-            .map_err(|(error, path)| error::CreateDirError::new(error, path))?;
+            .map_err(|(error, path)| error::CreateDirError::new(error, path))
+            .map_err(error::BuildJobError::from)?;
 
         let req = transport::RequestFromServer::from(self.task_info.task);
-        self.common.conn.transport_data(&req).await;
+        self.common.conn.transport_data(&req).await?;
 
-        let conn = &mut self.common.conn;
-
-        handle_client_response::<error::BuildJobError>(conn, &save_path).await?;
+        let handle = handle_client_response::<Error>(&mut self.common.conn, &save_path);
+        execute_with_cancellation(handle, &mut self.common.receive_cancellation, self.task_info.identifier)
+            .await?;
 
         Ok(WaitingExecutableNode {
             initialized_job: self.task_info.identifier,
@@ -462,21 +473,23 @@ impl<'a> RunningNode<'a> {
         Some(Self { common, task_info })
     }
 
-    async fn execute_task(self) -> Result<(), error::RunningNodeError> {
+    async fn execute_task(self) -> Result<(), Error> {
         let save_path: PathBuf = self
             .task_info
             .batch_save_path(&self.common.save_path)
             .await
-            .map_err(|(error, path)| error::CreateDirError::new(error, path))?;
+            .map_err(|(error, path)| error::CreateDirError::new(error, path))
+            .map_err(error::RunningNodeError::from)?;
 
         let req = transport::RequestFromServer::from(self.task_info.task.clone());
         self.common
             .conn
             .transport_data(&req)
-            .await
-            .map_err(Box::new)?;
+            .await?;
 
-        handle_client_response::<error::RunningNodeError>(&mut self.common.conn, &save_path)
+
+        let handle = handle_client_response::<Error>(&mut self.common.conn, &save_path);
+        execute_with_cancellation(handle, &mut self.common.receive_cancellation, self.task_info.identifier)
             .await?;
 
         Ok(())
@@ -488,19 +501,34 @@ impl<'a> RunningNode<'a> {
 // this is broken out into a separate function since the tokio::select! requires
 // two mutable borrows to &mut self
 async fn check_cancellation(
-    current_job: Option<&TaskInfo>,
+    current_job: JobIdentifier,
     rx_cancel: &mut broadcast::Receiver<JobIdentifier>,
 ) {
     loop {
         if let Ok(identifier) = rx_cancel.recv().await {
-            if current_job
-                .map(|job| job.identifier == identifier)
-                .unwrap_or(false)
+            if current_job == identifier
             {
                 return;
             }
         }
     }
+}
+
+/// execute a generic future returning a result while also checking for possible cancellations
+/// from the job pool
+async fn execute_with_cancellation<E>(
+    fut: impl std::future::Future<Output = Result<(), E>>,
+    cancel: &mut broadcast::Receiver<JobIdentifier>,
+    current_ident: JobIdentifier,
+) -> Result<(), E> {
+    tokio::select!(
+        response = fut => {
+            response
+        }
+        _cancel_result = check_cancellation(current_ident, cancel) => {
+            Ok(())
+        }
+    )
 }
 
 /// check what the client responded to the job request (not init) that we sent them
@@ -512,15 +540,14 @@ async fn handle_client_response<E>(
     save_path: &Path,
 ) -> Result<(), E>
 where
-    E: From<Box<Error>>,
+    E: From<Error>,
 {
     loop {
-        let response = conn.receive_data().await.map_err(|e| Box::new(e))?;
+        let response = conn.receive_data().await?;
         match response {
             transport::ClientResponse::SendFile(send_file) => {
                 receive_file(conn, &save_path, send_file)
-                    .await
-                    .map_err(Box::new)?;
+                    .await?
             }
             transport::ClientResponse::RequestNewJob(_job_request) => {
                 // we handle this at the call site of this function
