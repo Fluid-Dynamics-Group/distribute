@@ -6,6 +6,7 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
+use crate::server::job_pool::CancelBatchQuery;
 
 use super::{schedule, JobRequest, NodeProvidedCaps, Requirements};
 
@@ -76,6 +77,7 @@ async fn single_user_request(
             transport::UserMessageToServer::KillJob(batch_name) => {
                 debug!("new request was to kill a job set");
                 // TODO: ask the scheduler
+                cancel_job_by_name(&tx, &mut conn, batch_name).await;
             }
         }
         //
@@ -190,6 +192,34 @@ async fn query_job_names(
             if let Err(e) = conn.transport_data(&response).await {
                 error!("failed to respond to the user with failure to query job names (caused by oneshot channel): {}", e);
             }
+        }
+    }
+}
+
+async fn cancel_job_by_name(
+    tx: &mpsc::Sender<JobRequest>,
+    conn: &mut transport::ServerConnectionToUser,
+    batch: String,
+) {
+    let (tx_respond, rx_respond) = oneshot::channel();
+
+    let req = JobRequest::CancelBatchByName(CancelBatchQuery::new(tx_respond, batch.clone()));
+
+    if let Err(e) = tx.send(req).await {
+        error!("could not query job pool to remove a job set {} - {}", batch, e);
+        let response = transport::ServerResponseToUser::KillJobFailed;
+        conn.transport_data(&response).await.ok();
+    }
+
+    match rx_respond.await {
+        Ok(result) => {
+            let resp = transport::ServerResponseToUser::KillJob(result);
+            conn.transport_data(&resp).await.ok();
+        }
+        Err(e) => {
+            error!("could not read from oneshot pipe when getting killed job result");
+            let response = transport::ServerResponseToUser::KillJobFailed;
+            conn.transport_data(&response).await.ok();
         }
     }
 }

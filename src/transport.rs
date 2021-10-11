@@ -65,6 +65,10 @@ pub(crate) enum ServerResponseToUser {
     JobNames(Vec<server::RemainingJobs>),
     #[display(fmt = "job names failed to query")]
     JobNamesFailed,
+    #[display(fmt = "Result of removing the job set: {}", "_0")]
+    KillJob(crate::server::CancelResult),
+    #[display(fmt = "Failed to kill the job set - probably could not communicate to the job pool")]
+    KillJobFailed
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -138,8 +142,8 @@ impl Version {
         // TODO: pull this from cargo.toml
         Self {
             major: 0,
-            minor: 3,
-            patch: 8,
+            minor: 4,
+            patch: 0,
         }
     }
 }

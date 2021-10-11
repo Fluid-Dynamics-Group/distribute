@@ -10,6 +10,7 @@ pub(crate) use schedule::{JobSet, NodeProvidedCaps, RemainingJobs, Schedule};
 pub use schedule::{JobRequiredCaps, Requirement, Requirements};
 
 pub(crate) use storage::{JobOpt, OwnedJobSet};
+pub(crate) use job_pool::CancelResult;
 
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;

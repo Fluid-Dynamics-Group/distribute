@@ -14,7 +14,9 @@ use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
-use derive_more::{Constructor, From};
+use derive_more::{Constructor, From, Display};
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Constructor)]
 pub(super) struct JobPool<T> {
@@ -154,9 +156,13 @@ pub(crate) struct CancelBatchQuery {
     batch_name: String,
 }
 
+#[derive(Display, Serialize, Deserialize, Debug, Clone)]
 pub(crate) enum CancelResult {
+    #[display(fmt="Batch name was missing")]
     BatchNameMissing,
+    #[display(fmt="There were no nodes to broadcast to")]
     NoBroadcastNodes,
+    #[display(fmt="success")]
     Success,
 }
 
