@@ -55,6 +55,15 @@ pub struct Initialize {
     sif: PathBuf,
     #[serde(default)]
     required_files: Vec<File>,
+    #[serde(default)]
+    /// if specified, create a mutable filesystem of this many megabytes.
+    ///
+    /// This parameter is not requried if your image is immutable. If you require
+    /// more than a few gigabytes of storage, it is recommended to refactor the code
+    /// to utilize a filesystem mount (to the host machin) directly to 
+    filesystem_size: Option<u32>,
+    #[serde(default)]
+    required_mounts: Vec<PathBuf>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
