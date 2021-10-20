@@ -38,20 +38,18 @@ pub(super) async fn general_request(
 
             initialize_python_job(init, base_path, cancel).await?;
 
-            let after = transport::ClientResponse::RequestNewJob(
-                transport::NewJobRequest,
-            );
+            let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
 
             let paths = utils::read_save_folder(&base_path).await;
 
-            PrerequisiteOperations::SendFiles { paths, after}
+            PrerequisiteOperations::SendFiles { paths, after }
         }
         transport::RequestFromServer::RunPythonJob(job) => {
             info!("running python job");
 
             if let Some(_) = run_python_job(job, base_path, cancel).await? {
                 let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths =  utils::read_save_folder(base_path).await;               
+                let paths = utils::read_save_folder(base_path).await;
                 PrerequisiteOperations::SendFiles { paths, after }
             } else {
                 // we cancelled this job early - dont send any files
@@ -68,13 +66,11 @@ pub(super) async fn general_request(
 
             initialize_singularity_job(init_job, base_path, cancel).await?;
 
-            let after = transport::ClientResponse::RequestNewJob(
-                transport::NewJobRequest,
-            );
+            let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
 
             let paths = utils::read_save_folder(&base_path).await;
 
-            PrerequisiteOperations::SendFiles { paths, after}
+            PrerequisiteOperations::SendFiles { paths, after }
         }
         transport::RequestFromServer::RunSingularityJob(job) => {
             info!("running singularity job");
@@ -286,20 +282,30 @@ async fn run_singularity_job(
     write_all_init_files(&base_path.join("input"), &job.job_files).await?;
 
     // the local paths to the save and input directories
-    let dist_save = base_path.join("distribute_save").to_string_lossy().to_string();
+    let dist_save = base_path
+        .join("distribute_save")
+        .to_string_lossy()
+        .to_string();
     let input = base_path.join("input").to_string_lossy().to_string();
     let work = base_path.join("work").to_string_lossy().to_string();
 
     tokio::fs::create_dir(&work).await.ok();
 
-    let bind_arg = format!("{}:{}:rw,{}:{}:rw,{}:{}:rw", dist_save, "/distribute_save", input, "/input", work, "/hit3d/src/output");
+    let bind_arg = format!(
+        "{}:{}:rw,{}:{}:rw,{}:{}:rw",
+        dist_save, "/distribute_save", input, "/input", work, "/hit3d/src/output"
+    );
 
-    let singularity_path = base_path.join("singularity.sif").to_string_lossy().to_string();
+    let singularity_path = base_path
+        .join("singularity.sif")
+        .to_string_lossy()
+        .to_string();
 
     let command = tokio::process::Command::new("singularity")
         .args(&[
             "run",
-            "--app", "distribute",
+            "--app",
+            "distribute",
             "--bind",
             &bind_arg,
             &singularity_path,

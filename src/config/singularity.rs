@@ -1,6 +1,6 @@
 use crate::error::{self, ConfigErrorReason, ConfigurationError};
 use crate::{server, transport};
-use derive_more::{Display, Constructor};
+use derive_more::{Constructor, Display};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

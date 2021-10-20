@@ -4,14 +4,13 @@ mod storage;
 mod user_conn;
 
 pub(crate) use job_pool::JobResponse;
-use job_pool::{JobPool, JobRequest, NodeConnection};
-pub(crate) use schedule::{
-    JobSet, NodeProvidedCaps, RemainingJobs, Schedule,
-};
+use job_pool::{InitializedNode, JobPool, JobRequest};
+pub(crate) use schedule::{JobSet, NodeProvidedCaps, RemainingJobs, Schedule};
 
-pub use schedule::{Requirements, JobRequiredCaps, Requirement};
+pub use schedule::{JobRequiredCaps, Requirement, Requirements};
 
 pub(crate) use storage::{JobOpt, OwnedJobSet};
+pub(crate) use job_pool::CancelResult;
 
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;
@@ -81,15 +80,14 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
     // spawn off each node connection to its own task
     for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
         info!("starting NodeConnection for {}", server_connection.addr);
-        let handle = NodeConnection::new(
+        let common = job_pool::Common::new(
             server_connection,
             request_job.clone(),
             tx_cancel.subscribe(),
             caps,
             server.save_path.clone(),
-            None,
-        )
-        .spawn();
+        );
+        let handle = InitializedNode::new(common).spawn();
         handles.push(handle);
     }
 

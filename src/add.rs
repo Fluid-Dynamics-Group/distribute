@@ -79,7 +79,7 @@ pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
         0,
         jobs.batch_name(),
         jobs.matrix_user(),
-        jobs.namespace()
+        jobs.namespace(),
     );
 
     if !args.dry {
