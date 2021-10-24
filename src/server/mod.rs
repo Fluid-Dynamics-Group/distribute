@@ -1,8 +1,8 @@
 mod job_pool;
+mod matrix;
 mod schedule;
 mod storage;
 mod user_conn;
-mod matrix;
 
 pub(crate) use job_pool::JobResponse;
 use job_pool::{InitializedNode, JobPool, JobRequest};
@@ -10,8 +10,8 @@ pub(crate) use schedule::{JobSet, NodeProvidedCaps, RemainingJobs, Schedule};
 
 pub use schedule::{JobRequiredCaps, Requirement, Requirements};
 
-pub(crate) use storage::{JobOpt, OwnedJobSet};
 pub(crate) use job_pool::CancelResult;
+pub(crate) use storage::{JobOpt, OwnedJobSet};
 
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;
@@ -74,7 +74,13 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
 
     info!("starting job pool task");
     let (tx_cancel, _) = broadcast::channel(20);
-    let handle = JobPool::new(scheduler, job_pool_holder, tx_cancel.clone(), node_caps.len()).spawn();
+    let handle = JobPool::new(
+        scheduler,
+        job_pool_holder,
+        tx_cancel.clone(),
+        node_caps.len(),
+    )
+    .spawn();
 
     let mut handles = vec![handle];
 

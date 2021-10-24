@@ -3,19 +3,19 @@ use super::schedule::{self, JobIdentifier, NodeProvidedCaps, Requirements, Sched
 use super::storage;
 use crate::{cli, config, error, error::Error, status, transport};
 
+use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use std::collections::BTreeSet;
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
-use derive_more::{Constructor, From, Display};
+use derive_more::{Constructor, Display, From};
 
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,7 @@ pub(super) struct JobPool<T> {
     remaining_jobs: T,
     receive_requests: mpsc::Receiver<JobRequest>,
     broadcast_cancel: broadcast::Sender<JobIdentifier>,
-    total_nodes: usize
+    total_nodes: usize,
 }
 
 impl<T> JobPool<T>
@@ -46,9 +46,11 @@ where
                             self.remaining_jobs.finish_job(new_req.initialized_job);
                         }
 
-                        let new_task: JobResponse = self
-                            .remaining_jobs
-                            .fetch_new_task(new_req.initialized_job, new_req.capabilities, &new_req.build_failures);
+                        let new_task: JobResponse = self.remaining_jobs.fetch_new_task(
+                            new_req.initialized_job,
+                            new_req.capabilities,
+                            &new_req.build_failures,
+                        );
                         new_req.tx.send(new_task).ok().unwrap();
                     }
                     // a job failed to execute on the node
@@ -120,7 +122,8 @@ where
                         }
                     }
                     JobRequest::MarkBuildFailure(failure) => {
-                        self.remaining_jobs.mark_build_failure(failure.ident, self.total_nodes);
+                        self.remaining_jobs
+                            .mark_build_failure(failure.ident, self.total_nodes);
                     }
                 };
                 //
@@ -141,11 +144,11 @@ pub(crate) enum JobRequest {
     AddJobSet(storage::OwnedJobSet),
     QueryRemainingJobs(RemainingJobsQuery),
     CancelBatchByName(CancelBatchQuery),
-    MarkBuildFailure(MarkBuildFailure)
+    MarkBuildFailure(MarkBuildFailure),
 }
 
 pub(crate) struct MarkBuildFailure {
-    ident: JobIdentifier
+    ident: JobIdentifier,
 }
 
 pub(crate) struct NewJobRequest {
@@ -153,7 +156,7 @@ pub(crate) struct NewJobRequest {
     initialized_job: JobIdentifier,
     after_building: bool,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
-    build_failures: BTreeSet<JobIdentifier>
+    build_failures: BTreeSet<JobIdentifier>,
 }
 
 #[derive(derive_more::Constructor)]
@@ -169,11 +172,11 @@ pub(crate) struct CancelBatchQuery {
 
 #[derive(Display, Serialize, Deserialize, Debug, Clone)]
 pub(crate) enum CancelResult {
-    #[display(fmt="Batch name was missing")]
+    #[display(fmt = "Batch name was missing")]
     BatchNameMissing,
-    #[display(fmt="There were no nodes to broadcast to")]
+    #[display(fmt = "There were no nodes to broadcast to")]
     NoBroadcastNodes,
-    #[display(fmt="success")]
+    #[display(fmt = "success")]
     Success,
 }
 
@@ -281,7 +284,7 @@ pub(crate) enum JobOrInit {
 #[derive(derive_more::Constructor)]
 pub(super) struct InitializedNode {
     common: Common,
-    errored_jobsets: BTreeSet<JobIdentifier>
+    errored_jobsets: BTreeSet<JobIdentifier>,
 }
 
 impl InitializedNode {
@@ -300,8 +303,8 @@ impl InitializedNode {
                     Err(LocalOrClientError::Local(Error::TcpConnection(e))) => {
                         error!("TCP error in main node loop, scheduling reconnect: {}", e);
                         self.schedule_reconnect().await;
-                        continue
-                    },
+                        continue;
+                    }
                     Err(e) => {
                         error!("error executing a set of jobs: {}", e);
                     }
@@ -326,7 +329,7 @@ impl InitializedNode {
                     initialized_job,
                     after_building,
                     capabilities: self.common.capabilities.clone(),
-                    build_failures: self.errored_jobsets.clone()
+                    build_failures: self.errored_jobsets.clone(),
                 }))
                 .await;
 
@@ -397,8 +400,8 @@ impl InitializedNode {
 
         let after_build = true;
 
-        // constantly ask for more jobs related to the job that we have 
-        // built on the node. If we receive a new job that is a build 
+        // constantly ask for more jobs related to the job that we have
+        // built on the node. If we receive a new job that is a build
         // request then we return out of this function to repeat
         // the process from the top
         loop {
@@ -470,8 +473,14 @@ impl<'a> BuildingNode<'a> {
         let req = transport::RequestFromServer::from(self.task_info.task);
         self.common.conn.transport_data(&req).await?;
 
-        let handle = handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
-        let execution = execute_with_cancellation(handle, &mut self.common.receive_cancellation, self.task_info.identifier).await?;
+        let handle =
+            handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
+        let execution = execute_with_cancellation(
+            handle,
+            &mut self.common.receive_cancellation,
+            self.task_info.identifier,
+        )
+        .await?;
 
         Ok(WaitingExecutableNode {
             initialized_job: self.task_info.identifier,
@@ -513,15 +522,16 @@ impl<'a> RunningNode<'a> {
             .map_err(Error::from)?;
 
         let req = transport::RequestFromServer::from(self.task_info.task.clone());
-        self.common
-            .conn
-            .transport_data(&req)
-            .await?;
+        self.common.conn.transport_data(&req).await?;
 
-
-        let handle = handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
-        execute_with_cancellation(handle, &mut self.common.receive_cancellation, self.task_info.identifier)
-            .await?;
+        let handle =
+            handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
+        execute_with_cancellation(
+            handle,
+            &mut self.common.receive_cancellation,
+            self.task_info.identifier,
+        )
+        .await?;
 
         Ok(())
     }
@@ -537,8 +547,7 @@ async fn check_cancellation(
 ) {
     loop {
         if let Ok(identifier) = rx_cancel.recv().await {
-            if current_job == identifier
-            {
+            if current_job == identifier {
                 return;
             }
         }
@@ -577,8 +586,7 @@ where
         let response = conn.receive_data().await?;
         match response {
             transport::ClientResponse::SendFile(send_file) => {
-                receive_file(conn, &save_path, send_file)
-                    .await?
+                receive_file(conn, &save_path, send_file).await?
             }
             transport::ClientResponse::RequestNewJob(_job_request) => {
                 // we handle this at the call site of this function
@@ -595,9 +603,7 @@ where
                 );
                 continue;
             }
-            transport::ClientResponse::FailedExecution => {
-                return Err(E::from(()))
-            }
+            transport::ClientResponse::FailedExecution => return Err(E::from(())),
         };
     }
 
@@ -606,10 +612,10 @@ where
 
 #[derive(From, Display)]
 enum LocalOrClientError {
-    #[display(fmt="local:{}",_0)]
+    #[display(fmt = "local:{}", _0)]
     Local(Error),
-    #[display(fmt="the cleint failed to execute the build / job")]
-    ClientExecution
+    #[display(fmt = "the cleint failed to execute the build / job")]
+    ClientExecution,
 }
 
 async fn receive_file(

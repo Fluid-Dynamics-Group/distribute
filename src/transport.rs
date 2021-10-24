@@ -68,7 +68,7 @@ pub(crate) enum ServerResponseToUser {
     #[display(fmt = "Result of removing the job set: {}", "_0")]
     KillJob(crate::server::CancelResult),
     #[display(fmt = "Failed to kill the job set - probably could not communicate to the job pool")]
-    KillJobFailed
+    KillJobFailed,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]

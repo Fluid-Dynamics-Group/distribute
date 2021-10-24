@@ -66,7 +66,11 @@ impl GpuPriority {
     /// if we have ensured that the current jobidentifier has no remaining jobs left
     ///
     /// therefore, this function only returns a job initialization task or empty jobs
-    fn take_first_job(&mut self, node_caps: Arc<Requirements<NodeProvidedCaps>>, build_failures: &BTreeSet<JobIdentifier>) -> JobResponse {
+    fn take_first_job(
+        &mut self,
+        node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        build_failures: &BTreeSet<JobIdentifier>,
+    ) -> JobResponse {
         if let Some((ident, job_set)) = self
             .map
             .iter_mut()
@@ -228,7 +232,11 @@ impl Schedule for GpuPriority {
                     );
 
                     // send the matrix message
-                    super::matrix::send_matrix_message(matrix_id, removed_set, super::matrix::Reason::FinishedAll)
+                    super::matrix::send_matrix_message(
+                        matrix_id,
+                        removed_set,
+                        super::matrix::Reason::FinishedAll,
+                    )
                 }
             }
         } else {
@@ -256,14 +264,21 @@ impl Schedule for GpuPriority {
     }
 
     fn mark_build_failure(&mut self, failed_ident: JobIdentifier, total_nodes: usize) {
-        if let Some((_ident, mut job_set)) = self.map.iter_mut().find(|(identifier, _)| **identifier == failed_ident) {
+        if let Some((_ident, mut job_set)) = self
+            .map
+            .iter_mut()
+            .find(|(identifier, _)| **identifier == failed_ident)
+        {
             job_set.build_failures += 1;
 
             // if we have failed to build on every since node
             if job_set.build_failures == total_nodes {
                 let removed_set = self.map.remove(&failed_ident).unwrap();
 
-                info!("removing job set {} since it failed to build on every node", removed_set.batch_name);
+                info!(
+                    "removing job set {} since it failed to build on every node",
+                    removed_set.batch_name
+                );
 
                 if let Some(matrix_id) = &removed_set.matrix_user {
                     let matrix_id = matrix_id.clone();
@@ -273,9 +288,12 @@ impl Schedule for GpuPriority {
                         matrix_id, removed_set.batch_name
                     );
 
-                    super::matrix::send_matrix_message(matrix_id, removed_set, super::matrix::Reason::BuildFailures)
+                    super::matrix::send_matrix_message(
+                        matrix_id,
+                        removed_set,
+                        super::matrix::Reason::BuildFailures,
+                    )
                 }
-
             }
         } else {
             warn!("Failed to mark job set {} as failing to build for a node since it could not be found in the job set list. This should not happen", failed_ident);
@@ -292,7 +310,7 @@ pub(crate) struct JobSet {
     pub(crate) batch_name: String,
     namespace: String,
     matrix_user: Option<matrix_notify::UserId>,
-    build_failures: usize
+    build_failures: usize,
 }
 
 impl JobSet {
@@ -387,7 +405,7 @@ impl JobSet {
             batch_name,
             matrix_user,
             namespace,
-            build_failures: 0
+            build_failures: 0,
         })
     }
 }

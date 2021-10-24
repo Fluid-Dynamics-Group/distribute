@@ -1,3 +1,4 @@
+use crate::server::job_pool::CancelBatchQuery;
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -6,7 +7,6 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
-use crate::server::job_pool::CancelBatchQuery;
 
 use super::{schedule, JobRequest, NodeProvidedCaps, Requirements};
 
@@ -206,7 +206,10 @@ async fn cancel_job_by_name(
     let req = JobRequest::CancelBatchByName(CancelBatchQuery::new(tx_respond, batch.clone()));
 
     if let Err(e) = tx.send(req).await {
-        error!("could not query job pool to remove a job set {} - {}", batch, e);
+        error!(
+            "could not query job pool to remove a job set {} - {}",
+            batch, e
+        );
         let response = transport::ServerResponseToUser::KillJobFailed;
         conn.transport_data(&response).await.ok();
     }

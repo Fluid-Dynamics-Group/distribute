@@ -60,10 +60,10 @@ pub struct Initialize {
     ///
     /// This parameter is not requried if your image is immutable. If you require
     /// more than a few gigabytes of storage, it is recommended to refactor the code
-    /// to utilize a filesystem mount (to the host machin) directly to 
+    /// to utilize a filesystem mount (to the host machin) directly to
     filesystem_size: Option<u32>,
     #[serde(default)]
-    required_mounts: Vec<PathBuf>
+    required_mounts: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
