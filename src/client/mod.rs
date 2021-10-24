@@ -4,6 +4,7 @@ mod utils;
 use execute::PrerequisiteOperations;
 
 use crate::{cli, error, error::Error, transport};
+//pub(crate) use state::ClientState;
 
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
@@ -231,7 +232,7 @@ async fn start_server_connection(
                     "could not build project, sending response to server for new job (FIXME). {}",
                     e
                 );
-                let new_job = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
+                let new_job = transport::ClientResponse::FailedExecution;
 
                 send_client_response_with_logging(new_job, &mut conn, &ready_for_job, &base_path)
                     .await?;

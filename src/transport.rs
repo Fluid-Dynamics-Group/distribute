@@ -112,6 +112,8 @@ pub enum ClientResponse {
     SendFile(SendFile),
     #[display(fmt = "request new job: _0.display()")]
     RequestNewJob(NewJobRequest),
+    #[display(fmt = "failed to execute request")]
+    FailedExecution,
     #[display(fmt = "client error: _0.display()")]
     Error(ClientError),
 }

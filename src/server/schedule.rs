@@ -19,6 +19,7 @@ pub(crate) trait Schedule {
         &mut self,
         current_compiled_job: JobIdentifier,
         node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        build_failures: &BTreeSet<JobIdentifier>,
     ) -> JobResponse;
 
     fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError>;
@@ -32,6 +33,8 @@ pub(crate) trait Schedule {
 
     /// find a job identifier associated with the name of a certain job
     fn identifier_by_name(&self, batch_name: &str) -> Option<JobIdentifier>;
+
+    fn mark_build_failure(&mut self, failed_ident: JobIdentifier, total_nodes: usize);
 }
 
 #[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug)]
@@ -63,13 +66,15 @@ impl GpuPriority {
     /// if we have ensured that the current jobidentifier has no remaining jobs left
     ///
     /// therefore, this function only returns a job initialization task or empty jobs
-    fn take_first_job(&mut self, node_caps: Arc<Requirements<NodeProvidedCaps>>) -> JobResponse {
+    fn take_first_job(&mut self, node_caps: Arc<Requirements<NodeProvidedCaps>>, build_failures: &BTreeSet<JobIdentifier>) -> JobResponse {
         if let Some((ident, job_set)) = self
             .map
             .iter_mut()
             .filter(|(_ident, job_set)| job_set.has_remaining_jobs())
             // make sure the capabilities of this node match the total capabilities
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
+            // make sure that the job we are pulling has not failed to build on this node before
+            .filter(|(ident, job_set)| !build_failures.contains(ident))
             .next()
         {
             // TODO: fix this unwrap - its not that good but i dont have a better way to handle
@@ -122,6 +127,7 @@ impl Schedule for GpuPriority {
         &mut self,
         current_compiled_job: JobIdentifier,
         node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        build_failures: &BTreeSet<JobIdentifier>,
     ) -> JobResponse {
         // go through our entire job set and see if there is a gpu job
         if let Some((gpu_ident, gpu_job_set)) = self
@@ -133,6 +139,8 @@ impl Schedule for GpuPriority {
             .filter(|(_ident, job_set)| job_set.has_remaining_jobs())
             // make sure the capabilities of this node can accept this job
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
+            // make sure that the job we are pulling has not failed to build on this node before
+            .filter(|(ident, job_set)| !build_failures.contains(ident))
             .next()
         {
             // if we are already working on this job - we dont need to recompile anything,
@@ -163,7 +171,7 @@ impl Schedule for GpuPriority {
             if let Some(job) = self.job_by_id(current_compiled_job) {
                 job
             } else {
-                self.take_first_job(node_caps)
+                self.take_first_job(node_caps, build_failures)
             }
         }
     }
@@ -214,37 +222,13 @@ impl Schedule for GpuPriority {
                 if let Some(matrix_id) = &removed_set.matrix_user {
                     let matrix_id = matrix_id.clone();
 
-                    // spawn off so that we can use async
-                    tokio::task::spawn(async move {
-                        let client =
-                            match matrix_notify::client(&matrix_notify::ConfigInfo::new().unwrap())
-                                .await
-                            {
-                                Ok(c) => c,
-                                Err(e) => {
-                                    error!("failed to create matrix client: {}", e);
-                                    return;
-                                }
-                            };
+                    info!(
+                        "sending message to matrix user {} for batch finish `{}`",
+                        matrix_id, removed_set.batch_name
+                    );
 
-                        let self_id =
-                            matrix_notify::UserId::try_from("@compute-notify:matrix.org").unwrap();
-
-                        let msg = format!(
-                            "your distributed compute job {} has finished",
-                            removed_set.batch_name
-                        );
-
-                        info!(
-                            "sending message to matrix user {} for batch finish `{}`",
-                            matrix_id, removed_set.batch_name
-                        );
-                        if let Err(e) =
-                            matrix_notify::send_text_message(&client, msg, matrix_id, self_id).await
-                        {
-                            error!("failed to send message to user on matrix: {}", e);
-                        }
-                    });
+                    // send the matrix message
+                    super::matrix::send_matrix_message(matrix_id, removed_set, super::matrix::Reason::FinishedAll)
                 }
             }
         } else {
@@ -270,6 +254,33 @@ impl Schedule for GpuPriority {
             .map(|(identifier, _)| *identifier)
             .next()
     }
+
+    fn mark_build_failure(&mut self, failed_ident: JobIdentifier, total_nodes: usize) {
+        if let Some((_ident, mut job_set)) = self.map.iter_mut().find(|(identifier, _)| **identifier == failed_ident) {
+            job_set.build_failures += 1;
+
+            // if we have failed to build on every since node
+            if job_set.build_failures == total_nodes {
+                let removed_set = self.map.remove(&failed_ident).unwrap();
+
+                info!("removing job set {} since it failed to build on every node", removed_set.batch_name);
+
+                if let Some(matrix_id) = &removed_set.matrix_user {
+                    let matrix_id = matrix_id.clone();
+
+                    info!(
+                        "sending message to matrix user {} for finish to `{}`",
+                        matrix_id, removed_set.batch_name
+                    );
+
+                    super::matrix::send_matrix_message(matrix_id, removed_set, super::matrix::Reason::BuildFailures)
+                }
+
+            }
+        } else {
+            warn!("Failed to mark job set {} as failing to build for a node since it could not be found in the job set list. This should not happen", failed_ident);
+        }
+    }
 }
 
 #[derive(Constructor, Debug)]
@@ -278,9 +289,10 @@ pub(crate) struct JobSet {
     requirements: Requirements<JobRequiredCaps>,
     remaining_jobs: Vec<StoredJob>,
     currently_running_jobs: usize,
-    batch_name: String,
+    pub(crate) batch_name: String,
     namespace: String,
     matrix_user: Option<matrix_notify::UserId>,
+    build_failures: usize
 }
 
 impl JobSet {
@@ -375,6 +387,7 @@ impl JobSet {
             batch_name,
             matrix_user,
             namespace,
+            build_failures: 0
         })
     }
 }
