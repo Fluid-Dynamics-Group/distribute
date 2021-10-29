@@ -8,7 +8,6 @@ use derive_more::{Display, Unwrap};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct Nodes {
     pub nodes: Vec<Node>,
@@ -61,7 +60,10 @@ impl Jobs {
                 let py_jobs = python.load_jobs().await?;
                 Ok(py_jobs.into())
             }
-            Self::Singularity { meta: _, singularity } => {
+            Self::Singularity {
+                meta: _,
+                singularity,
+            } => {
                 let sin_jobs = singularity.load_jobs().await?;
                 Ok(sin_jobs.into())
             }

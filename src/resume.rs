@@ -1,8 +1,4 @@
-use crate::{
-    cli,
-    error::{Error},
-    transport,
-};
+use crate::{cli, error::Error, transport};
 use std::net::{Ipv4Addr, SocketAddr};
 
 pub(crate) async fn resume(args: cli::Resume) -> Result<(), Error> {

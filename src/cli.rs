@@ -1,7 +1,6 @@
 use argh::FromArgs;
 use std::net::IpAddr;
 
-
 pub const SERVER_PORT: u16 = 8952;
 pub const CLIENT_PORT: u16 = 8953;
 

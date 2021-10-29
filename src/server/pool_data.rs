@@ -1,7 +1,7 @@
 use super::ok_if_exists;
 use super::schedule::{JobIdentifier, NodeProvidedCaps, Requirements};
 use super::storage;
-use crate::{config};
+use crate::config;
 
 use std::collections::BTreeSet;
 
@@ -9,11 +9,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-
-
-
-use tokio::sync::{oneshot};
-
+use tokio::sync::oneshot;
 
 use derive_more::{Constructor, Display, From};
 

@@ -1,6 +1,5 @@
 use crate::error::{self};
-use crate::{transport};
-
+use crate::transport;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

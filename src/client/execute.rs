@@ -2,16 +2,11 @@ use super::utils;
 
 use crate::{error, error::Error, transport};
 
-
-
-use tokio::io::{AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 
 use tokio::sync::broadcast;
 
-
 use std::path::{Path, PathBuf};
-
-
 
 /// handle all branches of a request from the server
 pub(super) async fn general_request(

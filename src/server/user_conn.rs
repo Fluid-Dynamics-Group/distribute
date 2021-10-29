@@ -4,9 +4,8 @@ use std::net::SocketAddr;
 
 use std::sync::Arc;
 
-use tokio::net::{TcpListener};
+use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
-
 
 use super::{JobRequest, NodeProvidedCaps, Requirements};
 
@@ -154,9 +153,9 @@ async fn query_job_names(
     let (tx_respond, rx_respond) = oneshot::channel();
 
     if let Err(e) = tx
-        .send(JobRequest::QueryRemainingJobs(
-            RemainingJobsQuery::new(tx_respond),
-        ))
+        .send(JobRequest::QueryRemainingJobs(RemainingJobsQuery::new(
+            tx_respond,
+        )))
         .await
     {
         error!(

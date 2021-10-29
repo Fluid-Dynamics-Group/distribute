@@ -1,15 +1,14 @@
 mod job_pool;
 mod matrix;
+mod node;
+mod pool_data;
 mod schedule;
 mod storage;
 mod user_conn;
-mod node;
-mod pool_data;
 
-
-use pool_data::JobRequest;
 use job_pool::JobPool;
-use node::{InitializedNode, Common};
+use node::{Common, InitializedNode};
+use pool_data::JobRequest;
 pub(crate) use schedule::{NodeProvidedCaps, RemainingJobs};
 
 pub use schedule::{JobRequiredCaps, Requirement, Requirements};
@@ -19,12 +18,7 @@ pub(crate) use storage::{JobOpt, OwnedJobSet};
 
 use crate::{cli, config, error, error::Error, status};
 
-
-
-
-
 use tokio::sync::{broadcast, mpsc};
-
 
 pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
     let nodes = config::load_config::<config::Nodes>(&server.nodes_file)?;

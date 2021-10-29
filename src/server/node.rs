@@ -1,8 +1,10 @@
 use super::ok_if_exists;
 use super::schedule::{JobIdentifier, NodeProvidedCaps, Requirements};
 
+use super::pool_data::{
+    BuildTaskInfo, BuildTaskRunTask, JobRequest, JobResponse, NewJobRequest, RunTaskInfo,
+};
 use crate::{error, error::Error, transport};
-use super::pool_data::{RunTaskInfo, BuildTaskInfo, NewJobRequest, JobRequest, BuildTaskRunTask, JobResponse};
 
 use std::collections::BTreeSet;
 
@@ -11,14 +13,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::io::{AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
 use derive_more::{Display, From};
-
-
 
 #[derive(derive_more::Constructor)]
 pub(super) struct InitializedNode {

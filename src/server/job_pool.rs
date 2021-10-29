@@ -1,24 +1,11 @@
-
 use super::schedule::{JobIdentifier, Schedule};
 
-use super::pool_data::{JobRequest, JobResponse, JobOrInit, CancelResult};
-
-
-
-
-
-
-
-
-
-
+use super::pool_data::{CancelResult, JobOrInit, JobRequest, JobResponse};
 
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
 
-use derive_more::{Constructor};
-
-
+use derive_more::Constructor;
 
 #[derive(Constructor)]
 pub(super) struct JobPool<T> {
