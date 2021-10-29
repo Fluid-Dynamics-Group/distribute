@@ -3,14 +3,18 @@ mod matrix;
 mod schedule;
 mod storage;
 mod user_conn;
+mod node;
+mod pool_data;
 
-pub(crate) use job_pool::JobResponse;
-use job_pool::{InitializedNode, JobPool, JobRequest};
+pub(crate) use pool_data::JobResponse;
+use pool_data::JobRequest;
+use job_pool::JobPool;
+use node::{InitializedNode, Common};
 pub(crate) use schedule::{JobSet, NodeProvidedCaps, RemainingJobs, Schedule};
 
 pub use schedule::{JobRequiredCaps, Requirement, Requirements};
 
-pub(crate) use job_pool::CancelResult;
+pub(crate) use pool_data::CancelResult;
 pub(crate) use storage::{JobOpt, OwnedJobSet};
 
 use crate::{cli, config, error, error::Error, status, transport};
@@ -87,7 +91,7 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
     // spawn off each node connection to its own task
     for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
         info!("starting NodeConnection for {}", server_connection.addr);
-        let common = job_pool::Common::new(
+        let common = Common::new(
             server_connection,
             request_job.clone(),
             tx_cancel.subscribe(),

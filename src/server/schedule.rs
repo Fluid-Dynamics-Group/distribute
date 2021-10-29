@@ -1,4 +1,4 @@
-use super::job_pool::{JobOrInit, JobResponse, TaskInfo};
+use super::pool_data::{JobOrInit, JobResponse, TaskInfo};
 use super::storage::{self, StoredJob, StoredJobInit};
 
 use crate::config;

@@ -1,4 +1,4 @@
-use crate::server::job_pool::CancelBatchQuery;
+use super::pool_data::{CancelBatchQuery, RemainingJobsQuery};
 use crate::{cli, config, error, error::Error, status, transport};
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -155,7 +155,7 @@ async fn query_job_names(
 
     if let Err(e) = tx
         .send(JobRequest::QueryRemainingJobs(
-            super::job_pool::RemainingJobsQuery::new(tx_respond),
+            RemainingJobsQuery::new(tx_respond),
         ))
         .await
     {
