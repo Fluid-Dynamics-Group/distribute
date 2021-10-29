@@ -1,4 +1,4 @@
-//#![allow(unused_imports)]
+#![allow(unused_imports)]
 
 mod add;
 mod cli;

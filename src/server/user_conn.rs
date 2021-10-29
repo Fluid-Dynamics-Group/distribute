@@ -1,14 +1,14 @@
 use super::pool_data::{CancelBatchQuery, RemainingJobsQuery};
-use crate::{cli, config, error, error::Error, status, transport};
+use crate::{error, transport};
 use std::net::SocketAddr;
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::io::{AsyncWrite, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{mpsc, oneshot};
-use tokio::task::JoinHandle;
 
-use super::{schedule, JobRequest, NodeProvidedCaps, Requirements};
+use std::sync::Arc;
+
+use tokio::net::{TcpListener};
+use tokio::sync::{mpsc, oneshot};
+
+
+use super::{JobRequest, NodeProvidedCaps, Requirements};
 
 /// handle incomming requests from the user over CLI on any node
 pub(crate) async fn handle_user_requests(
@@ -219,7 +219,7 @@ async fn cancel_job_by_name(
             let resp = transport::ServerResponseToUser::KillJob(result);
             conn.transport_data(&resp).await.ok();
         }
-        Err(e) => {
+        Err(_e) => {
             error!("could not read from oneshot pipe when getting killed job result");
             let response = transport::ServerResponseToUser::KillJobFailed;
             conn.transport_data(&response).await.ok();

@@ -1,12 +1,12 @@
 use crate::transport;
-use std::convert::TryFrom;
+
 use std::io;
 use std::path::{Path, PathBuf};
 
 use super::{JobRequiredCaps, Requirements};
 
 use crate::config;
-use derive_more::{Constructor, Display, From};
+use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
 
 /// stores job data on disk

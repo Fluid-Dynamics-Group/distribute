@@ -1,24 +1,24 @@
 use super::ok_if_exists;
-use super::schedule::{self, JobIdentifier, NodeProvidedCaps, Requirements, Schedule};
-use super::storage;
-use crate::{cli, config, error, error::Error, status, transport};
+use super::schedule::{JobIdentifier, NodeProvidedCaps, Requirements};
+
+use crate::{error, error::Error, transport};
 use super::pool_data::{RunTaskInfo, BuildTaskInfo, NewJobRequest, JobRequest, BuildTaskRunTask, JobResponse};
 
 use std::collections::BTreeSet;
-use std::net::SocketAddr;
+
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::io::{AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncWriteExt};
+
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 
-use derive_more::{Constructor, Display, From};
+use derive_more::{Display, From};
 
-use serde::{Deserialize, Serialize};
+
 
 #[derive(derive_more::Constructor)]
 pub(super) struct InitializedNode {
@@ -214,7 +214,7 @@ impl<'a> BuildingNode<'a> {
 
         let handle =
             handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
-        let execution = execute_with_cancellation(
+        let _execution = execute_with_cancellation(
             handle,
             &mut self.common.receive_cancellation,
             self.task_info.identifier,

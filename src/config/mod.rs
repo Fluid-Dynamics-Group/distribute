@@ -7,7 +7,7 @@ use crate::{server, transport};
 use derive_more::{Display, Unwrap};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Nodes {
@@ -57,11 +57,11 @@ pub struct Meta {
 impl Jobs {
     pub async fn load_jobs(&self) -> Result<JobOpts, error::LoadJobsError> {
         match &self {
-            Self::Python { meta, python } => {
+            Self::Python { meta: _, python } => {
                 let py_jobs = python.load_jobs().await?;
                 Ok(py_jobs.into())
             }
-            Self::Singularity { meta, singularity } => {
+            Self::Singularity { meta: _, singularity } => {
                 let sin_jobs = singularity.load_jobs().await?;
                 Ok(sin_jobs.into())
             }

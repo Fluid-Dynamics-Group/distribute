@@ -1,6 +1,6 @@
 use crate::{
     cli,
-    error::{self, Error},
+    error::{Error},
     transport,
 };
 use std::net::{Ipv4Addr, SocketAddr};
@@ -10,7 +10,7 @@ pub(crate) async fn resume(args: cli::Resume) -> Result<(), Error> {
 
     // emulate a server connection here since the host client process
     // only expects messsages from a "server"
-    let mut conn = transport::ServerConnection::new(addr).await?;
+    let _conn = transport::ServerConnection::new(addr).await?;
 
     //let request = transport::ResumeExecution::new();
     //let wrapped_request = transport::RequestFromServer::from(request);

@@ -20,7 +20,7 @@ pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
 
     // emulate a server connection here since the host client process
     // only expects messsages from a "server"
-    let mut conn = transport::ServerConnection::new(addr).await?;
+    let _conn = transport::ServerConnection::new(addr).await?;
 
     //let request = transport::PauseExecution::new(duration);
     //let wrapped_request = transport::RequestFromServer::from(request);

@@ -3,12 +3,12 @@ use super::storage::{self, StoredJob, StoredJobInit};
 
 use crate::config;
 use crate::error::{self, ScheduleError};
-use crate::transport;
+
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::convert::TryFrom;
+
 use std::fmt;
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
@@ -78,7 +78,7 @@ impl GpuPriority {
             // make sure the capabilities of this node match the total capabilities
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
             // make sure that the job we are pulling has not failed to build on this node before
-            .filter(|(ident, job_set)| !build_failures.contains(ident))
+            .filter(|(ident, _job_set)| !build_failures.contains(ident))
             .next()
         {
             // TODO: fix this unwrap - its not that good but i dont have a better way to handle
@@ -144,7 +144,7 @@ impl Schedule for GpuPriority {
             // make sure the capabilities of this node can accept this job
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
             // make sure that the job we are pulling has not failed to build on this node before
-            .filter(|(ident, job_set)| !build_failures.contains(ident))
+            .filter(|(ident, _job_set)| !build_failures.contains(ident))
             .next()
         {
             // if we are already working on this job - we dont need to recompile anything,

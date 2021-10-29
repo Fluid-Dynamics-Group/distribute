@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::config;
