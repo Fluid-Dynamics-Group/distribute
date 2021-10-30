@@ -118,7 +118,7 @@ pub enum JobOpts {
     Singularity(Vec<transport::SingularityJob>),
 }
 
-#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug)]
+#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum BuildOpts {
     Python(transport::PythonJobInit),
     Singularity(transport::SingularityJobInit),

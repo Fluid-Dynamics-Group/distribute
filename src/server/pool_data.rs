@@ -15,6 +15,7 @@ use derive_more::{Constructor, Display, From};
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, PartialEq)]
 pub(crate) enum JobResponse {
     SetupOrRun(TaskInfo),
     EmptyJobs,
@@ -69,7 +70,7 @@ pub(crate) struct PendingJob {
     ident: JobIdentifier,
 }
 
-#[derive(From, Clone, Constructor)]
+#[derive(From, Clone, Constructor, Debug, PartialEq)]
 pub(crate) struct TaskInfo {
     namespace: String,
     batch_name: String,
@@ -158,7 +159,7 @@ impl RunTaskInfo {
 }
 
 #[cfg_attr(test, derive(derive_more::Unwrap))]
-#[derive(From, Clone)]
+#[derive(From, Clone, Debug, PartialEq)]
 pub(crate) enum JobOrInit {
     Job(storage::JobOpt),
     JobInit(config::BuildOpts),
