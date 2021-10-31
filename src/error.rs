@@ -263,7 +263,7 @@ pub(crate) enum PauseError {
     #[error("The input pause duration is too long. Maximum pause duration is 4 hours")]
     DurationTooLong,
     #[error("Error when accessing some unix filesystems or commands: `{0}`")]
-    Unix(UnixError)
+    Unix(UnixError),
 }
 
 #[derive(Debug, From, thiserror::Error)]

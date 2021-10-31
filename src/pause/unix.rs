@@ -9,26 +9,18 @@ use std::path::Path;
 //println!("number of active procs: {}", active_procs.len());
 //println!("pausing all the matched procs");
 
-
 type Error = crate::error::UnixError;
 
-pub(crate) fn pause_procs(
-    active_procs: &[RunningProcess],
-) {
+pub(crate) fn pause_procs(active_procs: &[RunningProcess]) {
     send_signal_to_procs(&active_procs, signal::Signal::SIGSTOP);
 }
 
-pub(crate) fn resume_procs(
-    paused_procs: &[RunningProcess],
-) -> () {
+pub(crate) fn resume_procs(paused_procs: &[RunningProcess]) -> () {
     send_signal_to_procs(&paused_procs, signal::Signal::SIGCONT);
 }
 
 /// send a chosen signal to a set of processes
-fn send_signal_to_procs(
-    procs_to_pause: &[RunningProcess],
-    signal: signal::Signal,
-) {
+fn send_signal_to_procs(procs_to_pause: &[RunningProcess], signal: signal::Signal) {
     for proc in procs_to_pause {
         let pid = nix::unistd::Pid::from_raw(proc.pid.try_into().unwrap());
         if let Err(e) = signal::kill(pid, signal) {
@@ -65,7 +57,7 @@ impl PartialOrd for RunningProcess {
     }
 }
 
-/// iterate through all the processes in `/proc` and 
+/// iterate through all the processes in `/proc` and
 /// return a `ProcessGroup` that represents the input `commands`
 pub(crate) fn scan_proc(commands: &[&str]) -> Result<ProcessGroups, Error> {
     let procs = fs::read_dir("/proc")
@@ -104,10 +96,9 @@ pub(crate) fn scan_proc(commands: &[&str]) -> Result<ProcessGroups, Error> {
                     // for borrow checker rules
                     if found_command {
                         parent_procs.push(proc);
-                    } else{
+                    } else {
                         other_procs.push(proc)
                     }
-
                 }
                 Err(_e) => {
                     // the process was destroyed - we cant do anything about it
@@ -186,7 +177,7 @@ fn parse_ppid_from_stat(stat: &str) -> u32 {
 }
 
 /// removes the null characters in `/proc/{pid}/` files and replaces them
-/// with spaces so that we can parse them 
+/// with spaces so that we can parse them
 fn remove_null_characters(mut bytes: Vec<u8>) -> String {
     bytes.iter_mut().for_each(|x| {
         if *x == 0 {

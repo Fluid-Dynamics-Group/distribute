@@ -27,11 +27,8 @@ pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
     // these two commands are used for running the python
     // procs / singularity containers
     let to_pause = ProcessSet::new(
-        &[
-            "python3 run.py",
-            "singularity run --app distribute"
-        ],
-        duration
+        &["python3 run.py", "singularity run --app distribute"],
+        duration,
     );
 
     let paused = to_pause.pause().map_err(PauseError::from)?;
@@ -89,11 +86,10 @@ fn slice_until_unit(input_str: &str) -> Result<(u64, char, &str), error::PauseEr
     Ok((num, next_char, remaining))
 }
 
-
 struct ProcessSet<STATE> {
     commands_to_pause: &'static [&'static str],
     duration: Duration,
-    state: STATE
+    state: STATE,
 }
 
 impl ProcessSet<NotYetPaused> {
@@ -101,7 +97,7 @@ impl ProcessSet<NotYetPaused> {
         Self {
             commands_to_pause: commands,
             duration,
-            state: NotYetPaused
+            state: NotYetPaused,
         }
     }
 
@@ -111,13 +107,11 @@ impl ProcessSet<NotYetPaused> {
         unix::pause_procs(&all_procs);
         let state = Paused { procs: all_procs };
 
-        Ok(
-            ProcessSet {
-                commands_to_pause: self.commands_to_pause,
-                duration: self.duration,
-                state
-            }
-        )
+        Ok(ProcessSet {
+            commands_to_pause: self.commands_to_pause,
+            duration: self.duration,
+            state,
+        })
     }
 }
 
@@ -130,20 +124,18 @@ impl ProcessSet<Paused> {
         unix::resume_procs(&self.state.procs);
         let state = Resumed;
 
-        Ok(
-            ProcessSet {
-                commands_to_pause: self.commands_to_pause,
-                duration: self.duration,
-                state
-            }
-        )
+        Ok(ProcessSet {
+            commands_to_pause: self.commands_to_pause,
+            duration: self.duration,
+            state,
+        })
     }
 }
 
 struct NotYetPaused;
 
 struct Paused {
-    procs: Vec<unix::RunningProcess>
+    procs: Vec<unix::RunningProcess>,
 }
 
 struct Resumed;
