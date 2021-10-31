@@ -77,12 +77,8 @@ pub struct Status {
 pub struct Pause {
     #[argh(option, default = "String::from(\"1h\")")]
     /// duration to pause the processes for.  Maximum allowable
-    /// pause time is 6 hours. (Examples: 1h, 90m, 1h30m).
+    /// pause time is 4 hours. (Examples: 1h, 90m, 1h30m).
     pub duration: String,
-
-    #[argh(option, default = "CLIENT_PORT", short = 'p')]
-    /// port that the client is mapped to
-    pub port: u16,
 }
 
 #[derive(FromArgs, PartialEq, Debug)]

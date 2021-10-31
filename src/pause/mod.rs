@@ -9,10 +9,10 @@ use crate::{
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, args.port));
-
     let duration = parse_time_input(&args.duration)?;
 
     // ensure that the specified duration is not longer than the max duration (4 hours)
@@ -20,9 +20,12 @@ pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
         return Err(Error::from(PauseError::DurationTooLong));
     }
 
-    // emulate a server connection here since the host client process
-    // only expects messsages from a "server"
-    let _conn = transport::ServerConnection::new(addr).await?;
+    // set up a signal handler so we can do an early exit correctly if 
+    // the user sends SIGINT w/ Ctrl-C
+    let term = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))
+        .map_err(error::UnixError::from)
+        .map_err(error::PauseError::from)?;
 
     // these two commands are used for running the python
     // procs / singularity containers
@@ -32,7 +35,7 @@ pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
     );
 
     let paused = to_pause.pause().map_err(PauseError::from)?;
-    paused.sleep_to_instant();
+    paused.sleep_to_instant(term);
     paused.resume().map_err(PauseError::from)?;
 
     Ok(())
@@ -86,10 +89,10 @@ fn slice_until_unit(input_str: &str) -> Result<(u64, char, &str), error::PauseEr
     Ok((num, next_char, remaining))
 }
 
-struct ProcessSet<STATE> {
+struct ProcessSet<STATE>{
     commands_to_pause: &'static [&'static str],
     duration: Duration,
-    state: STATE,
+    state: STATE
 }
 
 impl ProcessSet<NotYetPaused> {
@@ -97,45 +100,50 @@ impl ProcessSet<NotYetPaused> {
         Self {
             commands_to_pause: commands,
             duration,
-            state: NotYetPaused,
+            state: NotYetPaused
         }
     }
 
     fn pause(self) -> Result<ProcessSet<Paused>, error::UnixError> {
         let root_procs = unix::scan_proc(self.commands_to_pause)?;
         let all_procs = unix::find_all_child_procs(root_procs);
+        println!("pausing {} matching procs", all_procs.len());
         unix::pause_procs(&all_procs);
-        let state = Paused { procs: all_procs };
 
         Ok(ProcessSet {
             commands_to_pause: self.commands_to_pause,
             duration: self.duration,
-            state,
+            state: Paused { procs: all_procs }
         })
     }
 }
 
 impl ProcessSet<Paused> {
-    fn sleep_to_instant(&self) {
-        std::thread::sleep(self.duration);
+    fn sleep_to_instant(&self, term: Arc<AtomicBool>) {
+        println!("sleeping until time");
+        let mut now = Instant::now();
+        let ending_instant = Instant::now() + self.duration;
+
+        while !term.load(Ordering::Relaxed) && now < ending_instant {
+            let dur = Duration::from_millis(100);
+            std::thread::sleep(dur);
+            now += dur;
+            
+        }
     }
 
-    fn resume(self) -> Result<ProcessSet<Resumed>, error::UnixError> {
+    fn resume(self) -> Result<Resumed, error::UnixError> {
+        println!("resuming");
         unix::resume_procs(&self.state.procs);
-        let state = Resumed;
 
-        Ok(ProcessSet {
-            commands_to_pause: self.commands_to_pause,
-            duration: self.duration,
-            state,
-        })
+        Ok(Resumed { })
     }
 }
 
 struct NotYetPaused;
 
 struct Paused {
-    procs: Vec<unix::RunningProcess>,
+    procs: Vec<unix::RunningProcess>
 }
 
 struct Resumed;
