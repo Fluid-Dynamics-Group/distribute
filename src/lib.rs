@@ -7,7 +7,6 @@ mod client;
 mod config;
 mod error;
 mod pause;
-mod resume;
 mod server;
 mod status;
 mod transport;

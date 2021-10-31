@@ -251,7 +251,7 @@ pub struct RemovePreviousDir {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub enum PauseError {
+pub(crate) enum PauseError {
     #[error("`{0}`")]
     ParseString(String),
     #[error(
@@ -262,6 +262,8 @@ pub enum PauseError {
     InvalidCharacter(char),
     #[error("The input pause duration is too long. Maximum pause duration is 4 hours")]
     DurationTooLong,
+    #[error("Error when accessing some unix filesystems or commands: `{0}`")]
+    Unix(UnixError)
 }
 
 #[derive(Debug, From, thiserror::Error)]
@@ -304,4 +306,10 @@ pub(crate) enum RunningNodeError {
     Other(Box<Error>),
     #[error("The job returned to us has not been built before")]
     MissingBuildStep,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub(crate) enum UnixError {
+    #[error("Io error reading a file: `{0}`")]
+    Io(std::io::Error),
 }

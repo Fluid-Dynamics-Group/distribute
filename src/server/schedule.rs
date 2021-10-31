@@ -98,11 +98,15 @@ impl GpuPriority {
     /// try to fetch a job from  the currently compiled proc
     /// if there are no jobs available for this process then we return None
     /// and allow the calling function to figure out how to find the next process
-    fn job_by_id(&mut self, identifier: JobIdentifier, build_failures: &BTreeSet<JobIdentifier>) -> Option<JobResponse> {
+    fn job_by_id(
+        &mut self,
+        identifier: JobIdentifier,
+        build_failures: &BTreeSet<JobIdentifier>,
+    ) -> Option<JobResponse> {
         // make sure that any job we pull in this function
         // is actually buildable by the node requesting it
         if build_failures.contains(&identifier) {
-            return None
+            return None;
         }
 
         self.map
@@ -812,7 +816,7 @@ mod tests {
         check_init(&mut current_ident, 1, job);
 
         // now we tell them that we failed to build the job
-        // since there is only 1 job available to build the 
+        // since there is only 1 job available to build the
         // node then the sceduler should remove the job set from
         // the queue
         scheduler.mark_build_failure(current_ident, 1);

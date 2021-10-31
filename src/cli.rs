@@ -18,7 +18,6 @@ pub enum Command {
     Server(Server),
     Status(Status),
     Pause(Pause),
-    Resume(Resume),
     Add(Add),
 }
 
@@ -81,15 +80,6 @@ pub struct Pause {
     /// pause time is 6 hours. (Examples: 1h, 90m, 1h30m).
     pub duration: String,
 
-    #[argh(option, default = "CLIENT_PORT", short = 'p')]
-    /// port that the client is mapped to
-    pub port: u16,
-}
-
-#[derive(FromArgs, PartialEq, Debug)]
-/// resume all processes on this node and undo the pause
-#[argh(subcommand, name = "resume")]
-pub struct Resume {
     #[argh(option, default = "CLIENT_PORT", short = 'p')]
     /// port that the client is mapped to
     pub port: u16,
