@@ -1,5 +1,6 @@
 use argh::FromArgs;
 use std::net::IpAddr;
+use std::path::PathBuf;
 
 pub const SERVER_PORT: u16 = 8952;
 pub const CLIENT_PORT: u16 = 8953;
@@ -19,6 +20,7 @@ pub enum Command {
     Status(Status),
     Pause(Pause),
     Add(Add),
+    Template(Template)
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -103,4 +105,21 @@ pub struct Add {
     #[argh(switch)]
     /// execute as normal but don't send the job set to the server
     pub dry: bool,
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// add a job set to the queue
+#[argh(subcommand, name = "template")]
+pub struct Template {
+    #[argh(switch)]
+    /// generate a singularity configuration template (default)
+    pub singularity: bool,
+
+    #[argh(switch)]
+    /// generate a python configuration template
+    pub python: bool,
+
+    #[argh(option, default="std::path::PathBuf::from(\"distribute-jobs.yaml\")")]
+    /// an optional path to write the template result to
+    pub output: PathBuf
 }

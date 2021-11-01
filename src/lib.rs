@@ -10,6 +10,7 @@ mod pause;
 mod server;
 mod status;
 mod transport;
+mod template;
 
 #[macro_use]
 extern crate log;

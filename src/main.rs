@@ -9,6 +9,7 @@ mod pause;
 mod server;
 mod status;
 mod transport;
+mod template;
 
 use error::Error;
 
@@ -53,5 +54,6 @@ async fn wrap_main() -> Result<(), Error> {
         cli::Command::Status(status) => status::status_command(status).await,
         cli::Command::Pause(pause) => pause::pause(pause).await,
         cli::Command::Add(add) => add::add(add).await,
+        cli::Command::Template(template) => template::template(template)
     }
 }

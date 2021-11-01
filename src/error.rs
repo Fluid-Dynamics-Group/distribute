@@ -1,4 +1,5 @@
 use derive_more::{Constructor, Display, From, Unwrap};
+use std::io;
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
@@ -29,6 +30,8 @@ pub(crate) enum Error {
     BuildJob(#[from] BuildJobError),
     #[error("Error when executing a job on a node: {0}")]
     RunningJob(#[from] RunningNodeError),
+    #[error("{0}")]
+    Template(#[from] TemplateError),
 }
 
 #[derive(Debug, Display, thiserror::Error, From)]
@@ -312,4 +315,12 @@ pub(crate) enum RunningNodeError {
 pub(crate) enum UnixError {
     #[error("Io error reading a file: `{0}`")]
     Io(std::io::Error),
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub(crate) enum TemplateError {
+    #[error("Could not serialize the template to a file: {0}")]
+    Serde(serde_yaml::Error),
+    #[error("Could not write to the output file: {0}")]
+    Io(io::Error),
 }

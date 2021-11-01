@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use super::common::{load_from_file, File};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 pub struct Description {
     pub initialize: Initialize,
     pub jobs: Vec<Job>,
