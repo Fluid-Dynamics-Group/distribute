@@ -8,9 +8,9 @@ use crate::{
 };
 
 use std::net::{Ipv4Addr, SocketAddr};
-use std::time::{Duration, Instant};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
     let duration = parse_time_input(&args.duration)?;
@@ -20,7 +20,7 @@ pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
         return Err(Error::from(PauseError::DurationTooLong));
     }
 
-    // set up a signal handler so we can do an early exit correctly if 
+    // set up a signal handler so we can do an early exit correctly if
     // the user sends SIGINT w/ Ctrl-C
     let term = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))
@@ -89,10 +89,10 @@ fn slice_until_unit(input_str: &str) -> Result<(u64, char, &str), error::PauseEr
     Ok((num, next_char, remaining))
 }
 
-struct ProcessSet<STATE>{
+struct ProcessSet<STATE> {
     commands_to_pause: &'static [&'static str],
     duration: Duration,
-    state: STATE
+    state: STATE,
 }
 
 impl ProcessSet<NotYetPaused> {
@@ -100,7 +100,7 @@ impl ProcessSet<NotYetPaused> {
         Self {
             commands_to_pause: commands,
             duration,
-            state: NotYetPaused
+            state: NotYetPaused,
         }
     }
 
@@ -113,7 +113,7 @@ impl ProcessSet<NotYetPaused> {
         Ok(ProcessSet {
             commands_to_pause: self.commands_to_pause,
             duration: self.duration,
-            state: Paused { procs: all_procs }
+            state: Paused { procs: all_procs },
         })
     }
 }
@@ -128,7 +128,6 @@ impl ProcessSet<Paused> {
             let dur = Duration::from_millis(100);
             std::thread::sleep(dur);
             now += dur;
-            
         }
     }
 
@@ -136,14 +135,14 @@ impl ProcessSet<Paused> {
         println!("resuming");
         unix::resume_procs(&self.state.procs);
 
-        Ok(Resumed { })
+        Ok(Resumed {})
     }
 }
 
 struct NotYetPaused;
 
 struct Paused {
-    procs: Vec<unix::RunningProcess>
+    procs: Vec<unix::RunningProcess>,
 }
 
 struct Resumed;

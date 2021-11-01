@@ -73,6 +73,7 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
     Ok(())
 }
 
+/// handle a connection from the server locally, without spawning off to another task
 async fn handle_connection_local(
     mut client_conn: transport::ClientConnection,
     ready_for_job: Arc<AtomicBool>,
@@ -129,6 +130,7 @@ fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {
     tx_cancel.send(()).ok();
 }
 
+/// handle the server connection uniquely from within a spawn
 async fn start_server_connection(
     tcp_conn: TcpStream,
     base_path: PathBuf,
@@ -137,11 +139,14 @@ async fn start_server_connection(
 ) -> Result<(), Error> {
     let mut conn = transport::ClientConnection::new(tcp_conn);
 
+    let mut folder_state = execute::BindingFolderState::new();
+
     'main_loop: loop {
         let new_data = conn.receive_data().await;
         if let Ok(request) = new_data {
             info!("executing general request handler from main task");
-            let result_response = execute::general_request(request, &base_path, &mut cancel).await;
+            let result_response =
+                execute::general_request(request, &base_path, &mut cancel, &mut folder_state).await;
 
             // make sure the request from the client was actually handled correctly
             if let Ok(prereq_client_response) = result_response {

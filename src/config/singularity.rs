@@ -46,6 +46,7 @@ impl Description {
             sif_bytes,
             batch_name,
             build_files,
+            container_bind_paths: self.initialize.required_mounts.clone(),
         })
     }
 }
@@ -55,13 +56,8 @@ pub struct Initialize {
     sif: PathBuf,
     #[serde(default)]
     required_files: Vec<File>,
-    #[serde(default)]
-    /// if specified, create a mutable filesystem of this many megabytes.
-    ///
-    /// This parameter is not requried if your image is immutable. If you require
-    /// more than a few gigabytes of storage, it is recommended to refactor the code
-    /// to utilize a filesystem mount (to the host machin) directly to
-    filesystem_size: Option<u32>,
+    /// paths in the folder that need to have mount points to
+    /// the host file system
     #[serde(default)]
     required_mounts: Vec<PathBuf>,
 }

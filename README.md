@@ -3,6 +3,7 @@
 * unschedule a job set if it fails to build on every node
 * configured singularity work binding path
 * dont overwrite other nodes' built .txt files
+* template command to generate distribute-jobs.yaml files
 
 ```
 [2021-10-03][20:37:34][distribute::server::job_pool][INFO] saving solver file to "results/hit3d/parameter_sweep_0.1,0.2/ep2-neg_no-diffusion/spectra"

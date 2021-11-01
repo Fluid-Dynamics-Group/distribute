@@ -25,6 +25,12 @@ singularity:
                                         # renamed to on the server
       - path: /path/to/random_file.txt
 
+    # if we need mutable folders bound to the container then
+    # you can do it here
+    required_mounts:
+      - /my_container_folder/src/another_folder
+      - /another/path/inside/your/container
+
   # a list of python files and thier associated file to be included
   jobs:
     # a list of names and the (presumably) input files to run them

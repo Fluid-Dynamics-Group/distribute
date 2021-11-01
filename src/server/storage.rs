@@ -275,6 +275,7 @@ impl StoredJobInit {
             batch_name: x.batch_name,
             sif_path,
             required_files,
+            container_bind_paths: x.container_bind_paths,
         };
 
         Ok(Self::Singularity(job))
@@ -340,6 +341,7 @@ pub(crate) struct LazySingularityInit {
     batch_name: String,
     sif_path: PathBuf,
     required_files: Vec<LazyFile>,
+    container_bind_paths: Vec<PathBuf>,
 }
 
 impl LazySingularityInit {
@@ -352,6 +354,7 @@ impl LazySingularityInit {
             batch_name: self.batch_name.clone(),
             sif_bytes,
             build_files,
+            container_bind_paths: self.container_bind_paths.clone(),
         };
         Ok(out)
     }

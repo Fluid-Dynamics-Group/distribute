@@ -96,6 +96,7 @@ pub struct SingularityJobInit {
     pub batch_name: String,
     pub sif_bytes: Vec<u8>,
     pub build_files: Vec<File>,
+    pub container_bind_paths: Vec<PathBuf>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
