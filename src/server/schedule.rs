@@ -185,7 +185,6 @@ impl Schedule for GpuPriority {
             if let Some(job) = self.job_by_id(current_compiled_job, build_failures) {
                 job
             } else {
-                println!("taking first job available");
                 self.take_first_job(node_caps, build_failures)
             }
         }
