@@ -66,10 +66,13 @@ pub struct Server {
 /// check the status of all the nodes
 #[argh(subcommand, name = "status")]
 pub struct Status {
-    #[argh(positional, default = "String::from(\"distribute-nodes.yaml\")")]
-    /// location of the node configuration file that specifies ip addresses of child nodes
-    /// that are running
-    pub node_information: String,
+    #[argh(option, default = "SERVER_PORT", short = 'p')]
+    /// the port that the server uses (default 8952)
+    pub port: u16,
+
+    #[argh(option)]
+    /// the ip address that the server is located at
+    pub ip: IpAddr,
 }
 
 #[derive(FromArgs, PartialEq, Debug)]

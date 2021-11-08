@@ -26,6 +26,8 @@ pub(crate) enum Error {
     Pause(#[from] PauseError),
     #[error("{0}")]
     Add(#[from] AddError),
+    #[error("{0}")]
+    Status(#[from] StatusError),
     #[error("Error when building a job: {0}")]
     BuildJob(#[from] BuildJobError),
     #[error("Error when executing a job on a node: {0}")]
@@ -277,6 +279,12 @@ pub(crate) enum AddError {
     NoCompatableNodes,
     #[error("Could not add the job set on the server side. This is generally a really really bad error. You should tell brooks about this.")]
     FailedToAdd,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub(crate) enum StatusError {
+    #[error("Server did not send job list as requested. Instead, sent `{0}`")]
+    NotQueryJobs(crate::transport::ServerResponseToUser),
 }
 
 #[derive(Debug, From, thiserror::Error)]
