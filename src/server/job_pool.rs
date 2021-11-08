@@ -32,6 +32,10 @@ where
                         {
                             info!("marking a finished job for {}", new_req.initialized_job);
                             self.remaining_jobs.finish_job(new_req.initialized_job);
+                        } else {
+                            debug!("not marking finished job for {} - after building marker: {}", 
+                               new_req.initialized_job, new_req.after_building
+                           );
                         }
 
                         let new_task: JobResponse = self.remaining_jobs.fetch_new_task(
