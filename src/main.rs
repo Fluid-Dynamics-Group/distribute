@@ -8,6 +8,7 @@ mod error;
 mod pause;
 mod server;
 mod status;
+mod kill;
 mod transport;
 mod template;
 
@@ -52,6 +53,7 @@ async fn wrap_main() -> Result<(), Error> {
         cli::Command::Client(client) => client::client_command(client).await,
         cli::Command::Server(server) => server::server_command(server).await,
         cli::Command::Status(status) => status::status_command(status).await,
+        cli::Command::Kill(kill) => kill::kill(kill).await,
         cli::Command::Pause(pause) => pause::pause(pause).await,
         cli::Command::Add(add) => add::add(add).await,
         cli::Command::Template(template) => template::template(template)

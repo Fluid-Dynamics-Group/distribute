@@ -18,6 +18,7 @@ pub enum Command {
     Client(Client),
     Server(Server),
     Status(Status),
+    Kill(Kill),
     Pause(Pause),
     Add(Add),
     Template(Template)
@@ -73,6 +74,23 @@ pub struct Status {
     #[argh(option)]
     /// the ip address that the server is located at
     pub ip: IpAddr,
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// check the status of all the nodes
+#[argh(subcommand, name = "kill")]
+pub struct Kill {
+    #[argh(option, default = "SERVER_PORT", short = 'p')]
+    /// the port that the server uses (default 8952)
+    pub port: u16,
+
+    #[argh(option)]
+    /// the ip address that the server is located at
+    pub ip: IpAddr,
+
+    #[argh(positional)]
+    /// the name of the job to kill
+    pub job_name: String
 }
 
 #[derive(FromArgs, PartialEq, Debug)]

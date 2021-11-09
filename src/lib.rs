@@ -9,6 +9,7 @@ mod error;
 mod pause;
 mod server;
 mod status;
+mod kill;
 mod transport;
 mod template;
 
