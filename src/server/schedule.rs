@@ -35,6 +35,8 @@ pub(crate) trait Schedule {
     fn identifier_by_name(&self, batch_name: &str) -> Option<JobIdentifier>;
 
     fn mark_build_failure(&mut self, failed_ident: JobIdentifier, total_nodes: usize);
+
+    fn cancel_batch(&mut self, ident: JobIdentifier);
 }
 
 #[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug)]
@@ -309,6 +311,27 @@ impl Schedule for GpuPriority {
             warn!("Failed to mark job set {} as failing to build for a node since it could not be found in the job set list. This should not happen", failed_ident);
         }
     }
+
+    /// Remove any remaining jobs in the queue for a job set
+    ///
+    /// Since nodes are expected to report an end to a job in the same manner that they 
+    /// end jobs normally, they are expected to report back with their own `.finish_job()` calls,
+    /// so the overall job set must remain in the pool.
+    ///
+    /// Once all cancellations have been filed the job set will be dropped in another function call
+    fn cancel_batch(&mut self, ident: JobIdentifier) {
+        info!("cancelling batch for identifier {}", ident);
+
+        if let Some(job_set) = self.map.get_mut(&ident) {
+            info!("cancellation for {} corresponds to job name ", job_set.batch_name);
+
+            if let Err(e) = job_set.clear_remaining_jobs() {
+                error!("failed to clear some of the remaining jobs after cancellation: {}", e)
+            }
+        } else {
+            warn!("could not find batch with the identifier {} in cancellation request", ident);
+        }
+    }
 }
 
 #[derive(Constructor, Debug)]
@@ -372,6 +395,24 @@ impl JobSet {
                 .collect(),
             running_jobs: self.currently_running_jobs,
         }
+    }
+
+    fn clear_remaining_jobs(&mut self) -> Result<(), std::io::Error> {
+        for job in self.remaining_jobs.drain(..) {
+
+            // loading the job deletes the previous files after reading it into memory
+            // TODO: impl Drop destructors for Lazy_ files so that we can just drop the whole
+            // thing here and be sure that it will always run
+            //
+            // also - there is no reason to load this data into memory if we are just throwing it
+            // out
+            job.load_job()?;
+        }
+
+        debug!("length of remaining jobs after clearing them all with drain: len: {}, cap: {}", 
+               self.remaining_jobs.len(), self.remaining_jobs.capacity());
+
+        Ok(())
     }
 
     pub(crate) fn from_owned(

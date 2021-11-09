@@ -96,6 +96,9 @@ where
                                     "successfully sent cancellation message for batch name {}",
                                     &cancel_query.batch_name
                                 );
+
+                                self.remaining_jobs.cancel_batch(found_identifier);
+
                                 cancel_query.cancel_batch.send(CancelResult::Success).ok();
                             } else {
                                 cancel_query
