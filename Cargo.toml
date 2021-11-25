@@ -24,3 +24,4 @@ matrix-notify = { path = "../matrix-notify" }
 tokio-stream = { version = "0.1.7", features = ["fs"] }
 sha1 = "0.6.0"
 signal-hook = { version = "0.3.9", default_features = false }
+regex = "1.5.4"

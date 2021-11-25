@@ -21,7 +21,8 @@ pub enum Command {
     Kill(Kill),
     Pause(Pause),
     Add(Add),
-    Template(Template)
+    Template(Template),
+    Pull(Pull)
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -143,4 +144,17 @@ pub struct Template {
     #[argh(option, default="std::path::PathBuf::from(\"distribute-jobs.yaml\")")]
     /// an optional path to write the template result to
     pub output: PathBuf
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// Pull files from the server to your machine
+#[argh(subcommand, name = "pull")]
+pub struct Pull {
+    #[argh(option)]
+    /// the ip address that the server is located at
+    pub ip: IpAddr,
+
+    #[argh(option)]
+    /// files to include in the pulling operation
+    pub include: Option<String>
 }

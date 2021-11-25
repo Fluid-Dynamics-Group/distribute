@@ -11,6 +11,7 @@ mod status;
 mod kill;
 mod transport;
 mod template;
+mod pull;
 
 use error::Error;
 
@@ -56,6 +57,7 @@ async fn wrap_main() -> Result<(), Error> {
         cli::Command::Kill(kill) => kill::kill(kill).await,
         cli::Command::Pause(pause) => pause::pause(pause).await,
         cli::Command::Add(add) => add::add(add).await,
-        cli::Command::Template(template) => template::template(template)
+        cli::Command::Template(template) => template::template(template),
+        cli::Command::Pull(pull) => pull::pull(pull),
     }
 }

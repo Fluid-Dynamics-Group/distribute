@@ -12,6 +12,7 @@ mod status;
 mod kill;
 mod transport;
 mod template;
+mod pull;
 
 #[macro_use]
 extern crate log;
