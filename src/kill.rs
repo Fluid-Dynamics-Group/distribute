@@ -7,7 +7,6 @@ use crate::{
 use std::net::SocketAddr;
 
 pub(crate) async fn kill(args: cli::Kill) -> Result<(), Error> {
-
     let addr = SocketAddr::from((args.ip, args.port));
 
     let mut conn = transport::UserConnectionToServer::new(addr).await?;

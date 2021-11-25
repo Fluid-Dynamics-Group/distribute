@@ -34,6 +34,8 @@ pub(crate) enum Error {
     RunningJob(#[from] RunningNodeError),
     #[error("{0}")]
     Template(#[from] TemplateError),
+    #[error("{0}")]
+    PullErrorLocal(#[from] PullErrorLocal),
 }
 
 #[derive(Debug, Display, thiserror::Error, From)]
@@ -213,7 +215,7 @@ pub struct ParseIpError {
     ip: String,
 }
 
-#[derive(Debug, Display, From, thiserror::Error)]
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
 #[display(fmt = "Could not write to file {:?}, error: {}", path, error)]
 pub struct WriteFile {
     error: std::io::Error,
@@ -331,4 +333,35 @@ pub(crate) enum TemplateError {
     Serde(serde_yaml::Error),
     #[error("Could not write to the output file: {0}")]
     Io(io::Error),
+}
+
+#[derive(Debug, From, thiserror::Error, serde::Deserialize, Clone, serde::Serialize)]
+pub(crate) enum PullError {
+    #[error("The namespace requested does not exist")]
+    MissingNamespace,
+    #[error("The batch name within the namespace requested does not exist")]
+    MissingBatchname,
+    #[error("Failed to load file for sending: `{0}`")]
+    LoadFile(PathBuf),
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub(crate) enum PullErrorLocal {
+    #[error("Error with configuration file: {0}")]
+    Config(ConfigurationError),
+    #[error("{0}")]
+    Regex(RegexError),
+    #[error("Unexpected resposne from the server")]
+    UnexpectedResponse,
+    #[error("{0}")]
+    CreateDir(CreateDirError),
+    #[error("{0}")]
+    WriteFile(WriteFile),
+}
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "regular expression: `{}` error reason: `{}`", "expr", "error")]
+pub(crate) struct RegexError {
+    expr: String,
+    error: regex::Error,
 }

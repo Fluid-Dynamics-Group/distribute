@@ -314,7 +314,7 @@ impl Schedule for GpuPriority {
 
     /// Remove any remaining jobs in the queue for a job set
     ///
-    /// Since nodes are expected to report an end to a job in the same manner that they 
+    /// Since nodes are expected to report an end to a job in the same manner that they
     /// end jobs normally, they are expected to report back with their own `.finish_job()` calls,
     /// so the overall job set must remain in the pool.
     ///
@@ -323,13 +323,22 @@ impl Schedule for GpuPriority {
         info!("cancelling batch for identifier {}", ident);
 
         if let Some(job_set) = self.map.get_mut(&ident) {
-            info!("cancellation for {} corresponds to job name ", job_set.batch_name);
+            info!(
+                "cancellation for {} corresponds to job name ",
+                job_set.batch_name
+            );
 
             if let Err(e) = job_set.clear_remaining_jobs() {
-                error!("failed to clear some of the remaining jobs after cancellation: {}", e)
+                error!(
+                    "failed to clear some of the remaining jobs after cancellation: {}",
+                    e
+                )
             }
         } else {
-            warn!("could not find batch with the identifier {} in cancellation request", ident);
+            warn!(
+                "could not find batch with the identifier {} in cancellation request",
+                ident
+            );
         }
     }
 }
@@ -399,7 +408,6 @@ impl JobSet {
 
     fn clear_remaining_jobs(&mut self) -> Result<(), std::io::Error> {
         for job in self.remaining_jobs.drain(..) {
-
             // loading the job deletes the previous files after reading it into memory
             // TODO: impl Drop destructors for Lazy_ files so that we can just drop the whole
             // thing here and be sure that it will always run
@@ -409,8 +417,11 @@ impl JobSet {
             job.load_job()?;
         }
 
-        debug!("length of remaining jobs after clearing them all with drain: len: {}, cap: {}", 
-               self.remaining_jobs.len(), self.remaining_jobs.capacity());
+        debug!(
+            "length of remaining jobs after clearing them all with drain: len: {}, cap: {}",
+            self.remaining_jobs.len(),
+            self.remaining_jobs.capacity()
+        );
 
         Ok(())
     }

@@ -6,13 +6,13 @@ mod cli;
 mod client;
 mod config;
 mod error;
+mod kill;
 mod pause;
+mod pull;
 mod server;
 mod status;
-mod kill;
-mod transport;
 mod template;
-mod pull;
+mod transport;
 
 #[macro_use]
 extern crate log;

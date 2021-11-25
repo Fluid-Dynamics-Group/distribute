@@ -1,9 +1,12 @@
-use structopt::StructOpt;
 use std::net::IpAddr;
 use std::path::PathBuf;
+use structopt::StructOpt;
 
+#[allow(dead_code)]
 pub const SERVER_PORT: u16 = 8952;
+pub const SERVER_PORT_STR: &'static str = "8952";
 pub const CLIENT_PORT: u16 = 8953;
+pub const CLIENT_PORT_STR: &'static str = "8953";
 
 //#[derive(StructOpt, PartialEq, Debug)]
 ///// distribute compute jobs between multiple machines
@@ -13,7 +16,11 @@ pub const CLIENT_PORT: u16 = 8953;
 //}
 
 #[derive(StructOpt, PartialEq, Debug)]
-#[structopt(name = "distribute", about = "A utility for scheduling jobs on a cluster")]
+#[structopt(
+    name = "distribute", 
+    about = "A utility for scheduling jobs on a cluster", 
+    version=env!("CARGO_PKG_VERSION")
+)]
 pub enum Arguments {
     Client(Client),
     Server(Server),
@@ -22,7 +29,7 @@ pub enum Arguments {
     Pause(Pause),
     Add(Add),
     Template(Template),
-    Pull(Pull)
+    Pull(Pull),
 }
 
 #[derive(StructOpt, PartialEq, Debug)]
@@ -32,7 +39,7 @@ pub struct Client {
     /// job init stuff will be done here
     pub base_folder: String,
 
-    #[structopt(long, default_value = "CLIENT_PORT", short)]
+    #[structopt(long, default_value = CLIENT_PORT_STR, short)]
     /// the port to bind the client to (default 8953)
     pub port: u16,
 }
@@ -52,11 +59,11 @@ pub struct Server {
     /// all stored files sent to the server saved to
     pub temp_dir: std::path::PathBuf,
 
-    #[structopt(long, default_value = "SERVER_PORT", short)]
+    #[structopt(long, default_value = SERVER_PORT_STR, short)]
     /// the port to bind the server to (default 8952)
     pub port: u16,
 
-    #[structopt(long,short)]
+    #[structopt(long, short)]
     /// clean and remove the entire output tree
     pub clean_output: bool,
 }
@@ -64,7 +71,7 @@ pub struct Server {
 #[derive(StructOpt, PartialEq, Debug)]
 /// check the status of all the nodes
 pub struct Status {
-    #[structopt(long, short, default_value = "SERVER_PORT")]
+    #[structopt(long, short, default_value = SERVER_PORT_STR)]
     /// the port that the server uses (default 8952)
     pub port: u16,
 
@@ -76,7 +83,7 @@ pub struct Status {
 #[derive(StructOpt, PartialEq, Debug)]
 /// check the status of all the nodes
 pub struct Kill {
-    #[structopt(long,short, default_value = "SERVER_PORT")]
+    #[structopt(long, short, default_value = SERVER_PORT_STR)]
     /// the port that the server uses (default 8952)
     pub port: u16,
 
@@ -85,12 +92,11 @@ pub struct Kill {
     pub ip: IpAddr,
 
     /// the name of the job to kill
-    pub job_name: String
+    pub job_name: String,
 }
 
 #[derive(StructOpt, PartialEq, Debug)]
-/// pause all currently running processes on this node for a specified amount of time. If
-/// no processes are running then the command is ignored by the node
+/// pause all currently running processes on this node for a specified amount of time
 pub struct Pause {
     #[structopt(long, default_value = "1h")]
     /// duration to pause the processes for.  Maximum allowable
@@ -104,7 +110,7 @@ pub struct Add {
     #[structopt(default_value = "distribute-jobs.yaml")]
     pub jobs: String,
 
-    #[structopt(long,short , default_value = "SERVER_PORT")]
+    #[structopt(long, short, default_value = SERVER_PORT_STR)]
     /// the port that the server uses (default 8952)
     pub port: u16,
 
@@ -122,21 +128,21 @@ pub struct Add {
 }
 
 #[derive(StructOpt, PartialEq, Debug)]
-/// add a job set to the queue
+/// generate a template file to fill for executing with `distribute add`
 pub struct Template {
     #[structopt(subcommand)]
     /// set the configuration type to either python or singularity format
     pub(crate) mode: TemplateType,
 
-    #[structopt(long, default_value ="distribute-jobs.yaml")]
+    #[structopt(long, default_value = "distribute-jobs.yaml")]
     /// an optional path to write the template result to
-    pub output: PathBuf
+    pub output: PathBuf,
 }
 
 #[derive(StructOpt, PartialEq, Debug)]
 pub(crate) enum TemplateType {
     Singularity,
-    Python
+    Python,
 }
 
 #[derive(StructOpt, PartialEq, Debug)]
@@ -146,7 +152,48 @@ pub struct Pull {
     /// the ip address that the server is located at
     pub ip: IpAddr,
 
-    #[structopt(long)]
+    pub(crate) job_file: PathBuf,
+
+    #[structopt(long, short)]
+    /// Whether or not to only check what files _would_ be downloaded
+    /// with the provided regular expressions
+    pub(crate) dry: bool,
+
+    #[structopt(long, short, default_value=SERVER_PORT_STR)]
+    /// The port of the server to connect to
+    pub(crate) port: u16,
+
+    #[structopt(long, short, default_value = "./")]
+    pub(crate) save_dir: PathBuf,
+
+    #[structopt(subcommand)]
+    pub(crate) filter: Option<RegexFilter>,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+pub(crate) enum RegexFilter {
     /// files to include in the pulling operation
-    pub include: Option<String>
+    Include {
+        #[structopt(long, short)]
+        include: Vec<String>,
+    },
+    /// files to exlclude in the pulling operation
+    Exclude {
+        #[structopt(long, short)]
+        exclude: Vec<String>,
+    },
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+pub(crate) enum PullCommand {
+    /// files to include in the pulling operation
+    Include {
+        #[structopt(long, short)]
+        include: Vec<String>,
+    },
+    /// files to exlclude in the pulling operation
+    Exclude {
+        #[structopt(long, short)]
+        exclude: Vec<String>,
+    },
 }

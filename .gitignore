@@ -2,3 +2,4 @@ target/
 run/
 **/*.log
 **.sif
+distribute-jobs.yaml

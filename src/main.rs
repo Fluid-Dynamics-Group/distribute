@@ -5,13 +5,13 @@ mod cli;
 mod client;
 mod config;
 mod error;
+mod kill;
 mod pause;
+mod pull;
 mod server;
 mod status;
-mod kill;
-mod transport;
 mod template;
-mod pull;
+mod transport;
 
 use error::Error;
 
@@ -28,7 +28,7 @@ async fn main() {
 }
 
 async fn wrap_main() -> Result<(), Error> {
-    let arguments =  cli::Arguments::from_args();
+    let arguments = cli::Arguments::from_args();
 
     fern::Dispatch::new()
         // Perform allocation-free log formatting
@@ -60,6 +60,6 @@ async fn wrap_main() -> Result<(), Error> {
         cli::Arguments::Pause(pause) => pause::pause(pause).await,
         cli::Arguments::Add(add) => add::add(add).await,
         cli::Arguments::Template(template) => template::template(template),
-        cli::Arguments::Pull(pull) => pull::pull(pull),
+        cli::Arguments::Pull(pull) => pull::pull(pull).await,
     }
 }

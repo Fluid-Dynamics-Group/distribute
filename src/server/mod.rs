@@ -61,8 +61,9 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
     let port = server.port;
     let req_clone = request_job.clone();
     let caps_clone = node_caps.clone();
+    let save_path = server.save_path.clone();
     tokio::spawn(async move {
-        user_conn::handle_user_requests(port, req_clone, caps_clone).await;
+        user_conn::handle_user_requests(port, req_clone, caps_clone, save_path).await;
     });
 
     // spawn off a job pool that we can query from different tasks

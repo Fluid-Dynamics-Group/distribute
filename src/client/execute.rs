@@ -317,7 +317,7 @@ async fn initialize_singularity_job(
     // and they will be copied over to `input` at the start of each job run
     write_all_init_files(&base_path.join("initial_files"), &init.build_files).await?;
 
-    // clear out all the older bindings and create new folders for our mounts 
+    // clear out all the older bindings and create new folders for our mounts
     // for this container
     folder_state
         .update_binded_paths(init.container_bind_paths, base_path)
@@ -384,20 +384,28 @@ async fn run_singularity_job(
 
 /// create a --bind argument for `singularity run`
 fn create_bind_argument(base_path: &Path, folder_state: &BindingFolderState) -> String {
-
-    let dist_save = base_path
-        .join("distribute_save");
+    let dist_save = base_path.join("distribute_save");
 
     let input = base_path.join("input");
 
-    let mut bind_arg = format!("{}:{}:rw,{}:{}:rw",dist_save.display(), "/distribute_save", input.display(), "/input");
+    let mut bind_arg = format!(
+        "{}:{}:rw,{}:{}:rw",
+        dist_save.display(),
+        "/distribute_save",
+        input.display(),
+        "/input"
+    );
 
     // add bindings for any use-requested folders
     for folder in &folder_state.folders {
-        // we know that we have previous folders 
+        // we know that we have previous folders
         // so we can always add a comma
         bind_arg.push(',');
-        bind_arg.push_str(&format!("{}:{}:rw", folder.host_path.display(), folder.container_path.display()));
+        bind_arg.push_str(&format!(
+            "{}:{}:rw",
+            folder.host_path.display(),
+            folder.container_path.display()
+        ));
     }
 
     bind_arg
@@ -503,7 +511,7 @@ async fn command_output_to_file(output: std::process::Output, path: PathBuf) {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]
@@ -519,7 +527,9 @@ mod tests{
         let base_path = PathBuf::from("/some/");
 
         let mut state = BindingFolderState::new();
-        state.update_binded_paths(vec![PathBuf::from("/reqpath")], &base_path).await;
+        state
+            .update_binded_paths(vec![PathBuf::from("/reqpath")], &base_path)
+            .await;
 
         let out = create_bind_argument(&base_path, &state);
         assert_eq!(out, "/some/distribute_save:/distribute_save:rw,/some/input:/input:rw,/some/_bind_path_0:/reqpath:rw");

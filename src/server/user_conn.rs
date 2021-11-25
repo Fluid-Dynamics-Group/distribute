@@ -1,6 +1,7 @@
 use super::pool_data::{CancelBatchQuery, RemainingJobsQuery};
 use crate::{error, transport};
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 
 use std::sync::Arc;
 
@@ -8,12 +9,15 @@ use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
 
 use super::{JobRequest, NodeProvidedCaps, Requirements};
+use std::io;
+use walkdir::{DirEntry, WalkDir};
 
 /// handle incomming requests from the user over CLI on any node
 pub(crate) async fn handle_user_requests(
     port: u16,
     tx: mpsc::Sender<JobRequest>,
     node_capabilities: Vec<Arc<Requirements<NodeProvidedCaps>>>,
+    path: PathBuf,
 ) {
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port)))
         .await
@@ -34,8 +38,10 @@ pub(crate) async fn handle_user_requests(
         let tx_c = tx.clone();
         let node_c = node_capabilities.clone();
 
+        let path_own = path.to_owned();
+
         tokio::spawn(async move {
-            single_user_request(conn, tx_c, node_c).await;
+            single_user_request(conn, tx_c, node_c, path_own).await;
             info!("user connection has closed");
         });
     }
@@ -47,6 +53,7 @@ async fn single_user_request(
     mut conn: transport::ServerConnectionToUser,
     tx: mpsc::Sender<JobRequest>,
     node_capabilities: Vec<Arc<Requirements<NodeProvidedCaps>>>,
+    path: PathBuf,
 ) {
     loop {
         let request = match conn.receive_data().await {
@@ -77,6 +84,17 @@ async fn single_user_request(
                 debug!("new request was to kill a job set");
                 // TODO: ask the scheduler
                 cancel_job_by_name(&tx, &mut conn, batch_name).await;
+            }
+            transport::UserMessageToServer::PullFilesInitialize(req) => {
+                debug!("new request to pull files from a batch");
+                // TODO: ask the scheduler
+                pull_files(&path, &mut conn, req).await;
+            }
+            transport::UserMessageToServer::FileReceived => {
+                warn!(
+                    "got FileReceived signal from user connection in main handling 
+                      process. This should not happen! Ignoring for now"
+                );
             }
         }
         //
@@ -223,5 +241,139 @@ async fn cancel_job_by_name(
             let response = transport::ServerResponseToUser::KillJobFailed;
             conn.transport_data(&response).await.ok();
         }
+    }
+}
+
+async fn pull_files(
+    folder_path: &Path,
+    conn: &mut transport::ServerConnectionToUser,
+    pull_files: transport::PullFileRequest,
+) {
+    let namespace_path = folder_path.join(pull_files.namespace);
+
+    if !namespace_path.exists() {
+        conn.transport_data(&error::PullError::MissingNamespace.into())
+            .await
+            .ok();
+        return ();
+    }
+
+    let mut batch_path = namespace_path;
+    batch_path.push(pull_files.batch_name);
+
+    if !batch_path.exists() {
+        conn.transport_data(&error::PullError::MissingBatchname.into())
+            .await
+            .ok();
+        return ();
+    }
+
+    // all the filters should be checked client side,
+    // so we omit checking them here
+    let filters = pull_files
+        .filters
+        .into_iter()
+        .filter_map(|x| regex::Regex::new(&x).ok())
+        .collect();
+
+    let walk_dir = WalkDir::new(&batch_path);
+    let files = filter_files(walk_dir.into_iter(), filters, pull_files.is_include_filter);
+
+    // if we are executing a dry response and only sending the names of the
+    // files that matched and didnt match then
+    // we dont need to pull the actual data from the files
+    if pull_files.dry {
+        let mut matched = Vec::new();
+        let mut filtered = Vec::new();
+
+        files.for_each(|x| match x {
+            FilterResult::Include(x) => matched.push(x),
+            FilterResult::Skip(x) => filtered.push(x),
+        });
+
+        let ret = transport::PullFilesDryResponse::new(matched, filtered);
+        conn.transport_data(&ret.into()).await.ok();
+    }
+    // otherwise, we load each and every single file that we have parsed and prepare them
+    // to be sent to the client
+    else {
+        let send_files = files.filter_map(|x| match x {
+            FilterResult::Include(x) => Some(x),
+            _ => None,
+        });
+
+        for file in send_files {
+            let send_file = if file.is_dir() {
+                transport::SendFile::new(file, false, vec![])
+            } else {
+                if let Ok(bytes) = std::fs::read(&file) {
+                    transport::SendFile::new(file, true, bytes)
+                } else {
+                    // send an error message for this file
+                    let msg = error::PullError::LoadFile(file);
+                    conn.transport_data(&msg.into()).await.ok();
+                    continue;
+                }
+            };
+
+            conn.transport_data(&send_file.into()).await.ok();
+
+            match conn.receive_data().await {
+                Ok(transport::UserMessageToServer::FileReceived) => continue,
+                other => {
+                    warn!("user response from file was {:?} which was unexpected - closing connection", other);
+                }
+            }
+        }
+    }
+}
+
+fn filter_files(
+    dir_iter: impl Iterator<Item = Result<DirEntry, walkdir::Error>>,
+    filters: Vec<regex::Regex>,
+    is_include_filter: bool,
+) -> impl Iterator<Item = FilterResult> {
+    dir_iter.filter_map(|x| x.ok()).map(move |x| {
+        // always make sure that we include directories
+        if x.file_type().is_dir() {
+            FilterResult::Include(x.path().to_owned())
+        }
+        // if the file is not a directory - cycle to make sure that we match on the regular
+        // expressions
+        else {
+            filter_path(filters.iter(), is_include_filter, x.path())
+        }
+    })
+}
+
+enum FilterResult {
+    Skip(PathBuf),
+    Include(PathBuf),
+}
+
+/// helper function to help execute a list of regular expressions on a single path
+fn filter_path<'a>(
+    filters: impl Iterator<Item = &'a regex::Regex>,
+    is_include_filter: bool,
+    path: &Path,
+) -> FilterResult {
+    for expr in filters {
+        // if we have a match to the expression
+        if let Some(_) = expr.find(&path.to_string_lossy()) {
+            if is_include_filter {
+                return FilterResult::Include(path.to_owned());
+            } else {
+                return FilterResult::Skip(path.to_owned());
+            }
+        }
+    }
+
+    // if we have gotten here then we need to find out what
+    // we do if the regular expressions did not match. If we required that the regular expressions
+    // should have matched the files, then we skip the file here
+    if is_include_filter {
+        return FilterResult::Skip(path.to_owned());
+    } else {
+        return FilterResult::Include(path.to_owned());
     }
 }
