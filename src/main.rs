@@ -15,6 +15,8 @@ mod pull;
 
 use error::Error;
 
+use structopt::StructOpt;
+
 #[macro_use]
 extern crate log;
 
@@ -26,7 +28,7 @@ async fn main() {
 }
 
 async fn wrap_main() -> Result<(), Error> {
-    let arguments: cli::Arguments = argh::from_env();
+    let arguments =  cli::Arguments::from_args();
 
     fern::Dispatch::new()
         // Perform allocation-free log formatting
@@ -50,14 +52,14 @@ async fn wrap_main() -> Result<(), Error> {
         .apply()
         .map_err(error::LogError::from)?;
 
-    match arguments.command {
-        cli::Command::Client(client) => client::client_command(client).await,
-        cli::Command::Server(server) => server::server_command(server).await,
-        cli::Command::Status(status) => status::status_command(status).await,
-        cli::Command::Kill(kill) => kill::kill(kill).await,
-        cli::Command::Pause(pause) => pause::pause(pause).await,
-        cli::Command::Add(add) => add::add(add).await,
-        cli::Command::Template(template) => template::template(template),
-        cli::Command::Pull(pull) => pull::pull(pull),
+    match arguments {
+        cli::Arguments::Client(client) => client::client_command(client).await,
+        cli::Arguments::Server(server) => server::server_command(server).await,
+        cli::Arguments::Status(status) => status::status_command(status).await,
+        cli::Arguments::Kill(kill) => kill::kill(kill).await,
+        cli::Arguments::Pause(pause) => pause::pause(pause).await,
+        cli::Arguments::Add(add) => add::add(add).await,
+        cli::Arguments::Template(template) => template::template(template),
+        cli::Arguments::Pull(pull) => pull::pull(pull),
     }
 }

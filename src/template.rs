@@ -1,40 +1,23 @@
 use super::cli::Template;
+use super::cli;
 use crate::error::{Error, TemplateError};
 use crate::config::{python, singularity, common};
 use std::path::PathBuf;
 
 pub(crate) fn template(args: Template) -> Result<(), Error> {
-    let mode = 
-        if !args.python && !args.singularity {
-            Mode::Singularity
-        } else if args.python {
-            Mode::Python
-        } else if args.singularity {
-            Mode::Singularity
-        } else {
-            unreachable!()
-        };
-    
-    let out = mode.to_template()?;
+    let out = to_template(args.mode)?;
 
     std::fs::write(&args.output, out.as_bytes()).map_err(TemplateError::from)?;
 
     Ok(())
 }
 
-enum Mode {
-    Singularity,
-    Python
-}
-impl Mode {
-    fn to_template(self) -> Result<String, TemplateError> {
-        match self {
-            Self::Python => python_template(),
-            Self::Singularity => singularity_template()
-        }
+fn to_template(template: cli::TemplateType) -> Result<String, TemplateError> {
+    match template{
+        cli::TemplateType::Python => python_template(),
+        cli::TemplateType::Singularity => singularity_template()
     }
 }
-
 
 fn python_template() -> Result<String, TemplateError> {
     let initialize = python::Initialize::new(
