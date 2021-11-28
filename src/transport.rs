@@ -46,7 +46,7 @@ impl From<config::BuildOpts> for RequestFromServer {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
-pub(crate) enum UserMessageToServer {
+pub enum UserMessageToServer {
     AddJobSet(server::OwnedJobSet),
     QueryCapabilities,
     QueryJobNames,
@@ -56,7 +56,7 @@ pub(crate) enum UserMessageToServer {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Constructor)]
-pub(crate) struct PullFileRequest {
+pub struct PullFileRequest {
     // regular expressions that are either for matching-for
     // or matching-against the files in the server
     //
@@ -76,7 +76,7 @@ pub(crate) struct PullFileRequest {
 }
 
 #[derive(Deserialize, Serialize, Debug, derive_more::From, derive_more::Unwrap, Display)]
-pub(crate) enum ServerResponseToUser {
+pub enum ServerResponseToUser {
     #[display(fmt = "job set added")]
     JobSetAdded,
     #[display(fmt = "job set failed to add")]
@@ -107,7 +107,7 @@ pub(crate) enum ServerResponseToUser {
     success_files,
     filtered_files
 )]
-pub(crate) struct PullFilesDryResponse {
+pub struct PullFilesDryResponse {
     pub success_files: Vec<PathBuf>,
     pub filtered_files: Vec<PathBuf>,
 }
@@ -182,13 +182,15 @@ pub struct Version {
 }
 
 impl Version {
+    /// parse the current version of the package from Cargo.toml
     pub fn current_version() -> Self {
+        let mut iter = env!("CARGO_PKG_VERSION").split('.');
+        let major = iter.next().unwrap().parse().unwrap();
+        let minor = iter.next().unwrap().parse().unwrap();
+        let patch = iter.next().unwrap().parse().unwrap();
+
         // TODO: pull this from cargo.toml
-        Self {
-            major: 0,
-            minor: 4,
-            patch: 0,
-        }
+        Self { major, minor, patch, }
     }
 }
 
@@ -285,7 +287,7 @@ impl UserConnectionToServer {
 }
 
 #[derive(derive_more::From, derive_more::Constructor)]
-pub(crate) struct ServerConnectionToUser {
+pub struct ServerConnectionToUser {
     conn: TcpStream,
 }
 
@@ -517,5 +519,11 @@ mod tests {
         let x = serializer.serialize(&build_file).unwrap();
         let y: Vec<u8> = serializer.deserialize(&x).unwrap();
         assert_eq!(build_file.len(), y.len());
+    }
+
+    #[test]
+    fn version_parses() {
+        let v = Version::current_version();
+        assert_eq!(v.to_string(), env!("CARGO_PKG_VERSION"));
     }
 }

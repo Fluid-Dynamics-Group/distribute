@@ -6,7 +6,7 @@ use crate::transport;
 
 use std::net::SocketAddr;
 
-pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
+pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files
     //

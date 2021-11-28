@@ -8,7 +8,7 @@ use std::io::Write;
 use std::net::SocketAddr;
 use std::path::Path;
 
-pub(crate) async fn pull(args: cli::Pull) -> Result<(), Error> {
+pub async fn pull(args: cli::Pull) -> Result<(), Error> {
     dbg!(&args);
 
     let config: config::Jobs = config::load_config(&args.job_file.to_string_lossy())
@@ -63,17 +63,17 @@ pub(crate) async fn pull(args: cli::Pull) -> Result<(), Error> {
                 let lock = stdout.lock();
                 let mut writer = std::io::BufWriter::new(lock);
 
-                writer.write(b"included files:").unwrap();
+                writer.write_all(b"included files:").unwrap();
                 for f in resp.success_files {
                     writer
-                        .write(format!("\t{}", f.display()).as_bytes())
+                        .write_all(format!("\t{}", f.display()).as_bytes())
                         .unwrap();
                 }
 
-                writer.write(b"filtered files:").unwrap();
+                writer.write_all(b"filtered files:").unwrap();
                 for f in resp.filtered_files {
                     writer
-                        .write(format!("\t{}", f.display()).as_bytes())
+                        .write_all(format!("\t{}", f.display()).as_bytes())
                         .unwrap();
                 }
             }
@@ -121,6 +121,8 @@ pub(crate) async fn pull(args: cli::Pull) -> Result<(), Error> {
 /// helper function to process a SendFile from the server and save it
 /// to an appropriate location
 fn save_file(save_location: &Path, file: transport::SendFile) -> Result<(), error::PullErrorLocal> {
+    debug!("path from the server that is being saved is {}", file.file_path.display());
+
     let path = save_location.join(file.file_path);
 
     if file.is_file {

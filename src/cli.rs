@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use derive_more::Constructor;
 
 #[allow(dead_code)]
 pub const SERVER_PORT: u16 = 8952;
@@ -44,7 +45,7 @@ pub struct Client {
     pub port: u16,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// start serving jobs out to nodes using the provied configuration file
 pub struct Server {
     #[structopt(long, default_value = "distribute-nodes.yaml")]
@@ -145,7 +146,7 @@ pub(crate) enum TemplateType {
     Python,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// Pull files from the server to your machine
 pub struct Pull {
     #[structopt(long)]
@@ -171,21 +172,7 @@ pub struct Pull {
 }
 
 #[derive(StructOpt, PartialEq, Debug)]
-pub(crate) enum RegexFilter {
-    /// files to include in the pulling operation
-    Include {
-        #[structopt(long, short)]
-        include: Vec<String>,
-    },
-    /// files to exlclude in the pulling operation
-    Exclude {
-        #[structopt(long, short)]
-        exclude: Vec<String>,
-    },
-}
-
-#[derive(StructOpt, PartialEq, Debug)]
-pub(crate) enum PullCommand {
+pub enum RegexFilter {
     /// files to include in the pulling operation
     Include {
         #[structopt(long, short)]

@@ -1,19 +1,8 @@
 #![allow(unused_imports)]
 
-mod add;
-mod cli;
-mod client;
-mod config;
-mod error;
-mod kill;
-mod pause;
-mod pull;
-mod server;
-mod status;
-mod template;
-mod transport;
 
-use error::Error;
+use distribute::Error;
+use distribute::cli;
 
 use structopt::StructOpt;
 
@@ -47,19 +36,19 @@ async fn wrap_main() -> Result<(), Error> {
         .level_for("hyper", log::LevelFilter::Info)
         // Output to stdout, files, and other Dispatch configurations
         .chain(std::io::stdout())
-        .chain(fern::log_file("output.log").map_err(error::LogError::from)?)
+        .chain(fern::log_file("output.log").map_err(distribute::LogError::from)?)
         // Apply globally
         .apply()
-        .map_err(error::LogError::from)?;
+        .map_err(distribute::LogError::from)?;
 
     match arguments {
-        cli::Arguments::Client(client) => client::client_command(client).await,
-        cli::Arguments::Server(server) => server::server_command(server).await,
-        cli::Arguments::Status(status) => status::status_command(status).await,
-        cli::Arguments::Kill(kill) => kill::kill(kill).await,
-        cli::Arguments::Pause(pause) => pause::pause(pause).await,
-        cli::Arguments::Add(add) => add::add(add).await,
-        cli::Arguments::Template(template) => template::template(template),
-        cli::Arguments::Pull(pull) => pull::pull(pull).await,
+        cli::Arguments::Client(client) => distribute::client_command(client).await,
+        cli::Arguments::Server(server) => distribute::server_command(server).await,
+        cli::Arguments::Status(status) => distribute::status_command(status).await,
+        cli::Arguments::Kill(kill) => distribute::kill(kill).await,
+        cli::Arguments::Pause(pause) => distribute::pause(pause).await,
+        cli::Arguments::Add(add) => distribute::add(add).await,
+        cli::Arguments::Template(template) => distribute::template(template),
+        cli::Arguments::Pull(pull) => distribute::pull(pull).await,
     }
 }

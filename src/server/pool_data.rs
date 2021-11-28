@@ -55,7 +55,7 @@ pub(crate) struct CancelBatchQuery {
 }
 
 #[derive(Display, Serialize, Deserialize, Debug, Clone)]
-pub(crate) enum CancelResult {
+pub enum CancelResult {
     #[display(fmt = "Batch name was missing")]
     BatchNameMissing,
     #[display(fmt = "There were no nodes to broadcast to")]

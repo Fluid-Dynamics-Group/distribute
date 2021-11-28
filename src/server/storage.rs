@@ -389,7 +389,7 @@ fn load_files(files: &[LazyFile], delete: bool) -> Result<Vec<transport::File>, 
 }
 
 #[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
-pub(crate) struct OwnedJobSet {
+pub struct OwnedJobSet {
     pub(crate) build: config::BuildOpts,
     pub(crate) requirements: Requirements<JobRequiredCaps>,
     pub(crate) remaining_jobs: config::JobOpts,

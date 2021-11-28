@@ -473,7 +473,7 @@ impl JobSet {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub(crate) struct RemainingJobs {
+pub struct RemainingJobs {
     pub(crate) batch_name: String,
     pub(crate) jobs_left: Vec<String>,
     pub(crate) running_jobs: usize,
@@ -525,7 +525,7 @@ impl<T> fmt::Display for Requirements<T> {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub(crate) struct NodeProvidedCaps;
+pub struct NodeProvidedCaps;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct JobRequiredCaps;

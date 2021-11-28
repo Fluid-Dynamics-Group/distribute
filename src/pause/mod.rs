@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
+pub async fn pause(args: cli::Pause) -> Result<(), Error> {
     let duration = parse_time_input(&args.duration)?;
 
     // ensure that the specified duration is not longer than the max duration (4 hours)

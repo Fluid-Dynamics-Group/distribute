@@ -3,7 +3,7 @@ use std::io;
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum Error {
+pub enum Error {
     #[error("Could not load configuration file. {0}")]
     InvalidConfiguration(#[from] ConfigurationError),
     #[error("{0}")]
@@ -258,7 +258,7 @@ pub struct RemovePreviousDir {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum PauseError {
+pub enum PauseError {
     #[error("`{0}`")]
     ParseString(String),
     #[error(
@@ -274,7 +274,7 @@ pub(crate) enum PauseError {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum AddError {
+pub enum AddError {
     #[error("Server did not send capabilities when requested. Instead, sent `{0}`")]
     NotCapabilities(crate::transport::ServerResponseToUser),
     #[error("None of the nodes could run the jobs. Aborted")]
@@ -284,13 +284,13 @@ pub(crate) enum AddError {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum StatusError {
+pub enum StatusError {
     #[error("Server did not send job list as requested. Instead, sent `{0}`")]
     NotQueryJobs(crate::transport::ServerResponseToUser),
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum ScheduleError {
+pub enum ScheduleError {
     #[error("{0}")]
     StoreSet(StoreSet),
 }
@@ -302,7 +302,7 @@ pub struct StoreSet {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum BuildJobError {
+pub enum BuildJobError {
     #[error("{0}")]
     CreateDirector(CreateDirError),
     #[error("{0}")]
@@ -312,7 +312,7 @@ pub(crate) enum BuildJobError {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum RunningNodeError {
+pub enum RunningNodeError {
     #[error("{0}")]
     CreateDirector(CreateDirError),
     #[error("{0}")]
@@ -322,13 +322,13 @@ pub(crate) enum RunningNodeError {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum UnixError {
+pub enum UnixError {
     #[error("Io error reading a file: `{0}`")]
     Io(std::io::Error),
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum TemplateError {
+pub enum TemplateError {
     #[error("Could not serialize the template to a file: {0}")]
     Serde(serde_yaml::Error),
     #[error("Could not write to the output file: {0}")]
@@ -336,7 +336,7 @@ pub(crate) enum TemplateError {
 }
 
 #[derive(Debug, From, thiserror::Error, serde::Deserialize, Clone, serde::Serialize)]
-pub(crate) enum PullError {
+pub enum PullError {
     #[error("The namespace requested does not exist")]
     MissingNamespace,
     #[error("The batch name within the namespace requested does not exist")]
@@ -346,7 +346,7 @@ pub(crate) enum PullError {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum PullErrorLocal {
+pub enum PullErrorLocal {
     #[error("Error with configuration file: {0}")]
     Config(ConfigurationError),
     #[error("{0}")]
@@ -361,7 +361,7 @@ pub(crate) enum PullErrorLocal {
 
 #[derive(Debug, Display, thiserror::Error, Constructor)]
 #[display(fmt = "regular expression: `{}` error reason: `{}`", "expr", "error")]
-pub(crate) struct RegexError {
+pub struct RegexError {
     expr: String,
     error: regex::Error,
 }

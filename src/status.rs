@@ -8,7 +8,7 @@ use std::net::SocketAddr;
 
 /// check that all the nodes are up *and* the versions match. returns `true` if all nodes are
 /// healthy w/ version matches
-pub(crate) async fn status_command(args: cli::Status) -> Result<(), Error> {
+pub async fn status_command(args: cli::Status) -> Result<(), Error> {
     let addr = SocketAddr::from((args.ip, args.port));
 
     let mut conn = transport::UserConnectionToServer::new(addr).await?;

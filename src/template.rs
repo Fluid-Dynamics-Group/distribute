@@ -4,7 +4,7 @@ use crate::config::{self, common, python, singularity};
 use crate::error::{Error, TemplateError};
 use std::path::PathBuf;
 
-pub(crate) fn template(args: Template) -> Result<(), Error> {
+pub fn template(args: Template) -> Result<(), Error> {
     let out = to_template(args.mode)?;
 
     std::fs::write(&args.output, out.as_bytes()).map_err(TemplateError::from)?;

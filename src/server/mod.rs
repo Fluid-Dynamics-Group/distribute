@@ -9,19 +9,22 @@ mod user_conn;
 use job_pool::JobPool;
 use node::{Common, InitializedNode};
 use pool_data::JobRequest;
-pub(crate) use schedule::{NodeProvidedCaps, RemainingJobs};
 
+pub use schedule::{NodeProvidedCaps, RemainingJobs};
 pub use schedule::{JobRequiredCaps, Requirement, Requirements};
 
-pub(crate) use pool_data::CancelResult;
+pub use pool_data::CancelResult;
 pub(crate) use storage::{JobOpt, OwnedJobSet};
 
 use crate::{cli, config, error, error::Error, status};
 
 use tokio::sync::{broadcast, mpsc};
 
-pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
+pub async fn server_command(server: cli::Server) -> Result<(), Error> {
+    debug!("starting server");
+
     let nodes = config::load_config::<config::Nodes>(&server.nodes_file)?;
+    debug!("finished loading nodes config");
 
     if server.save_path.exists() && server.clean_output {
         std::fs::remove_dir_all(&server.save_path).map_err(|e| {
@@ -32,6 +35,8 @@ pub(crate) async fn server_command(server: cli::Server) -> Result<(), Error> {
     ok_if_exists(tokio::fs::create_dir_all(&server.save_path).await).map_err(|e| {
         error::ServerError::from(error::CreateDirError::new(e, server.save_path.clone()))
     })?;
+
+    debug!("creating an output folder for the server");
 
     // make the output folder - if it already exits then dont error
     match std::fs::create_dir_all(&server.save_path) {

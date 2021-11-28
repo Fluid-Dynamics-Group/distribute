@@ -38,7 +38,7 @@ pub(crate) struct ProcessGroups {
     other_procs: Vec<RunningProcess>,
 }
 
-#[derive(Debug, Ord, Eq)]
+#[derive(Debug, Eq)]
 pub(crate) struct RunningProcess {
     pid: u32,
     cmd: String,

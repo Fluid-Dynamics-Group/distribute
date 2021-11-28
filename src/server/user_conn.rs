@@ -19,10 +19,14 @@ pub(crate) async fn handle_user_requests(
     node_capabilities: Vec<Arc<Requirements<NodeProvidedCaps>>>,
     path: PathBuf,
 ) {
+    debug!("binding to listener");
+
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port)))
         .await
         .map_err(error::TcpConnection::from)
         .unwrap();
+
+    debug!("finished binding to port");
 
     loop {
         let (tcp_conn, address) = listener
@@ -250,6 +254,7 @@ async fn pull_files(
     pull_files: transport::PullFileRequest,
 ) {
     let namespace_path = folder_path.join(pull_files.namespace);
+    info!("pulling files at path {}", namespace_path.display());
 
     if !namespace_path.exists() {
         conn.transport_data(&error::PullError::MissingNamespace.into())
@@ -258,8 +263,7 @@ async fn pull_files(
         return ();
     }
 
-    let mut batch_path = namespace_path;
-    batch_path.push(pull_files.batch_name);
+    let batch_path = namespace_path.join(pull_files.batch_name);
 
     if !batch_path.exists() {
         conn.transport_data(&error::PullError::MissingBatchname.into())
@@ -277,7 +281,7 @@ async fn pull_files(
         .collect();
 
     let walk_dir = WalkDir::new(&batch_path);
-    let files = filter_files(walk_dir.into_iter(), filters, pull_files.is_include_filter);
+    let files = filter_files(walk_dir.into_iter(), filters, pull_files.is_include_filter, namespace_path);
 
     // if we are executing a dry response and only sending the names of the
     // files that matched and didnt match then
@@ -287,8 +291,8 @@ async fn pull_files(
         let mut filtered = Vec::new();
 
         files.for_each(|x| match x {
-            FilterResult::Include(x) => matched.push(x),
-            FilterResult::Skip(x) => filtered.push(x),
+            FilterResult::Include {abs: _, rel} => matched.push(rel),
+            FilterResult::Skip {abs: _, rel} => filtered.push(rel),
         });
 
         let ret = transport::PullFilesDryResponse::new(matched, filtered);
@@ -298,19 +302,21 @@ async fn pull_files(
     // to be sent to the client
     else {
         let send_files = files.filter_map(|x| match x {
-            FilterResult::Include(x) => Some(x),
+            FilterResult::Include{ abs, rel }  => Some((abs, rel)),
             _ => None,
         });
 
-        for file in send_files {
-            let send_file = if file.is_dir() {
-                transport::SendFile::new(file, false, vec![])
+        for (abs_path, relative_path) in send_files {
+            debug!("sending file to user at abs path: `{}` rel path `{}`", abs_path.display(), relative_path.display());
+
+            let send_file = if abs_path.is_dir() {
+                transport::SendFile::new(relative_path, false, vec![])
             } else {
-                if let Ok(bytes) = std::fs::read(&file) {
-                    transport::SendFile::new(file, true, bytes)
+                if let Ok(bytes) = std::fs::read(&abs_path) {
+                    transport::SendFile::new(relative_path, true, bytes)
                 } else {
                     // send an error message for this file
-                    let msg = error::PullError::LoadFile(file);
+                    let msg = error::PullError::LoadFile(abs_path);
                     conn.transport_data(&msg.into()).await.ok();
                     continue;
                 }
@@ -325,30 +331,48 @@ async fn pull_files(
                 }
             }
         }
+
+        conn.transport_data(&transport::ServerResponseToUser::FinishFiles.into()).await.ok();
     }
 }
+
+//struct AbsoluteAndRelativePath {
+//    abs: PathBuf,
+//    abs: PathBuf,
+//}
 
 fn filter_files(
     dir_iter: impl Iterator<Item = Result<DirEntry, walkdir::Error>>,
     filters: Vec<regex::Regex>,
     is_include_filter: bool,
+    prefix_to_strip: PathBuf,
 ) -> impl Iterator<Item = FilterResult> {
     dir_iter.filter_map(|x| x.ok()).map(move |x| {
         // always make sure that we include directories
         if x.file_type().is_dir() {
-            FilterResult::Include(x.path().to_owned())
+            FilterResult::include(x.path().to_owned(), &prefix_to_strip)
         }
         // if the file is not a directory - cycle to make sure that we match on the regular
         // expressions
         else {
-            filter_path(filters.iter(), is_include_filter, x.path())
+            filter_path(filters.iter(), is_include_filter, x.path(), &prefix_to_strip)
         }
     })
 }
 
 enum FilterResult {
-    Skip(PathBuf),
-    Include(PathBuf),
+    Skip{ abs: PathBuf, rel: PathBuf },
+    Include { abs: PathBuf, rel: PathBuf },
+}
+
+impl FilterResult {
+    fn skip(abs: PathBuf, prefix_to_strip: &Path) -> Self {
+        Self::Skip { rel: abs.strip_prefix(prefix_to_strip).unwrap().to_owned(), abs }
+    }
+
+    fn include(abs: PathBuf, prefix_to_strip: &Path) -> Self {
+        Self::Include { rel: abs.strip_prefix(prefix_to_strip).unwrap().to_owned(), abs }
+    }
 }
 
 /// helper function to help execute a list of regular expressions on a single path
@@ -356,14 +380,15 @@ fn filter_path<'a>(
     filters: impl Iterator<Item = &'a regex::Regex>,
     is_include_filter: bool,
     path: &Path,
+    prefix_to_strip: &Path
 ) -> FilterResult {
     for expr in filters {
         // if we have a match to the expression
         if let Some(_) = expr.find(&path.to_string_lossy()) {
             if is_include_filter {
-                return FilterResult::Include(path.to_owned());
+                return FilterResult::include(path.to_owned(), prefix_to_strip);
             } else {
-                return FilterResult::Skip(path.to_owned());
+                return FilterResult::skip(path.to_owned(), prefix_to_strip);
             }
         }
     }
@@ -372,8 +397,8 @@ fn filter_path<'a>(
     // we do if the regular expressions did not match. If we required that the regular expressions
     // should have matched the files, then we skip the file here
     if is_include_filter {
-        return FilterResult::Skip(path.to_owned());
+        FilterResult::skip(path.to_owned(), prefix_to_strip)
     } else {
-        return FilterResult::Include(path.to_owned());
+        FilterResult::include(path.to_owned(), prefix_to_strip)
     }
 }

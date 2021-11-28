@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "distribute"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "bincode",
  "chrono",
@@ -1416,6 +1416,7 @@ dependencies = [
  "libc",
  "memchr",
  "mio",
+ "num_cpus",
  "once_cell",
  "pin-project-lite",
  "signal-hook-registry",
