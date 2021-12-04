@@ -54,26 +54,40 @@ files dumped by your compute job at any time.
 
 We have thus far talked about all the cool things we can do with `distribute`, but none of this is free. As
 a famous Italian engineer once said, "Theres no such thing as free lunch." The largest complexity with working
-with `distribute` is the configuration file that specifies how to compile run project. `distribute template --python` 
+with `distribute` is the configuration file that specifies how to compile run project. `distribute template python` 
 will generate the following file:
 
 ```
----
-initialize:
-  build_file: /path/to/build.py
-  required_files:
-    - path: /file/always/present/1.txt
-      alias: optional_alias.txt
-    - path: /another/file/2.json
-      alias: ~
-    - path: /maybe/python/utils_file.py
-      alias: ~
-jobs:
-  - name: job_1
-    file: execute_job.py
-    required_files:
-      - path: job_configuration_file.json
-        alias: ~
-      - path: job_configuration_file_with_alias.json
-        alias: input.json
+meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  matrix: ~
+  capabilities:
+    - gfortran
+    - python3
+    - singularity
+python:
+  initialize:
+    build_file: /path/to/build.py
+  jobs:
+    - name: job_1
+      file: execute_job.py
+    - name: job_2
+      file: execute_job_2.py
 ```
+
+We will explain all of these fields later, but surmise it to say that the configuration files come in 3 main sections. 
+The `meta` section will describe things that the head node must do, including what "capabilities" each node is required
+to have to run your server, a `batch_name` and `namespace` so that your compute results do not overwrite someone else's,
+and a `matrix` field so that you can specify an optional matrix username that will be pinged once all your 
+jobs have finished.
+
+The next section is the `initialize` section. This section specifies all the files and instructions that are required
+to compile your project before it is run. This step is kept separate from the running step so that we can ensure
+that your project is compiled only once before being run with different jobs in the third section.
+
+The third section tells `distribute` *how* to execute each job. If you are using a python configuration then your 
+`file` parameter will likely seek out the compiled binary from the second step and run the binary using whatever
+files you chose to be available.
+
+The specifics of the configuration file will be discussed in greater detail in a later section.

@@ -82,7 +82,7 @@ pub struct Status {
 }
 
 #[derive(StructOpt, PartialEq, Debug)]
-/// check the status of all the nodes
+/// terminate any running jobs of a given batch name and remove the batch from the queue
 pub struct Kill {
     #[structopt(long, short, default_value = SERVER_PORT_STR)]
     /// the port that the server uses (default 8952)
