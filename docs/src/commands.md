@@ -4,7 +4,7 @@ There are a few commands that you will need to know to effectively work with `di
 they are not too complex. The full list of commands and their specific parameters can be found by running
 
 ```
-	$ distribute
+$ distribute
 ```
 
 at the time of writing, this yields:
@@ -41,13 +41,13 @@ a configuration file and the IP of the main server node. If you do not specify t
 file, it will default to `distribute-jobs.yaml`. This command can be run (for most cases) as such:
 
 ```
-	distribute add --ip <server ip address here> my-distribute-jobs-file.yaml
+distribute add --ip <server ip address here> my-distribute-jobs-file.yaml
 ```
 
 or, using defaults:
 
 ```
-	distribute add --ip <server ip address here>
+distribute add --ip <server ip address here>
 ```
 
 If there exists no node that matches all of your required capabilities, the job will not be run. There also exists a `--dry` flag
@@ -145,15 +145,15 @@ and all processes will be automatically resumed.
 some examples of this command:
 
 ```
-	distribute pause 4h
+distribute pause 4h
 ```
 
 ```
-	distribute pause 1h30m10s
+distribute pause 1h30m10s
 ```
 
 ```
-	distribute pause 60s
+distribute pause 60s
 ```
 
 ## status
@@ -164,7 +164,7 @@ names of the jobs that have not been run yet. You can use this command to fetch 
 to execute the `kill` command if needed.
 
 ```
-	distribute status --ip <server ip here>
+distribute status --ip <server ip here>
 ```
 
 **TODO** An example output here
@@ -231,4 +231,3 @@ distribute pull distribute-jobs.yaml --ip <server ip here> \
 	include \
 		--include "case1"
 ```
-
