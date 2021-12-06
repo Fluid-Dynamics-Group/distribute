@@ -8,7 +8,7 @@ distribute template python
 
 At the time of writing, it outputs something like this:
 
-```
+```yaml
 ---
 meta:
   batch_name: your_jobset_name
@@ -43,7 +43,7 @@ python:
 You may ask, what do your see when they are executed on a node? While the base folder structure remains the same,
 the files you are provided differ. Lets say you are executing the following section of a configuration file:
 
-```
+```yaml
 python:
   initialize:
     build_file: /path/to/build.py
@@ -56,6 +56,9 @@ python:
       file: execute_job.py
       required_files:
         - path: file3.txt
+    - name: job_2
+      file: execute_job.py
+      required_files: []
 ```
 
 When executing the compilation, the folder structure would look like this:
@@ -138,7 +141,7 @@ for cloning relevant git repositories and compiling any scripts in the project. 
 a github SSH key, a read-only ssh key is provided on the system so that you can clone any private `fluid-dynamics-group`
 repo. An example build script that I have personally used for working with `hit3d` looks like this:
 
-```python3
+```python
 import subprocess
 import os
 import sys
@@ -225,13 +228,13 @@ oversaturate the processor (therefore slowing down the overall execution speed),
 the resources available on the machine. Your script will be "executed" as if it was a command line 
 program. If the computer had 16 cores available, this would be the command:
 
-```
+```bash
 python3 ./job.py 16
 ```
 
 you can parse this value using the `sys.argv` value in your script:
 
-```
+```python
 import sys
 allowed_processors = sys.argv[1]
 allowed_processors_int = int(allowed_processors)
@@ -244,7 +247,7 @@ processes on the distributed computing network - they will not go faster**.
 
 A full working example of a run script that I use is this:
 
-```
+```python
 import os
 import sys
 import json

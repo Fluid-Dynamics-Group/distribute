@@ -57,7 +57,7 @@ a famous Italian engineer once said, "Theres no such thing as free lunch." The l
 with `distribute` is the configuration file that specifies how to compile run project. `distribute template python` 
 will generate the following file:
 
-```
+```yaml
 meta:
   batch_name: your_jobset_name
   namespace: example_namespace

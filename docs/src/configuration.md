@@ -130,7 +130,7 @@ Regardless of using a python or apptainer configuration, the three main areas of
 Files are saved on the server using your `namespace`, `batch_name`, and `job_name`s. Take the following configuration file that specifies
 a apptainer job that does not save any of its own files:
 
-```
+```yaml
 meta:
   batch_name: example_jobset_name
   namespace: example_namespace
@@ -174,7 +174,7 @@ is the python build script output for node-1), as well as the output for each jo
 
 If you were to execute another configuration file using a different batch name, like this:
 
-```
+```yaml
 meta:
   batch_name: example_jobset_name
   namespace: example_namespace

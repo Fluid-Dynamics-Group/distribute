@@ -3,7 +3,7 @@
 There are a few commands that you will need to know to effectively work with `distribute`. Don't worry,
 they are not too complex. The full list of commands and their specific parameters can be found by running
 
-```
+```bash
 $ distribute
 ```
 
@@ -40,13 +40,13 @@ SUBCOMMANDS:
 a configuration file and the IP of the main server node. If you do not specify the name of a configuration
 file, it will default to `distribute-jobs.yaml`. This command can be run (for most cases) as such:
 
-```
+```bash
 distribute add --ip <server ip address here> my-distribute-jobs-file.yaml
 ```
 
 or, using defaults:
 
-```
+```bash
 distribute add --ip <server ip address here>
 ```
 
@@ -60,11 +60,11 @@ of each node.
 `distribute template` is a simple way to create a `distribute-jobs.yaml` file that either runs with `python` or `apptainer`s. The specifics
 of each configuration file will be discussed later.
 
-```
+```bash
 distribute template python
 ```
 
-```
+```yaml
 ---
 meta:
   batch_name: your_jobset_name
@@ -96,11 +96,11 @@ python:
 
 and
 
-```
+```bash
 distribute template singularity
 ```
 
-```
+```yaml
 ---
 meta:
   batch_name: your_jobset_name
@@ -144,15 +144,15 @@ and all processes will be automatically resumed.
 
 some examples of this command:
 
-```
+```bash
 distribute pause 4h
 ```
 
-```
+```bash
 distribute pause 1h30m10s
 ```
 
-```
+```bash
 distribute pause 60s
 ```
 
@@ -163,7 +163,7 @@ that are currently running, as well as the number of jobs in that set currently 
 names of the jobs that have not been run yet. You can use this command to fetch the required parameters
 to execute the `kill` command if needed.
 
-```
+```bash
 distribute status --ip <server ip here>
 ```
 
@@ -184,7 +184,7 @@ The full documentation on regular expressions is found [here](https://docs.rs/re
 most character strings are valid regular exprssions (barring characters like `+`, `-`, `(`, `)`). Lets say your
 `meta` section of the config file looks like this:
 
-```
+```yaml
 ---
 meta:
   batch_name: incompressible_5second_cases
@@ -209,7 +209,7 @@ and your directory tree looks something like this
 
 If you wanted to exclude any file with a `vtk` extension, you could
 
-```
+```bash
 distribute pull distribute-jobs.yaml --ip <server ip here> \
 	exclude \
 		--exclude "vtk"
@@ -217,7 +217,7 @@ distribute pull distribute-jobs.yaml --ip <server ip here> \
 
 Or, if you wanted to exclude all of the case3 files and all vtk files:
 
-```
+```bash
 distribute pull distribute-jobs.yaml --ip <server ip here> \
 	exclude \
 		--exclude "vtk" \
@@ -226,7 +226,7 @@ distribute pull distribute-jobs.yaml --ip <server ip here> \
 
 Maybe you only want to pull case1 files:
 
-```
+```bash
 distribute pull distribute-jobs.yaml --ip <server ip here> \
 	include \
 		--include "case1"
