@@ -365,3 +365,25 @@ pub struct RegexError {
     expr: String,
     error: regex::Error,
 }
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum RunErrorLocal {
+    #[error("Error with configuration file: {0}")]
+    Config(ConfigurationError),
+    #[error("Unexpected resposne from the server")]
+    UnexpectedResponse,
+    #[error("{0}")]
+    CreateDir(CreateDirError),
+    #[error("{0}")]
+    WriteFile(WriteFile),
+    #[error("the specified --save_dir folder exists and --clean-save was not specifed")]
+    FolderExists,
+    #[error("A general io error occured: {0}")]
+    GeneralIo(std::io::Error),
+    #[error("A python configuration was specified, but run-local only supports singularity configurations")]
+    OnlyApptainer,
+    #[error("{0}")]
+    LoadJobs(LoadJobsError),
+    #[error("{0}")]
+    GeneralError(Error),
+}

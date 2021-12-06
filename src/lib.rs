@@ -13,8 +13,10 @@ mod server;
 mod status;
 mod template;
 mod transport;
+mod run_local;
 
 pub use error::Error;
+pub use error::RunErrorLocal;
 pub use error::LogError;
 
 #[macro_use]
@@ -31,6 +33,7 @@ pub use pause::pause;
 pub use add::add;
 pub use template::template;
 pub use pull::pull;
+pub use run_local::run_local;
 
 
 #[cfg(test)]

@@ -31,6 +31,7 @@ pub enum Arguments {
     Add(Add),
     Template(Template),
     Pull(Pull),
+    Run(Run),
 }
 
 #[derive(StructOpt, PartialEq, Debug)]
@@ -153,6 +154,7 @@ pub struct Pull {
     /// the ip address that the server is located at
     pub ip: IpAddr,
 
+    #[structopt(long, default_value = "distribute-jobs.yaml")]
     pub(crate) job_file: PathBuf,
 
     #[structopt(long, short)]
@@ -183,4 +185,21 @@ pub enum RegexFilter {
         #[structopt(long, short)]
         exclude: Vec<String>,
     },
+}
+
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
+/// run a apptainer configuration file locally (without sending it off to a server)
+pub struct Run {
+    #[structopt(long, default_value = "distribute-jobs.yaml")]
+    /// location of your configuration file
+    pub(crate) job_file: PathBuf,
+
+    #[structopt(long, short, default_value = "./distribute-run")]
+    /// the directory where all the work will be performed
+    pub(crate) save_dir: PathBuf,
+
+    #[structopt(long)]
+    /// allow the save_dir to exist, but remove all the contents
+    /// of it before executing the code
+    pub(crate) clean_save: bool
 }

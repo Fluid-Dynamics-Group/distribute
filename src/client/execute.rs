@@ -305,7 +305,7 @@ async fn initialize_python_job(
     .await
 }
 
-async fn initialize_singularity_job(
+pub(crate) async fn initialize_singularity_job(
     init: transport::SingularityJobInit,
     base_path: &Path,
     _cancel: &mut broadcast::Receiver<()>,
@@ -331,7 +331,7 @@ async fn initialize_singularity_job(
 /// execute a job after the build file has already been built
 ///
 /// returns None if the job was cancelled
-async fn run_singularity_job(
+pub(crate) async fn run_singularity_job(
     job: transport::SingularityJob,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
