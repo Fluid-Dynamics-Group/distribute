@@ -2,4 +2,5 @@ target/
 run/
 **/*.log
 **.sif
-distribute-jobs.yaml
+./distribute-jobs.yaml
+./tests/apptainer_local/output

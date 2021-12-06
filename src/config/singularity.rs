@@ -1,6 +1,7 @@
-use crate::error::{self};
+use crate::error;
 use crate::transport;
 use derive_more::Constructor;
+use super::NormalizePaths;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -48,6 +49,23 @@ impl Description {
             build_files,
             container_bind_paths: self.initialize.required_mounts.clone(),
         })
+    }
+}
+
+impl NormalizePaths for Description {
+    fn normalize_paths(&mut self, base: PathBuf) { 
+        // for initialize
+        self.initialize.sif = super::common::normalize_pathbuf(self.initialize.sif.clone(), base.clone());
+        for file in self.initialize.required_files.iter_mut() {
+            file.normalize_paths(base.clone());
+        }
+
+        // for jobs
+        for job in self.jobs.iter_mut() {
+            for file in job.required_files.iter_mut() {
+                file.normalize_paths(base.clone())
+            }
+        }
     }
 }
 

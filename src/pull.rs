@@ -11,7 +11,7 @@ use std::path::Path;
 pub async fn pull(args: cli::Pull) -> Result<(), Error> {
     dbg!(&args);
 
-    let config: config::Jobs = config::load_config(&args.job_file.to_string_lossy())
+    let config: config::Jobs = config::load_config(&args.job_file)
         .map_err(error::PullErrorLocal::from)?;
 
     let req = match args.filter {

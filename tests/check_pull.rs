@@ -8,7 +8,7 @@ use std::time::Duration;
 use std::thread;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn other() {
+async fn check_pull() {
     if false {
         logger();
     }
@@ -59,7 +59,7 @@ async fn other() {
     // initialize the pull and server commands as they would be read from the CLI
 
     let pull = Pull::new(addr, dir.join("distribute-jobs.yaml"), false, server_port, save_dir.clone(), None);
-    let server = Server::new(nodes_file.to_string_lossy().to_string(), server_path.clone(), server_temp.clone(), server_port, false);
+    let server = Server::new(nodes_file, server_path.clone(), server_temp.clone(), server_port, false);
 
     dbg!(&server);
     

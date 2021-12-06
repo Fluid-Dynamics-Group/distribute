@@ -1,4 +1,4 @@
-use crate::error::{self};
+use crate::error;
 use crate::transport;
 
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,10 @@ impl File {
             Ok(out)
         }
     }
+
+    pub(crate) fn normalize_paths(&mut self, base_path: PathBuf) {
+        self.path = normalize_pathbuf(self.path.clone(), base_path);
+    }
 }
 
 pub(crate) async fn load_from_file(
@@ -48,4 +52,12 @@ pub(crate) async fn load_from_file(
     }
 
     Ok(job_files)
+}
+
+pub(crate) fn normalize_pathbuf(pathbuf: PathBuf, base_path: PathBuf) -> PathBuf {
+    if pathbuf.is_relative() {
+        base_path.join(pathbuf)
+    } else {
+        pathbuf
+    }
 }

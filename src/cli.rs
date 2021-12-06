@@ -51,7 +51,7 @@ pub struct Client {
 pub struct Server {
     #[structopt(long, default_value = "distribute-nodes.yaml")]
     /// the path to the yaml file describing all available nodes
-    pub nodes_file: String,
+    pub nodes_file: PathBuf,
 
     #[structopt(long)]
     /// directory where all files sent by nodes are saved
@@ -110,7 +110,7 @@ pub struct Pause {
 /// add a job set to the queue
 pub struct Add {
     #[structopt(default_value = "distribute-jobs.yaml")]
-    pub jobs: String,
+    pub jobs: PathBuf,
 
     #[structopt(long, short, default_value = SERVER_PORT_STR)]
     /// the port that the server uses (default 8952)
