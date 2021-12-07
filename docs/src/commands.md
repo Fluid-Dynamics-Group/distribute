@@ -231,3 +231,32 @@ distribute pull distribute-jobs.yaml --ip <server ip here> \
 	include \
 		--include "case1"
 ```
+
+
+## run
+
+`distribute run` will run an apptainer job locally. It is usefull for debugging apptainer jobs
+since the exact commands that are passed to the container are not always intuitive. 
+
+```
+distribute run --help
+```
+
+```
+distribute-run 0.6.0
+run a apptainer configuration file locally (without sending it off to a server)
+
+USAGE:
+    distribute run [FLAGS] [OPTIONS] [job-file]
+
+FLAGS:
+        --clean-save    allow the save_dir to exist, but remove all the contents of it before executing the code
+    -h, --help          Prints help information
+    -V, --version       Prints version information
+
+OPTIONS:
+    -s, --save-dir <save-dir>    the directory where all the work will be performed [default: ./distribute-run]
+
+ARGS:
+    <job-file>    location of your configuration file [default: distribute-jobs.yaml]
+```

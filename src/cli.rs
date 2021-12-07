@@ -154,7 +154,7 @@ pub struct Pull {
     /// the ip address that the server is located at
     pub ip: IpAddr,
 
-    #[structopt(long, default_value = "distribute-jobs.yaml")]
+    #[structopt(default_value = "distribute-jobs.yaml")]
     pub(crate) job_file: PathBuf,
 
     #[structopt(long, short)]
@@ -190,7 +190,7 @@ pub enum RegexFilter {
 #[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// run a apptainer configuration file locally (without sending it off to a server)
 pub struct Run {
-    #[structopt(long, default_value = "distribute-jobs.yaml")]
+    #[structopt(default_value = "distribute-jobs.yaml")]
     /// location of your configuration file
     pub(crate) job_file: PathBuf,
 

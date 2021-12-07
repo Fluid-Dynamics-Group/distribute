@@ -1,0 +1,7 @@
+STDOUT:
+running with 16 processors
+writing to /dir1
+writing to /dir2
+reading input files
+
+STDERR:

@@ -1,0 +1,1 @@
+the square of the input was 225
