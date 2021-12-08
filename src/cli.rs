@@ -1,117 +1,218 @@
-use argh::FromArgs;
 use std::net::IpAddr;
 use std::path::PathBuf;
+use structopt::StructOpt;
+use derive_more::Constructor;
 
+#[allow(dead_code)]
 pub const SERVER_PORT: u16 = 8952;
+pub const SERVER_PORT_STR: &'static str = "8952";
 pub const CLIENT_PORT: u16 = 8953;
+pub const CLIENT_PORT_STR: &'static str = "8953";
 
-#[derive(FromArgs, PartialEq, Debug)]
-/// distribute compute jobs between multiple machines
-pub struct Arguments {
-    #[argh(subcommand)]
-    pub(crate) command: Command,
-}
+//#[derive(StructOpt, PartialEq, Debug)]
+///// distribute compute jobs between multiple machines
+//pub struct Arguments {
+//    #[structopt(subcommand)]
+//    pub(crate) command: Command,
+//}
 
-#[derive(FromArgs, PartialEq, Debug)]
-#[argh(subcommand)]
-pub enum Command {
+#[derive(StructOpt, PartialEq, Debug)]
+#[structopt(
+    name = "distribute", 
+    about = "A utility for scheduling jobs on a cluster", 
+    version=env!("CARGO_PKG_VERSION")
+)]
+pub enum Arguments {
     Client(Client),
     Server(Server),
     Status(Status),
+    Kill(Kill),
     Pause(Pause),
-    Resume(Resume),
     Add(Add),
+    Template(Template),
+    Pull(Pull),
+    Run(Run),
 }
 
-#[derive(FromArgs, PartialEq, Debug)]
+impl Arguments {
+    pub fn log_path(&self) -> PathBuf {
+        match &self {
+            Self::Client(c) => c.log_file.clone(),
+            _ => "./output.log".into()
+        }
+    }
+}
+
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// start this workstation as a node and prepare it for a server connection
-#[argh(subcommand, name = "client")]
 pub struct Client {
-    #[argh(positional)]
     /// location where all compilation and running takes place. all
     /// job init stuff will be done here
-    pub base_folder: String,
+    pub base_folder: PathBuf,
 
-    #[argh(option, default = "CLIENT_PORT", short = 'p')]
+    #[structopt(long, default_value = CLIENT_PORT_STR, short)]
     /// the port to bind the client to (default 8953)
     pub port: u16,
+
+    #[structopt(long, default_value = "./output.log", short)]
+    /// the port to bind the client to (default 8953)
+    pub log_file: PathBuf,
 }
 
-#[derive(FromArgs, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// start serving jobs out to nodes using the provied configuration file
-#[argh(subcommand, name = "server")]
 pub struct Server {
-    #[argh(option, default = "String::from(\"distribute-nodes.yaml\")")]
+    #[structopt(long, default_value = "distribute-nodes.yaml")]
     /// the path to the yaml file describing all available nodes
-    pub nodes_file: String,
+    pub nodes_file: PathBuf,
 
-    #[argh(option)]
+    #[structopt(long)]
     /// directory where all files sent by nodes are saved
     pub save_path: std::path::PathBuf,
 
-    #[argh(option, default = "SERVER_PORT", short = 'p')]
+    #[structopt(long)]
+    /// all stored files sent to the server saved to
+    pub temp_dir: std::path::PathBuf,
+
+    #[structopt(long, default_value = SERVER_PORT_STR, short)]
     /// the port to bind the server to (default 8952)
     pub port: u16,
 
-    #[argh(switch)]
+    #[structopt(long, short)]
     /// clean and remove the entire output tree
     pub clean_output: bool,
 }
 
-#[derive(FromArgs, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// check the status of all the nodes
-#[argh(subcommand, name = "status")]
 pub struct Status {
-    #[argh(positional, default = "String::from(\"distribute-nodes.yaml\")")]
-    /// location of the node configuration file that specifies ip addresses of child nodes
-    /// that are running
-    pub node_information: String,
-}
-
-#[derive(FromArgs, PartialEq, Debug)]
-/// pause all currently running processes on this node for a specified amount of time. If
-/// no processes are running then the command is ignored by the node
-#[argh(subcommand, name = "pause")]
-pub struct Pause {
-    #[argh(option, default = "String::from(\"1h\")")]
-    /// duration to pause the processes for.  Maximum allowable
-    /// pause time is 6 hours. (Examples: 1h, 90m, 1h30m).
-    pub duration: String,
-
-    #[argh(option, default = "CLIENT_PORT", short = 'p')]
-    /// port that the client is mapped to
-    pub port: u16,
-}
-
-#[derive(FromArgs, PartialEq, Debug)]
-/// resume all processes on this node and undo the pause
-#[argh(subcommand, name = "resume")]
-pub struct Resume {
-    #[argh(option, default = "CLIENT_PORT", short = 'p')]
-    /// port that the client is mapped to
-    pub port: u16,
-}
-
-#[derive(FromArgs, PartialEq, Debug)]
-/// add a job set to the queue
-#[argh(subcommand, name = "add")]
-pub struct Add {
-    #[argh(positional, default = "String::from(\"distribute-jobs.yaml\")")]
-    pub jobs: String,
-
-    #[argh(option, default = "SERVER_PORT", short = 'p')]
+    #[structopt(long, short, default_value = SERVER_PORT_STR)]
     /// the port that the server uses (default 8952)
     pub port: u16,
 
-    #[argh(option)]
+    #[structopt(long)]
+    /// the ip address that the server is located at
+    pub ip: IpAddr,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+/// terminate any running jobs of a given batch name and remove the batch from the queue
+pub struct Kill {
+    #[structopt(long, short, default_value = SERVER_PORT_STR)]
+    /// the port that the server uses (default 8952)
+    pub port: u16,
+
+    #[structopt(long)]
     /// the ip address that the server is located at
     pub ip: IpAddr,
 
-    #[argh(switch)]
+    /// the name of the job to kill
+    pub job_name: String,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+/// pause all currently running processes on this node for a specified amount of time
+pub struct Pause {
+    #[structopt(long, default_value = "1h")]
+    /// duration to pause the processes for.  Maximum allowable
+    /// pause time is 4 hours. (Examples: 1h, 90m, 1h30m).
+    pub duration: String,
+}
+
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
+/// add a job set to the queue
+pub struct Add {
+    #[structopt(default_value = "distribute-jobs.yaml")]
+    pub jobs: PathBuf,
+
+    #[structopt(long, short, default_value = SERVER_PORT_STR)]
+    /// the port that the server uses (default 8952)
+    pub port: u16,
+
+    #[structopt(long)]
+    /// the ip address that the server is located at
+    pub ip: IpAddr,
+
+    #[structopt(long, short)]
     /// print out the capabilities of each node
     pub show_caps: bool,
 
-    #[argh(switch)]
+    #[structopt(long, short)]
     /// execute as normal but don't send the job set to the server
     pub dry: bool,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+/// generate a template file to fill for executing with `distribute add`
+pub struct Template {
+    #[structopt(subcommand)]
+    /// set the configuration type to either python or singularity format
+    pub(crate) mode: TemplateType,
+
+    #[structopt(long, default_value = "distribute-jobs.yaml")]
+    /// an optional path to write the template result to
+    pub output: PathBuf,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+pub(crate) enum TemplateType {
+    Singularity,
+    Python,
+}
+
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
+/// Pull files from the server to your machine
+pub struct Pull {
+    #[structopt(long)]
+    /// the ip address that the server is located at
+    pub ip: IpAddr,
+
+    #[structopt(default_value = "distribute-jobs.yaml")]
+    pub(crate) job_file: PathBuf,
+
+    #[structopt(long, short)]
+    /// Whether or not to only check what files _would_ be downloaded
+    /// with the provided regular expressions
+    pub(crate) dry: bool,
+
+    #[structopt(long, short, default_value=SERVER_PORT_STR)]
+    /// The port of the server to connect to
+    pub(crate) port: u16,
+
+    #[structopt(long, short, default_value = "./")]
+    pub(crate) save_dir: PathBuf,
+
+    #[structopt(subcommand)]
+    pub(crate) filter: Option<RegexFilter>,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+pub enum RegexFilter {
+    /// files to include in the pulling operation
+    Include {
+        #[structopt(long, short)]
+        include: Vec<String>,
+    },
+    /// files to exlclude in the pulling operation
+    Exclude {
+        #[structopt(long, short)]
+        exclude: Vec<String>,
+    },
+}
+
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
+/// run a apptainer configuration file locally (without sending it off to a server)
+pub struct Run {
+    #[structopt(default_value = "distribute-jobs.yaml")]
+    /// location of your configuration file
+    pub(crate) job_file: PathBuf,
+
+    #[structopt(long, short, default_value = "./distribute-run")]
+    /// the directory where all the work will be performed
+    pub(crate) save_dir: PathBuf,
+
+    #[structopt(long)]
+    /// allow the save_dir to exist, but remove all the contents
+    /// of it before executing the code
+    pub(crate) clean_save: bool
 }

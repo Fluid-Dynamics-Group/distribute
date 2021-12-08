@@ -1,0 +1,13 @@
+Bootstrap: library
+From: ubuntu:20.04
+
+%files
+	./run.py /run.py
+
+%post
+	apt-get update -y
+	apt install python3 -y
+
+%apprun distribute
+    cd /
+    python3 /run.py $1

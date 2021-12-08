@@ -1,8 +1,9 @@
 use derive_more::{Constructor, Display, From, Unwrap};
+use std::io;
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum Error {
+pub enum Error {
     #[error("Could not load configuration file. {0}")]
     InvalidConfiguration(#[from] ConfigurationError),
     #[error("{0}")]
@@ -25,6 +26,16 @@ pub(crate) enum Error {
     Pause(#[from] PauseError),
     #[error("{0}")]
     Add(#[from] AddError),
+    #[error("{0}")]
+    Status(#[from] StatusError),
+    #[error("Error when building a job: {0}")]
+    BuildJob(#[from] BuildJobError),
+    #[error("Error when executing a job on a node: {0}")]
+    RunningJob(#[from] RunningNodeError),
+    #[error("{0}")]
+    Template(#[from] TemplateError),
+    #[error("{0}")]
+    PullErrorLocal(#[from] PullErrorLocal),
 }
 
 #[derive(Debug, Display, thiserror::Error, From)]
@@ -91,6 +102,8 @@ pub enum RunJobError {
         path: std::path::PathBuf,
         full_error: std::io::Error,
     },
+    #[error("{0}")]
+    CreateDir(CreateDirError),
     #[error("could not open file `{path}`, full error: {full_error}")]
     OpenFile {
         path: std::path::PathBuf,
@@ -202,7 +215,7 @@ pub struct ParseIpError {
     ip: String,
 }
 
-#[derive(Debug, Display, From, thiserror::Error)]
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
 #[display(fmt = "Could not write to file {:?}, error: {}", path, error)]
 pub struct WriteFile {
     error: std::io::Error,
@@ -256,14 +269,121 @@ pub enum PauseError {
     InvalidCharacter(char),
     #[error("The input pause duration is too long. Maximum pause duration is 4 hours")]
     DurationTooLong,
+    #[error("Error when accessing some unix filesystems or commands: `{0}`")]
+    Unix(UnixError),
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub(crate) enum AddError {
+pub enum AddError {
     #[error("Server did not send capabilities when requested. Instead, sent `{0}`")]
     NotCapabilities(crate::transport::ServerResponseToUser),
     #[error("None of the nodes could run the jobs. Aborted")]
     NoCompatableNodes,
     #[error("Could not add the job set on the server side. This is generally a really really bad error. You should tell brooks about this.")]
     FailedToAdd,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum StatusError {
+    #[error("Server did not send job list as requested. Instead, sent `{0}`")]
+    NotQueryJobs(crate::transport::ServerResponseToUser),
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum ScheduleError {
+    #[error("{0}")]
+    StoreSet(StoreSet),
+}
+
+#[derive(Debug, Display, From, Constructor, thiserror::Error)]
+#[display(fmt = "Failed to save job set to memory: {}", error)]
+pub struct StoreSet {
+    error: std::io::Error,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum BuildJobError {
+    #[error("{0}")]
+    CreateDirector(CreateDirError),
+    #[error("{0}")]
+    Other(Box<Error>),
+    #[error("The scheduler returned a runnable job instead of an initialization job when we first requested a task.")]
+    SentExecutable,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum RunningNodeError {
+    #[error("{0}")]
+    CreateDirector(CreateDirError),
+    #[error("{0}")]
+    Other(Box<Error>),
+    #[error("The job returned to us has not been built before")]
+    MissingBuildStep,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum UnixError {
+    #[error("Io error reading a file: `{0}`")]
+    Io(std::io::Error),
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum TemplateError {
+    #[error("Could not serialize the template to a file: {0}")]
+    Serde(serde_yaml::Error),
+    #[error("Could not write to the output file: {0}")]
+    Io(io::Error),
+}
+
+#[derive(Debug, From, thiserror::Error, serde::Deserialize, Clone, serde::Serialize)]
+pub enum PullError {
+    #[error("The namespace requested does not exist")]
+    MissingNamespace,
+    #[error("The batch name within the namespace requested does not exist")]
+    MissingBatchname,
+    #[error("Failed to load file for sending: `{0}`")]
+    LoadFile(PathBuf),
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum PullErrorLocal {
+    #[error("Error with configuration file: {0}")]
+    Config(ConfigurationError),
+    #[error("{0}")]
+    Regex(RegexError),
+    #[error("Unexpected resposne from the server")]
+    UnexpectedResponse,
+    #[error("{0}")]
+    CreateDir(CreateDirError),
+    #[error("{0}")]
+    WriteFile(WriteFile),
+}
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "regular expression: `{}` error reason: `{}`", "expr", "error")]
+pub struct RegexError {
+    expr: String,
+    error: regex::Error,
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum RunErrorLocal {
+    #[error("Error with configuration file: {0}")]
+    Config(ConfigurationError),
+    #[error("Unexpected resposne from the server")]
+    UnexpectedResponse,
+    #[error("{0}")]
+    CreateDir(CreateDirError),
+    #[error("{0}")]
+    WriteFile(WriteFile),
+    #[error("the specified --save_dir folder exists and --clean-save was not specifed")]
+    FolderExists,
+    #[error("A general io error occured: {0}")]
+    GeneralIo(std::io::Error),
+    #[error("A python configuration was specified, but run-local only supports singularity configurations")]
+    OnlyApptainer,
+    #[error("{0}")]
+    LoadJobs(LoadJobsError),
+    #[error("{0}")]
+    GeneralError(Error),
 }

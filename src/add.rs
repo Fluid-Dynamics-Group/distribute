@@ -6,10 +6,7 @@ use crate::transport;
 
 use std::net::SocketAddr;
 
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
-
-pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
+pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files
     //
@@ -54,7 +51,7 @@ pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
     let mut working_nodes = 0;
 
     for cap in &caps {
-        if cap.can_accept_job(&jobs.init.capabilities) {
+        if cap.can_accept_job(&jobs.capabilities()) {
             working_nodes += 1;
         }
     }
@@ -72,12 +69,14 @@ pub(crate) async fn add(args: cli::Add) -> Result<(), Error> {
     // construct the job set and send it off
     //
 
-    let job_set = server::JobSet::new(
+    let job_set = server::OwnedJobSet::new(
         loaded_build,
-        jobs.init.capabilities,
+        jobs.capabilities().clone(),
         loaded_jobs,
         0,
-        jobs.init.batch_name,
+        jobs.batch_name(),
+        jobs.matrix_user(),
+        jobs.namespace(),
     );
 
     if !args.dry {

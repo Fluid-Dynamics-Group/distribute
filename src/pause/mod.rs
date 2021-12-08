@@ -1,16 +1,18 @@
+mod unix;
+use std::marker::PhantomData;
+
 use crate::{
     cli,
-    client::EXEC_GROUP_ID,
     error::{self, Error, PauseError},
     transport,
 };
 
 use std::net::{Ipv4Addr, SocketAddr};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, args.port));
-
+pub async fn pause(args: cli::Pause) -> Result<(), Error> {
     let duration = parse_time_input(&args.duration)?;
 
     // ensure that the specified duration is not longer than the max duration (4 hours)
@@ -18,13 +20,23 @@ pub(crate) async fn pause(args: cli::Pause) -> Result<(), Error> {
         return Err(Error::from(PauseError::DurationTooLong));
     }
 
-    // emulate a server connection here since the host client process
-    // only expects messsages from a "server"
-    let mut conn = transport::ServerConnection::new(addr).await?;
+    // set up a signal handler so we can do an early exit correctly if
+    // the user sends SIGINT w/ Ctrl-C
+    let term = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term))
+        .map_err(error::UnixError::from)
+        .map_err(error::PauseError::from)?;
 
-    //let request = transport::PauseExecution::new(duration);
-    //let wrapped_request = transport::RequestFromServer::from(request);
-    //conn.transport_data(&wrapped_request).await?;
+    // these two commands are used for running the python
+    // procs / singularity containers
+    let to_pause = ProcessSet::new(
+        &["python3 run.py", "singularity run --app distribute"],
+        duration,
+    );
+
+    let paused = to_pause.pause().map_err(PauseError::from)?;
+    paused.sleep_to_instant(term);
+    paused.resume().map_err(PauseError::from)?;
 
     Ok(())
 }
@@ -77,79 +89,63 @@ fn slice_until_unit(input_str: &str) -> Result<(u64, char, &str), error::PauseEr
     Ok((num, next_char, remaining))
 }
 
-pub(super) struct PauseProcessArbiter {
-    unpause_instant: Option<Instant>,
-    rx: std::sync::mpsc::Receiver<Option<Instant>>,
+struct ProcessSet<STATE> {
+    commands_to_pause: &'static [&'static str],
+    duration: Duration,
+    state: STATE,
 }
 
-impl PauseProcessArbiter {
-    /// Sending a None unpauses the execution
-    /// Sending a Some(instant) will pause the underlying process until
-    /// that instant
-    pub(super) fn new() -> (Self, std::sync::mpsc::Sender<Option<Instant>>) {
-        // we use std channels here because there is no easy way to check
-        // if there is a value in the `Receiver` with tokio channels
-        let (tx, rx) = std::sync::mpsc::channel();
-        (
-            Self {
-                unpause_instant: None,
-                rx,
-            },
-            tx,
-        )
+impl ProcessSet<NotYetPaused> {
+    fn new(commands: &'static [&'static str], duration: Duration) -> Self {
+        Self {
+            commands_to_pause: commands,
+            duration,
+            state: NotYetPaused,
+        }
     }
 
-    pub(super) fn spawn(mut self) -> tokio::task::JoinHandle<()> {
-        tokio::task::spawn(async move {
-            if let Ok(sleep_update) = self.rx.try_recv() {
-                match sleep_update {
-                    // request to set a pause time in the future, we pause now
-                    Some(future_instant) => {
-                        self.unpause_instant = Some(future_instant);
-                        self.pause_execution();
-                    }
-                    // resume right away
-                    None => {
-                        self.unpause_execution();
-                    }
-                }
-            }
+    fn pause(self) -> Result<ProcessSet<Paused>, error::UnixError> {
+        let root_procs = unix::scan_proc(self.commands_to_pause)?;
+        let all_procs = unix::find_all_child_procs(root_procs);
+        println!("pausing {} matching procs", all_procs.len());
+        unix::pause_procs(&all_procs);
 
-            if let Some(instant) = self.unpause_instant {
-                if Instant::now() > instant {
-                    self.unpause_execution();
-                    self.unpause_instant = None;
-                }
-            }
-
-            tokio::time::sleep(Duration::from_secs(10)).await;
+        Ok(ProcessSet {
+            commands_to_pause: self.commands_to_pause,
+            duration: self.duration,
+            state: Paused { procs: all_procs },
         })
     }
+}
 
-    // pause the execution of all processes using the specified groupid
-    fn pause_execution(&self) {
-        let signal = nix::sys::signal::Signal::SIGSTOP;
-        let process_id = nix::unistd::Pid::from_raw(EXEC_GROUP_ID as i32);
-        if let Err(e) = nix::sys::signal::kill(process_id, signal) {
-            error!(
-                "error when pausing group process (id {}): {}",
-                EXEC_GROUP_ID, e
-            );
+impl ProcessSet<Paused> {
+    fn sleep_to_instant(&self, term: Arc<AtomicBool>) {
+        println!("sleeping until time");
+        let mut now = Instant::now();
+        let ending_instant = Instant::now() + self.duration;
+
+        while !term.load(Ordering::Relaxed) && now < ending_instant {
+            let dur = Duration::from_millis(100);
+            std::thread::sleep(dur);
+            now += dur;
         }
     }
 
-    // pause the execution of all processes using the specified groupid
-    fn unpause_execution(&self) {
-        let signal = nix::sys::signal::Signal::SIGCONT;
-        let process_id = nix::unistd::Pid::from_raw(EXEC_GROUP_ID as i32);
-        if let Err(e) = nix::sys::signal::kill(process_id, signal) {
-            error!(
-                "error when resuming group process (id {}): {}",
-                EXEC_GROUP_ID, e
-            );
-        }
+    fn resume(self) -> Result<Resumed, error::UnixError> {
+        println!("resuming");
+        unix::resume_procs(&self.state.procs);
+
+        Ok(Resumed {})
     }
 }
+
+struct NotYetPaused;
+
+struct Paused {
+    procs: Vec<unix::RunningProcess>,
+}
+
+struct Resumed;
 
 #[test]
 fn slice_check_1() {

@@ -4,10 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+use crate::config;
 use crate::error;
 use crate::error::Error;
 use crate::server;
@@ -18,44 +19,131 @@ use bincode::config::Options;
 )]
 pub enum RequestFromServer {
     StatusCheck,
-    AssignJobInit(JobInit),
-    AssignJob(Job),
+    InitPythonJob(PythonJobInit),
+    RunPythonJob(PythonJob),
+    InitSingularityJob(SingularityJobInit),
+    RunSingularityJob(SingularityJob),
     FileReceived,
+    KillJob,
+}
+
+impl From<crate::server::JobOpt> for RequestFromServer {
+    fn from(x: crate::server::JobOpt) -> Self {
+        match x {
+            crate::server::JobOpt::Python(p) => Self::RunPythonJob(p),
+            crate::server::JobOpt::Singularity(s) => Self::RunSingularityJob(s),
+        }
+    }
+}
+
+impl From<config::BuildOpts> for RequestFromServer {
+    fn from(x: config::BuildOpts) -> Self {
+        match x {
+            config::BuildOpts::Python(p) => Self::InitPythonJob(p),
+            config::BuildOpts::Singularity(s) => Self::InitSingularityJob(s),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
-pub(crate) enum UserMessageToServer {
-    AddJobSet(server::JobSet),
+pub enum UserMessageToServer {
+    AddJobSet(server::OwnedJobSet),
     QueryCapabilities,
+    QueryJobNames,
+    KillJob(String),
+    PullFilesInitialize(PullFileRequest),
+    FileReceived,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap, Display)]
-pub(crate) enum ServerResponseToUser {
+#[derive(Deserialize, Serialize, Debug, Clone, Constructor)]
+pub struct PullFileRequest {
+    // regular expressions that are either for matching-for
+    // or matching-against the files in the server
+    //
+    // this behavior is determined by the is_include_filter boolean
+    // if is_include_filter is true, then only files matching these filters
+    // should be considered
+    pub(crate) filters: Vec<String>,
+    pub(crate) is_include_filter: bool,
+    // the namespace of the job that should be pulled - this is from the yaml job that
+    // we parsed
+    pub(crate) namespace: String,
+    // the batch name from the namespace that we parsed
+    pub(crate) batch_name: String,
+    // whether or not to only pull matching and non-matching files and skip pulling
+    // the actual data
+    pub(crate) dry: bool,
+}
+
+#[derive(Deserialize, Serialize, Debug, derive_more::From, derive_more::Unwrap, Display)]
+pub enum ServerResponseToUser {
     #[display(fmt = "job set added")]
     JobSetAdded,
     #[display(fmt = "job set failed to add")]
     JobSetAddedFailed,
     #[display(fmt = "capabilities")]
     Capabilities(Vec<server::Requirements<server::NodeProvidedCaps>>),
+    #[display(fmt = "job names")]
+    JobNames(Vec<server::RemainingJobs>),
+    #[display(fmt = "job names failed to query")]
+    JobNamesFailed,
+    #[display(fmt = "Result of removing the job set: {}", "_0")]
+    KillJob(crate::server::CancelResult),
+    #[display(fmt = "Failed to kill the job set - probably could not communicate to the job pool")]
+    KillJobFailed,
+    #[display(fmt = "Failed to pull files after error: {}", "_0")]
+    PullFilesError(error::PullError),
+    #[display(fmt = "Pull dry response {}", "_0")]
+    PullFilesDryResponse(PullFilesDryResponse),
+    #[display(fmt = "A file was sent at path {}", "_0.file_path.display()")]
+    SendFile(SendFile),
+    #[display(fmt = "Finished sending all files")]
+    FinishFiles,
+}
+
+#[derive(Serialize, Debug, Clone, Deserialize, Display, Constructor)]
+#[display(
+    fmt = "included:\n{:?}\nfiltered:\n{:?}",
+    success_files,
+    filtered_files
+)]
+pub struct PullFilesDryResponse {
+    pub success_files: Vec<PathBuf>,
+    pub filtered_files: Vec<PathBuf>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct JobInit {
+pub struct PythonJobInit {
     pub batch_name: String,
     pub python_setup_file: Vec<u8>,
-    pub additional_build_files: Vec<BuildFile>,
+    pub additional_build_files: Vec<File>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct BuildFile {
+pub struct File {
     pub file_name: String,
     pub file_bytes: Vec<u8>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct Job {
+pub struct PythonJob {
     pub python_file: Vec<u8>,
     pub job_name: String,
+    pub job_files: Vec<File>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct SingularityJobInit {
+    pub batch_name: String,
+    pub sif_bytes: Vec<u8>,
+    pub build_files: Vec<File>,
+    pub container_bind_paths: Vec<PathBuf>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct SingularityJob {
+    pub job_name: String,
+    pub job_files: Vec<File>,
 }
 
 #[derive(Deserialize, Serialize, Display, Debug)]
@@ -66,6 +154,8 @@ pub enum ClientResponse {
     SendFile(SendFile),
     #[display(fmt = "request new job: _0.display()")]
     RequestNewJob(NewJobRequest),
+    #[display(fmt = "failed to execute request")]
+    FailedExecution,
     #[display(fmt = "client error: _0.display()")]
     Error(ClientError),
 }
@@ -92,20 +182,22 @@ pub struct Version {
 }
 
 impl Version {
+    /// parse the current version of the package from Cargo.toml
     pub fn current_version() -> Self {
+        let mut iter = env!("CARGO_PKG_VERSION").split('.');
+        let major = iter.next().unwrap().parse().unwrap();
+        let minor = iter.next().unwrap().parse().unwrap();
+        let patch = iter.next().unwrap().parse().unwrap();
+
         // TODO: pull this from cargo.toml
-        Self {
-            major: 0,
-            minor: 2,
-            patch: 0,
-        }
+        Self { major, minor, patch, }
     }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FinishedJob;
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Constructor)]
 pub struct SendFile {
     pub file_path: PathBuf,
     pub is_file: bool,
@@ -195,7 +287,7 @@ impl UserConnectionToServer {
 }
 
 #[derive(derive_more::From, derive_more::Constructor)]
-pub(crate) struct ServerConnectionToUser {
+pub struct ServerConnectionToUser {
     conn: TcpStream,
 }
 
@@ -279,7 +371,7 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
     let mut starting_idx = 0;
 
     loop {
-        debug!(
+        trace!(
             "reading buffer bytes w/ index {} and buffer len {}",
             starting_idx,
             buffer.len()
@@ -329,9 +421,10 @@ mod tests {
             ClientConnection::new(client_listener.accept().await.unwrap().0);
 
         let file_bytes = (0..255).into_iter().collect::<Vec<u8>>();
-        let server_req = RequestFromServer::AssignJob(Job {
+        let server_req = RequestFromServer::RunPythonJob(PythonJob {
             python_file: file_bytes,
             job_name: "ensure_not_eof".into(),
+            job_files: vec![],
         });
 
         // serialize the data manually
@@ -426,5 +519,11 @@ mod tests {
         let x = serializer.serialize(&build_file).unwrap();
         let y: Vec<u8> = serializer.deserialize(&x).unwrap();
         assert_eq!(build_file.len(), y.len());
+    }
+
+    #[test]
+    fn version_parses() {
+        let v = Version::current_version();
+        assert_eq!(v.to_string(), env!("CARGO_PKG_VERSION"));
     }
 }

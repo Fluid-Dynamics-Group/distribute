@@ -1,0 +1,30 @@
+Bootstrap: library
+From: ubuntu:20.04
+Stage: build
+
+%files
+	# copy the files over
+	build.py /build.py
+	run.py /run.py
+	#/home/brooks/github/distribute/examples/singularity/build.py /build.py
+
+%post
+	# install packages on the host system
+	apt update -y
+	apt-get update -y
+
+	# required to use add-apt-repository
+	apt-get install software-properties-common -y
+
+	# required for python3-pip 
+	# see https://packages.ubuntu.com/search?keywords=python3-pip
+	add-apt-repository universe 
+
+	# we can finally install python3-pip
+	apt-get install python3 python3-pip -y
+
+	# now we can install the dependencies that we need
+	pip3 install pandas matplotlib
+
+%apprun distribute
+	python3 /run.py $1

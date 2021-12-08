@@ -1,0 +1,48 @@
+# the meta section is the same between files
+# see the python example for full explanations of each field
+meta:
+  batch_name: example_build_batch
+
+  namespace: "brooks-openfoam"
+
+  capabilities: [gpu, fortran, fftw]
+
+  matrix: "@karlik:matrix.org"
+
+singularity:
+
+  # describe how to initialize everything so that successive jobs can be 
+  # run one after the other without recompiling
+  initialize: 
+    # the path to your singularity .sif image that will be used to run the job
+    sif: /path/to/your/file.sif
+
+    # you can also specify required files to be present in the 
+    # mounted input directory for each run here
+    required_files:
+      - path: python_library.py
+        alias: renamed_library.py       # you can optionally specify what the file will be 
+                                        # renamed to on the server
+      - path: /path/to/random_file.txt
+
+    # if we need mutable folders bound to the container then
+    # you can do it here
+    required_mounts:
+      - /my_container_folder/src/another_folder
+      - /another/path/inside/your/container
+
+  # a list of python files and thier associated file to be included
+  jobs:
+    # a list of names and the (presumably) input files to run them
+    - name: example_job_name
+      required_files: 
+        - path: input_file_1.json
+          alias: input_file.json      # you can also optionally include a file alias
+                                      # similar to the required_files section in `initialize`
+    - name: example_job_name_2
+      required_files:
+        - path: input_file_2.json
+
+    - name: example_job_name_3
+      required_files: []              # you can also send no files or send an empty list by
+                                      # omitting the list

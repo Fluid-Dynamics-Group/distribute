@@ -1,10 +1,17 @@
-use super::job_pool::{JobOrInit, JobResponse};
-use crate::transport;
+use super::pool_data::{JobOrInit, JobResponse, TaskInfo};
+use super::storage::{self, StoredJob, StoredJobInit};
+
+use crate::config;
+use crate::error::{self, ScheduleError};
+
 use derive_more::{Constructor, Display, From};
 use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet};
+
 use std::fmt;
+use std::iter::FromIterator;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub(crate) trait Schedule {
@@ -12,13 +19,24 @@ pub(crate) trait Schedule {
         &mut self,
         current_compiled_job: JobIdentifier,
         node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        build_failures: &BTreeSet<JobIdentifier>,
     ) -> JobResponse;
 
-    fn insert_new_batch(&mut self, jobs: JobSet);
+    fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError>;
 
-    fn add_job_back(&mut self, job: transport::Job, identifier: JobIdentifier);
+    fn add_job_back(&mut self, job: storage::JobOpt, identifier: JobIdentifier);
 
     fn finish_job(&mut self, job: JobIdentifier);
+
+    /// fetch all of the batch names and associated jobs that are still running
+    fn remaining_jobs(&self) -> Vec<RemainingJobs>;
+
+    /// find a job identifier associated with the name of a certain job
+    fn identifier_by_name(&self, batch_name: &str) -> Option<JobIdentifier>;
+
+    fn mark_build_failure(&mut self, failed_ident: JobIdentifier, total_nodes: usize);
+
+    fn cancel_batch(&mut self, ident: JobIdentifier);
 }
 
 #[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug)]
@@ -38,10 +56,11 @@ impl JobIdentifier {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Constructor)]
 pub(crate) struct GpuPriority {
     map: BTreeMap<JobIdentifier, JobSet>,
     last_identifier: u64,
+    base_path: PathBuf,
 }
 
 impl GpuPriority {
@@ -49,20 +68,30 @@ impl GpuPriority {
     /// if we have ensured that the current jobidentifier has no remaining jobs left
     ///
     /// therefore, this function only returns a job initialization task or empty jobs
-    fn take_first_job(&mut self, node_caps: Arc<Requirements<NodeProvidedCaps>>) -> JobResponse {
+    fn take_first_job(
+        &mut self,
+        node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        build_failures: &BTreeSet<JobIdentifier>,
+    ) -> JobResponse {
         if let Some((ident, job_set)) = self
             .map
             .iter_mut()
             .filter(|(_ident, job_set)| job_set.has_remaining_jobs())
             // make sure the capabilities of this node match the total capabilities
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
+            // make sure that the job we are pulling has not failed to build on this node before
+            .filter(|(ident, _job_set)| !build_failures.contains(ident))
             .next()
         {
-            let init = job_set.init_file();
-            JobResponse::SetupOrRun {
-                task: JobOrInit::JobInit(init),
-                identifier: *ident,
-            }
+            // TODO: fix this unwrap - its not that good but i dont have a better way to handle
+            // it right now
+            let init = job_set.init_file().unwrap();
+            JobResponse::SetupOrRun(TaskInfo::new(
+                job_set.namespace.clone(),
+                job_set.batch_name.clone(),
+                *ident,
+                JobOrInit::JobInit(init),
+            ))
         } else {
             JobResponse::EmptyJobs
         }
@@ -71,18 +100,36 @@ impl GpuPriority {
     /// try to fetch a job from  the currently compiled proc
     /// if there are no jobs available for this process then we return None
     /// and allow the calling function to figure out how to find the next process
-    fn job_by_id(&mut self, identifier: JobIdentifier) -> Option<JobResponse> {
+    fn job_by_id(
+        &mut self,
+        identifier: JobIdentifier,
+        build_failures: &BTreeSet<JobIdentifier>,
+    ) -> Option<JobResponse> {
+        // make sure that any job we pull in this function
+        // is actually buildable by the node requesting it
+        if build_failures.contains(&identifier) {
+            return None;
+        }
+
         self.map
             .get_mut(&identifier)
             .map(|job_set| {
                 // check if the process with the current id has any jobs remaining
                 // if it has nothing return None instead of JobResponse::EmptyJobs
                 if job_set.has_remaining_jobs() {
+                    // TODO: this can panic
+                    //
+                    debug!(
+                        "fetching next job since there are jobs remaining in set {}",
+                        identifier
+                    );
                     let job = job_set.next_job().unwrap();
-                    Some(JobResponse::SetupOrRun {
-                        task: JobOrInit::Job(job),
+                    Some(JobResponse::SetupOrRun(TaskInfo::new(
+                        job_set.namespace.clone(),
+                        job_set.batch_name.clone(),
                         identifier,
-                    })
+                        JobOrInit::Job(job),
+                    )))
                 } else {
                     None
                 }
@@ -96,6 +143,7 @@ impl Schedule for GpuPriority {
         &mut self,
         current_compiled_job: JobIdentifier,
         node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        build_failures: &BTreeSet<JobIdentifier>,
     ) -> JobResponse {
         // go through our entire job set and see if there is a gpu job
         if let Some((gpu_ident, gpu_job_set)) = self
@@ -107,54 +155,69 @@ impl Schedule for GpuPriority {
             .filter(|(_ident, job_set)| job_set.has_remaining_jobs())
             // make sure the capabilities of this node can accept this job
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
+            // make sure that the job we are pulling has not failed to build on this node before
+            .filter(|(ident, _job_set)| !build_failures.contains(ident))
             .next()
         {
             // if we are already working on this job - we dont need to recompile anything,
             // just send the next iteration of the job out
             if current_compiled_job == *gpu_ident {
                 let job = gpu_job_set.next_job().unwrap();
-                JobResponse::SetupOrRun {
-                    task: JobOrInit::Job(job),
-                    identifier: current_compiled_job,
-                }
+                JobResponse::SetupOrRun(TaskInfo::new(
+                    gpu_job_set.namespace.clone(),
+                    gpu_job_set.batch_name.clone(),
+                    current_compiled_job,
+                    JobOrInit::Job(job),
+                ))
             } else {
-                let init = gpu_job_set.init_file();
-                JobResponse::SetupOrRun {
-                    task: JobOrInit::JobInit(init),
-                    identifier: *gpu_ident,
-                }
+                // TODO: fix this unwrap - there has to be a better way
+                // to do this but i have not worked around it right now
+                let init = gpu_job_set.init_file().unwrap();
+                JobResponse::SetupOrRun(TaskInfo::new(
+                    gpu_job_set.namespace.clone(),
+                    gpu_job_set.batch_name.clone(),
+                    *gpu_ident,
+                    JobOrInit::JobInit(init),
+                ))
             }
         }
         // we dont have any gpu jobs to run, just pull the first item from the map that has some
         // jobs left and we will run those
         else {
-            if let Some(job) = self.job_by_id(current_compiled_job) {
+            if let Some(job) = self.job_by_id(current_compiled_job, build_failures) {
                 job
             } else {
-                self.take_first_job(node_caps)
+                self.take_first_job(node_caps, build_failures)
             }
         }
     }
 
-    fn insert_new_batch(&mut self, jobs: JobSet) {
+    fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError> {
+        let jobs =
+            JobSet::from_owned(jobs, &self.base_path).map_err(|e| error::StoreSet::from(e))?;
+
         self.last_identifier += 1;
         let ident = JobIdentifier::new(self.last_identifier);
         self.map.insert(ident, jobs);
+
+        Ok(())
     }
 
-    fn add_job_back(&mut self, job: transport::Job, identifier: JobIdentifier) {
+    fn add_job_back(&mut self, job: storage::JobOpt, identifier: JobIdentifier) {
         if let Some(job_set) = self.map.get_mut(&identifier) {
-            job_set.add_errored_job(job)
+            job_set.add_errored_job(job, &self.base_path)
         } else {
             error!(
                 "job set for job {} was removed from the tree when there was still 
                 a job running - this job can no longer be run. This should not happen",
-                job.job_name
+                job.name()
             );
         }
     }
 
     fn finish_job(&mut self, identifier: JobIdentifier) {
+        debug!("called finish job with ident {}", identifier);
+
         if let Some(job_set) = self.map.get_mut(&identifier) {
             job_set.job_finished();
 
@@ -167,7 +230,26 @@ impl Schedule for GpuPriority {
                     identifier
                 );
 
-                self.map.remove(&identifier);
+                let removed_set = self.map.remove(&identifier).unwrap();
+
+                // since we are done with this job set then we should deallocate the build file
+                removed_set.build.delete().ok();
+
+                if let Some(matrix_id) = &removed_set.matrix_user {
+                    let matrix_id = matrix_id.clone();
+
+                    info!(
+                        "sending message to matrix user {} for batch finish `{}`",
+                        matrix_id, removed_set.batch_name
+                    );
+
+                    // send the matrix message
+                    super::matrix::send_matrix_message(
+                        matrix_id,
+                        removed_set,
+                        super::matrix::Reason::FinishedAll,
+                    )
+                }
             }
         } else {
             error!(
@@ -177,40 +259,135 @@ impl Schedule for GpuPriority {
             )
         }
     }
+
+    fn remaining_jobs(&self) -> Vec<RemainingJobs> {
+        self.map
+            .iter()
+            .map(|(_, job_set)| job_set.remaining_jobs())
+            .collect()
+    }
+
+    fn identifier_by_name(&self, batch_name: &str) -> Option<JobIdentifier> {
+        self.map
+            .iter()
+            .filter(|(_, set)| set.batch_name == batch_name)
+            .map(|(identifier, _)| *identifier)
+            .next()
+    }
+
+    fn mark_build_failure(&mut self, failed_ident: JobIdentifier, total_nodes: usize) {
+        if let Some((_ident, mut job_set)) = self
+            .map
+            .iter_mut()
+            .find(|(identifier, _)| **identifier == failed_ident)
+        {
+            job_set.build_failures += 1;
+
+            // if we have failed to build on every since node
+            if job_set.build_failures == total_nodes {
+                let removed_set = self.map.remove(&failed_ident).unwrap();
+
+                info!(
+                    "removing job set {} since it failed to build on every node",
+                    removed_set.batch_name
+                );
+
+                if let Some(matrix_id) = &removed_set.matrix_user {
+                    let matrix_id = matrix_id.clone();
+
+                    info!(
+                        "sending message to matrix user {} for finish to `{}`",
+                        matrix_id, removed_set.batch_name
+                    );
+
+                    super::matrix::send_matrix_message(
+                        matrix_id,
+                        removed_set,
+                        super::matrix::Reason::BuildFailures,
+                    )
+                }
+            }
+        } else {
+            warn!("Failed to mark job set {} as failing to build for a node since it could not be found in the job set list. This should not happen", failed_ident);
+        }
+    }
+
+    /// Remove any remaining jobs in the queue for a job set
+    ///
+    /// Since nodes are expected to report an end to a job in the same manner that they
+    /// end jobs normally, they are expected to report back with their own `.finish_job()` calls,
+    /// so the overall job set must remain in the pool.
+    ///
+    /// Once all cancellations have been filed the job set will be dropped in another function call
+    fn cancel_batch(&mut self, ident: JobIdentifier) {
+        info!("cancelling batch for identifier {}", ident);
+
+        if let Some(job_set) = self.map.get_mut(&ident) {
+            info!(
+                "cancellation for {} corresponds to job name ",
+                job_set.batch_name
+            );
+
+            if let Err(e) = job_set.clear_remaining_jobs() {
+                error!(
+                    "failed to clear some of the remaining jobs after cancellation: {}",
+                    e
+                )
+            }
+        } else {
+            warn!(
+                "could not find batch with the identifier {} in cancellation request",
+                ident
+            );
+        }
+    }
 }
 
-#[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
+#[derive(Constructor, Debug)]
 pub(crate) struct JobSet {
-    build: transport::JobInit,
+    build: StoredJobInit,
     requirements: Requirements<JobRequiredCaps>,
-    remaining_jobs: Vec<transport::Job>,
+    remaining_jobs: Vec<StoredJob>,
     currently_running_jobs: usize,
-    batch_name: String,
+    pub(crate) batch_name: String,
+    namespace: String,
+    matrix_user: Option<matrix_notify::UserId>,
+    build_failures: usize,
 }
 
 impl JobSet {
     fn has_remaining_jobs(&self) -> bool {
         self.remaining_jobs.len() > 0
     }
-    fn next_job(&mut self) -> Option<transport::Job> {
-        self.remaining_jobs.pop().map(|x| {
+
+    fn next_job(&mut self) -> Option<storage::JobOpt> {
+        if let Some(job) = self.remaining_jobs.pop() {
             self.currently_running_jobs += 1;
-            x
-        })
-    }
-    fn init_file(&mut self) -> transport::JobInit {
-        self.build.clone()
+            debug!("calling next_job() -> remaining jobs are now {}", self.currently_running_jobs);
+            job.load_job().ok()
+        } else {
+            None
+        }
     }
 
-    fn add_errored_job(&mut self, job: transport::Job) {
+    fn init_file(&mut self) -> Result<config::BuildOpts, std::io::Error> {
+        self.build.load_build()
+    }
+
+    fn add_errored_job(&mut self, job: storage::JobOpt, base_path: &Path) {
         self.currently_running_jobs -= 1;
-        self.remaining_jobs.push(job)
+
+        match StoredJob::from_opt(job, base_path) {
+            Ok(job) => self.remaining_jobs.push(job),
+            Err(e) => error!("could not add job back to lazy storage: {}", e),
+        }
     }
 
     fn job_finished(&mut self) {
         if self.currently_running_jobs == 0 {
             warn!("a job from {}'s currently_running_jobs finished, but the value was already zero. This should not happen", &self.batch_name);
         } else {
+            debug!("calling job_finished() -> remaining jobs are now {}", self.currently_running_jobs);
             self.currently_running_jobs -= 1
         }
     }
@@ -218,11 +395,95 @@ impl JobSet {
     pub(crate) fn name(&self) -> &str {
         &self.batch_name
     }
+
+    fn remaining_jobs(&self) -> RemainingJobs {
+        RemainingJobs {
+            batch_name: self.batch_name.clone(),
+            jobs_left: self
+                .remaining_jobs
+                .iter()
+                .map(|x| x.job_name().to_string())
+                .collect(),
+            running_jobs: self.currently_running_jobs,
+        }
+    }
+
+    fn clear_remaining_jobs(&mut self) -> Result<(), std::io::Error> {
+        for job in self.remaining_jobs.drain(..) {
+            // loading the job deletes the previous files after reading it into memory
+            // TODO: impl Drop destructors for Lazy_ files so that we can just drop the whole
+            // thing here and be sure that it will always run
+            //
+            // also - there is no reason to load this data into memory if we are just throwing it
+            // out
+            job.load_job()?;
+        }
+
+        debug!(
+            "length of remaining jobs after clearing them all with drain: len: {}, cap: {}",
+            self.remaining_jobs.len(),
+            self.remaining_jobs.capacity()
+        );
+
+        Ok(())
+    }
+
+    pub(crate) fn from_owned(
+        owned: storage::OwnedJobSet,
+        base_path: &Path,
+    ) -> Result<Self, std::io::Error> {
+        let storage::OwnedJobSet {
+            build,
+            requirements,
+            remaining_jobs,
+            currently_running_jobs,
+            batch_name,
+            matrix_user,
+            namespace,
+        } = owned;
+        let build = StoredJobInit::from_opt(build, base_path)?;
+        let remaining_jobs = match remaining_jobs {
+            config::JobOpts::Python(python_jobs) => {
+                let mut out = vec![];
+                for job in python_jobs {
+                    let stored_job = StoredJob::from_python(job, base_path)?;
+                    out.push(stored_job);
+                }
+                out
+            }
+            config::JobOpts::Singularity(python_jobs) => {
+                let mut out = vec![];
+                for job in python_jobs {
+                    let stored_job = StoredJob::from_singularity(job, base_path)?;
+                    out.push(stored_job);
+                }
+                out
+            }
+        };
+
+        Ok(Self {
+            build,
+            requirements,
+            remaining_jobs,
+            currently_running_jobs,
+            batch_name,
+            matrix_user,
+            namespace,
+            build_failures: 0,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RemainingJobs {
+    pub batch_name: String,
+    pub jobs_left: Vec<String>,
+    pub running_jobs: usize,
 }
 
 #[derive(From, Debug, Clone, Deserialize, Serialize)]
 #[serde(transparent)]
-pub(crate) struct Requirements<T> {
+pub struct Requirements<T> {
     reqs: BTreeSet<Requirement>,
     #[serde(skip)]
     marker: std::marker::PhantomData<T>,
@@ -231,6 +492,18 @@ pub(crate) struct Requirements<T> {
 impl Requirements<NodeProvidedCaps> {
     pub(crate) fn can_accept_job(&self, job_reqs: &Requirements<JobRequiredCaps>) -> bool {
         self.reqs.is_superset(&job_reqs.reqs)
+    }
+}
+
+impl<T> FromIterator<Requirement> for Requirements<T> {
+    fn from_iter<V>(iter: V) -> Self
+    where
+        V: IntoIterator<Item = Requirement>,
+    {
+        Requirements {
+            reqs: iter.into_iter().collect(),
+            marker: std::marker::PhantomData::<T>,
+        }
     }
 }
 
@@ -254,13 +527,13 @@ impl<T> fmt::Display for Requirements<T> {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub(crate) struct NodeProvidedCaps;
+pub struct NodeProvidedCaps;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub(crate) struct JobRequiredCaps;
+pub struct JobRequiredCaps;
 
 #[derive(From, Ord, Eq, PartialEq, PartialOrd, Debug, Clone, Deserialize, Serialize, Display)]
-pub(crate) struct Requirement(String);
+pub struct Requirement(String);
 
 impl From<&str> for Requirement {
     fn from(x: &str) -> Self {
@@ -271,27 +544,27 @@ impl From<&str> for Requirement {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::server::storage::OwnedJobSet;
+    use crate::transport;
 
     fn check_init(current_ident: &mut JobIdentifier, expected_ident: u64, response: JobResponse) {
         match response {
-            JobResponse::SetupOrRun { task, identifier } => {
-                task.unwrap_job_init();
-                assert_eq!(identifier, JobIdentifier::Identity(expected_ident));
-                *current_ident = identifier;
+            JobResponse::SetupOrRun(task) => {
+                task.task.unwrap_job_init();
+                assert_eq!(task.identifier, JobIdentifier::Identity(expected_ident));
+                *current_ident = task.identifier;
             }
             JobResponse::EmptyJobs => {
+                dbg!(&response);
                 panic!("empty jobs returned when all jobs still present")
             }
         }
     }
 
-    fn check_job(response: JobResponse, expected_job: transport::Job) {
+    fn check_job(response: JobResponse, expected_job: transport::PythonJob) {
         match response {
-            JobResponse::SetupOrRun {
-                task,
-                identifier: _,
-            } => {
-                assert_eq!(task.unwrap_job(), expected_job);
+            JobResponse::SetupOrRun(task) => {
+                assert_eq!(task.task.unwrap_job(), storage::JobOpt::from(expected_job));
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),
         }
@@ -304,50 +577,61 @@ mod tests {
         }
     }
 
-    fn init() -> (JobSet, JobSet, GpuPriority) {
-        let scheduler = GpuPriority::default();
+    fn init(path: &Path) -> (OwnedJobSet, OwnedJobSet, GpuPriority) {
+        let scheduler = GpuPriority::new(Default::default(), Default::default(), path.to_owned());
 
-        let jgpu = transport::Job {
+        let jgpu = transport::PythonJob {
             python_file: vec![],
             job_name: "jgpu".into(),
-        };
-        let j1 = transport::Job {
-            python_file: vec![],
-            job_name: "j1".into(),
-        };
-        let j2 = transport::Job {
-            python_file: vec![],
-            job_name: "j2".into(),
+            job_files: vec![],
         };
 
-        let cpu_set = JobSet {
+        let j1 = transport::PythonJob {
+            python_file: vec![],
+            job_name: "j1".into(),
+            job_files: vec![],
+        };
+
+        let j2 = transport::PythonJob {
+            python_file: vec![],
+            job_name: "j2".into(),
+            job_files: vec![],
+        };
+
+        let cpu_set = OwnedJobSet {
             batch_name: "cpu_jobs".to_string(),
-            build: transport::JobInit {
+            namespace: "test".to_string(),
+            build: transport::PythonJobInit {
                 batch_name: "cpu_jobs".to_string(),
                 python_setup_file: vec![0],
                 additional_build_files: vec![],
-            },
-            remaining_jobs: vec![j1.clone(), j2.clone()],
+            }
+            .into(),
+            remaining_jobs: vec![j1.clone(), j2.clone()].into(),
             requirements: Requirements {
                 reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
                 marker: std::marker::PhantomData,
             },
             currently_running_jobs: 0,
+            matrix_user: None,
         };
 
-        let gpu_set = JobSet {
+        let gpu_set = OwnedJobSet {
             batch_name: "gpu_jobs".to_string(),
-            build: transport::JobInit {
+            namespace: "test".to_string(),
+            build: transport::PythonJobInit {
                 batch_name: "gpu_jobs".to_string(),
                 python_setup_file: vec![1],
                 additional_build_files: vec![],
-            },
-            remaining_jobs: vec![jgpu.clone()],
+            }
+            .into(),
+            remaining_jobs: vec![jgpu.clone()].into(),
             requirements: Requirements {
                 reqs: vec!["gpu".into()].into_iter().collect(),
                 marker: std::marker::PhantomData,
             },
             currently_running_jobs: 0,
+            matrix_user: None,
         };
 
         (cpu_set, gpu_set, scheduler)
@@ -356,14 +640,17 @@ mod tests {
     #[test]
     /// put both gpu and cpu sets in the queue and expect the gpu sets to be received first
     fn gpu_first() {
-        let (cpu_set, gpu_set, mut scheduler) = init();
+        let path = Path::new("gpu_first");
+        std::fs::create_dir_all(path).unwrap();
 
-        let jgpu = gpu_set.remaining_jobs[0].clone();
-        let j1 = cpu_set.remaining_jobs[0].clone();
-        let j2 = cpu_set.remaining_jobs[1].clone();
+        let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        scheduler.insert_new_batch(cpu_set);
-        scheduler.insert_new_batch(gpu_set);
+        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+
+        scheduler.insert_new_batch(cpu_set).unwrap();
+        scheduler.insert_new_batch(gpu_set).unwrap();
 
         let caps = Arc::new(Requirements {
             reqs: vec!["fortran".into(), "fftw".into(), "gpu".into()]
@@ -374,40 +661,47 @@ mod tests {
 
         let mut current_ident = JobIdentifier::none();
 
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let build_failures = Default::default();
+
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_init(&mut current_ident, 2, job);
 
         // the next job out of the queue should be jgpu
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_job(job, jgpu);
 
         // we have exhausted all the gpu jobs, we now expect to setup a cpu job
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_init(&mut current_ident, 1, job);
 
         // now we expectet it to be j2
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_job(job, j2);
 
         // now we expect j1
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_job(job, j1);
 
         // now there are no more jobs left
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
-        check_empty(job)
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        check_empty(job);
+
+        std::fs::remove_dir_all(path).ok();
     }
 
     #[test]
     /// start with only cpu tasks, mid way through add gpu tasks and expect a switch
     fn gpu_added_later() {
-        let (cpu_set, gpu_set, mut scheduler) = init();
+        let path = Path::new("gpu_added_later");
+        std::fs::create_dir_all(path).unwrap();
 
-        let jgpu = gpu_set.remaining_jobs[0].clone();
-        let j1 = cpu_set.remaining_jobs[0].clone();
-        let j2 = cpu_set.remaining_jobs[1].clone();
+        let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        scheduler.insert_new_batch(cpu_set); // 1
+        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+
+        scheduler.insert_new_batch(cpu_set).unwrap(); // 1
 
         let caps = Arc::new(Requirements {
             reqs: vec!["fortran".into(), "fftw".into(), "gpu".into()]
@@ -416,51 +710,58 @@ mod tests {
             marker: std::marker::PhantomData,
         });
 
+        let build_failures = Default::default();
+
         let mut current_ident = JobIdentifier::none();
 
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_init(&mut current_ident, 1, job);
 
         // the next job out of the queue should be jgpu
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_job(job, j2);
 
-        scheduler.insert_new_batch(gpu_set); // 2
+        scheduler.insert_new_batch(gpu_set).unwrap(); // 2
 
         // now that there are gpu jobs available we expect to initialize
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_init(&mut current_ident, 2, job);
 
         // and now run the gpu job
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_job(job, jgpu);
 
         // exhaused gpu jobs - now we run cpu job init again
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_init(&mut current_ident, 1, job);
 
         // now back to cpu - run j1
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
         check_job(job, j1);
 
         // now there are no more jobs left
-        let job = scheduler.fetch_new_task(current_ident, caps.clone());
-        check_empty(job)
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        check_empty(job);
+
+        std::fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
     /// start with only cpu tasks, mid way through add gpu tasks and expect a switch
     fn different_caps() {
-        let (cpu_set, gpu_set, mut scheduler) = init();
+        let path = Path::new("different_caps");
+        std::fs::create_dir_all(path).unwrap();
 
-        let jgpu = gpu_set.remaining_jobs[0].clone();
-        let j1 = cpu_set.remaining_jobs[0].clone();
-        let j2 = cpu_set.remaining_jobs[1].clone();
+        let (cpu_set, gpu_set, mut scheduler) = init(path);
+
+        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
+        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
 
         let cpu_ident = 1;
         let gpu_ident = 2;
-        scheduler.insert_new_batch(cpu_set); // 1
-        scheduler.insert_new_batch(gpu_set); // 2
+        scheduler.insert_new_batch(cpu_set).unwrap(); // 1
+        scheduler.insert_new_batch(gpu_set).unwrap(); // 2
 
         let caps_gpu = Arc::new(Requirements {
             reqs: vec!["fortran".into(), "fftw".into(), "gpu".into()]
@@ -476,32 +777,106 @@ mod tests {
         let mut curr_cpu_ident = JobIdentifier::none();
         let mut curr_gpu_ident = JobIdentifier::none();
 
+        let build_failures = Default::default();
+
         // cpu pulls a job - it should only be a cpu job
-        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone());
+        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures);
         check_init(&mut curr_cpu_ident, cpu_ident, job);
 
         // gpu pulls a job - it should be a GPU job
-        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone());
+        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures);
         check_init(&mut curr_gpu_ident, gpu_ident, job);
 
         // gpu job has built - we pull a job with those caps
-        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone());
+        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures);
         check_job(job, jgpu);
 
         // cpu job now pulls its first job
-        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone());
+        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures);
         check_job(job, j2);
 
         // gpu job has finished - it should get an initialization for the gpu job now
-        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone());
+        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures);
         check_init(&mut curr_gpu_ident, cpu_ident, job);
 
         // gpu init has finished - it pulls again and gets j1
-        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone());
+        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures);
         check_job(job, j1);
 
         // cpu task pulls and there is nothing left
-        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone());
-        check_empty(job)
+        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures);
+        check_empty(job);
+
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    /// dont let the scheduler send a build / run job to a node that
+    /// has failed to build the task
+    fn dont_send_failed_builds() {
+        let path = Path::new("dont_send_failed_builds");
+        std::fs::create_dir_all(path).unwrap();
+
+        let (cpu_set, _gpu_set, mut scheduler) = init(path);
+        scheduler.insert_new_batch(cpu_set).unwrap();
+
+        dbg!(&scheduler.map);
+
+        let mut build_failures = BTreeSet::new();
+
+        let caps = Arc::new(Requirements {
+            reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
+            marker: std::marker::PhantomData,
+        });
+
+        let mut current_ident = JobIdentifier::none();
+
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        check_init(&mut current_ident, 1, job);
+
+        // now we tell them that we failed to build the job
+        // BUT, the total number of nodes available to run the
+        // job is 2, so the jobset should not get removed
+        build_failures.insert(current_ident);
+        scheduler.mark_build_failure(current_ident, 2);
+
+        // ask for a new job, it should be a build request to the next job
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        assert_eq!(job, JobResponse::EmptyJobs);
+
+        std::fs::remove_dir_all(path).ok();
+    }
+
+    #[test]
+    /// remove a jobset from the
+    fn remove_set_if_no_build() {
+        let path = Path::new("remove_set_if_no_build");
+        std::fs::create_dir_all(path).unwrap();
+
+        let (cpu_set, _gpu_set, mut scheduler) = init(path);
+        scheduler.insert_new_batch(cpu_set).unwrap();
+
+        let build_failures = BTreeSet::new();
+
+        let caps = Arc::new(Requirements {
+            reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
+            marker: std::marker::PhantomData,
+        });
+
+        let mut current_ident = JobIdentifier::none();
+
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        check_init(&mut current_ident, 1, job);
+
+        // now we tell them that we failed to build the job
+        // since there is only 1 job available to build the
+        // node then the sceduler should remove the job set from
+        // the queue
+        scheduler.mark_build_failure(current_ident, 1);
+
+        // make sure that it was in fact removed correctly
+        assert_eq!(scheduler.map.len(), 0);
+
+        std::fs::remove_dir_all(path).ok();
     }
 }

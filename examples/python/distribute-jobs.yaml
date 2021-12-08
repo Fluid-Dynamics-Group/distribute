@@ -1,0 +1,27 @@
+meta:
+  batch_name: example_build_batch
+
+  namespace: "brooks-openfoam"
+
+  capabilities: [python3]
+
+  matrix: "@karlik:matrix.org"
+
+python:
+  initialize: 
+    build_file: build.py
+
+    required_files:
+      - path: dataset_always.csv
+
+  # a list of python files and their associated file to be included
+  jobs:
+    - name: job_1
+      file: run.py
+      required_files:
+        - path: dataset_sometimes.csv
+          alias: dataset.csv
+
+    - name: job_2
+      file: run.py
+      required_files: []

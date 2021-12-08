@@ -1,0 +1,11 @@
+---
+meta:
+  batch_name: some_batch
+  namespace: some_namespace
+  capabilities: []
+python:
+  initialize:
+    # this field is required just to parse correctly
+    build_file: required_for_parse.py
+    required_files: []
+  jobs: []

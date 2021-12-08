@@ -4,16 +4,43 @@ use crate::{
     transport,
 };
 
+use std::net::SocketAddr;
+
 /// check that all the nodes are up *and* the versions match. returns `true` if all nodes are
 /// healthy w/ version matches
-pub(crate) async fn status_command(status: cli::Status) -> Result<(), Error> {
-    let nodes_config: config::Nodes = config::load_config(&status.node_information)?;
+pub async fn status_command(args: cli::Status) -> Result<(), Error> {
 
-    status_check_nodes(&nodes_config.nodes).await?;
+    let job_list = get_current_jobs(&args).await?;
+
+    for batch in job_list {
+        println!("{}", batch.batch_name);
+
+        for job in batch.jobs_left {
+            println!("\t-{}", job);
+        }
+
+        println!("\t:jobs running now: {}", batch.running_jobs);
+    }
 
     Ok(())
 }
 
+pub async fn get_current_jobs(args: &cli::Status) -> Result<Vec<crate::server::RemainingJobs>, Error> {
+    let addr = SocketAddr::from((args.ip, args.port));
+
+    let mut conn = transport::UserConnectionToServer::new(addr).await?;
+
+    conn.transport_data(&transport::UserMessageToServer::QueryJobNames)
+        .await?;
+
+    match conn.receive_data().await {
+        Ok(transport::ServerResponseToUser::JobNames(x)) => Ok(x),
+        Ok(x) => return Err(Error::from(error::StatusError::NotQueryJobs(x))),
+        Err(e) => Err(e)?,
+    }
+}
+
+/// poll each node for its current version and availablility
 pub(crate) async fn status_check_nodes(
     nodes: &[config::Node],
 ) -> Result<Vec<transport::ServerConnection>, Error> {
@@ -87,6 +114,9 @@ impl<'a> StatusCheckResponse<'a> {
                     "ip {} version match {} ready {}",
                     node, version_match, ready
                 );
+                if !version_match {
+                    dbg!(self_version, &version);
+                }
                 version_match
             }
             Self::InvalidResponse { node, response } => {

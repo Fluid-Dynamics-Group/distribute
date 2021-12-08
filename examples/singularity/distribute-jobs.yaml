@@ -1,0 +1,25 @@
+meta:
+  batch_name: example_build_batch_singularity
+
+  namespace: "brooks-openfoam"
+
+  capabilities: [singularity]
+
+  matrix: "@karlik:matrix.org"
+
+singularity:
+  initialize: 
+    sif: build.sif
+
+    required_files:
+      - path: dataset_always.csv
+
+  # a list of python files and their associated file to be included
+  jobs:
+    - name: job_1
+      required_files:
+        - path: dataset_sometimes.csv
+          alias: dataset.csv
+
+    - name: job_2
+      required_files: []

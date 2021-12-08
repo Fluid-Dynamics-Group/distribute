@@ -1,0 +1,56 @@
+meta:
+  # a descriptive name of the batch of jobs that you are running
+  # this is mainly used for reporting remaining jobs from the server
+  # and naming the file with STDOUT from your build job
+  batch_name: example_build_batch
+
+  # all files will be dumped into the server folder named this
+  # the name will be validated before sending the job
+  # it must not contain the `/` character that would cause the 
+  # creation of a subdirectory
+  namespace: "brooks-openfoam"
+
+  # list the capabilities that your project requires in order to build
+  # and the project will only be sent to servers that
+  # have these capabilities (packages, hardware, libraries, etc)
+  capabilities: [gpu, fortran, fftw]
+
+  # an optional parameter - a username to send a message to once
+  # all of the jobs have finished
+  #
+  # makes sure you place these in quotes since they have invalid yaml characters!
+  matrix: "@karlik:matrix.org"
+
+python:
+
+  # describe how to initialize everything so that successive jobs can be 
+  # run one after the other without recompiling
+  initialize: 
+    # the path to the python file that builds the project
+    build_file: some_python_file.py
+
+    # the files (and optionally an alias name) to any files that will be dumped into 
+    # the ./input/ directory when you run your program
+    required_files:
+      - path: python_library.py
+        alias: renamed_library.py       # you can optionally specify what the file will be 
+                                        # renamed to on the server
+      - path: /path/to/random_file.txt
+
+  # a list of python files and thier associated file to be included
+  jobs:
+    # a list of names and files to run
+    # the name must be unique since it is used to write STDOUT for the job
+    - name: example_job_name
+      file: job_one.py
+      required_files: 
+        - path: input_file_1.json
+          alias: input_file.json      # you can also optionally include 
+                                      # a file alias like above
+    - name: example_job_name_2
+      file: job_two.py
+      required_files: []
+
+    - name: example_job_name_3
+      file: job_three.py
+      # required_files defaults to an empty list

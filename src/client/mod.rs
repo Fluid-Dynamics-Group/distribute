@@ -1,23 +1,21 @@
-mod execute;
-mod utils;
+pub(crate) mod execute;
+pub(crate) mod utils;
 
 use execute::PrerequisiteOperations;
 
 use crate::{cli, error, error::Error, transport};
+//pub(crate) use state::ClientState;
 
 use std::net::SocketAddr;
-use std::time::{Duration, Instant};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
+use tokio::sync::broadcast;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-pub(crate) const EXEC_GROUP_ID: u32 = 999232;
-
-pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
+pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let ready_for_job = Arc::new(AtomicBool::new(true));
     let base_path = PathBuf::from(client.base_folder);
     utils::clean_output_dir(&base_path)
@@ -27,6 +25,8 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], client.port)))
         .await
         .map_err(error::TcpConnection::from)?;
+
+    let (mut tx_cancel, _) = broadcast::channel(5);
 
     loop {
         let (tcp_conn, _address) = listener
@@ -39,11 +39,20 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
 
         // if we have no current jobs running ...
         if ready_for_job.load(Ordering::Relaxed) {
-            debug!("received new TCP connection on port - we answer the connection");
+            debug!("received new TCP connection on port - we answer the connection since we are not busy");
+
+            // setup a new cancel channel to notify the task taht we need to kill it
+            let rx_cancel = tx_cancel.subscribe();
+
             ready_for_job.swap(false, Ordering::Relaxed);
             tokio::task::spawn(async move {
-                if let Err(e) =
-                    start_server_connection(tcp_conn, base_path_clone, ready_for_job_clone).await
+                if let Err(e) = start_server_connection(
+                    tcp_conn,
+                    base_path_clone,
+                    ready_for_job_clone,
+                    rx_cancel,
+                )
+                .await
                 {
                     error!("failure to respond to server connection: {}", e);
                 }
@@ -53,40 +62,10 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
         // request
         else {
             debug!("received new TCP connection, however we are busy");
-            let mut client_conn = transport::ClientConnection::new(tcp_conn);
-            match client_conn.receive_data().await {
-                Ok(request) => {
-                    match request {
-                        transport::RequestFromServer::StatusCheck => {
-                            let response = transport::StatusResponse::new(
-                                transport::Version::current_version(),
-                                ready_for_job.load(Ordering::Relaxed),
-                            );
-                            let wrapped_response = transport::ClientResponse::StatusCheck(response);
+            let client_conn = transport::ClientConnection::new(tcp_conn);
 
-                            if let Err(e) = client_conn.transport_data(&wrapped_response).await {
-                                error!("could not send status check response to client on main thread (currently busy): {}",e);
-                            }
-
-                            //
-                        }
-                        _ => {
-                            // TODO: log that we have gotten a real job request even though we are marked as
-                            // not-ready
-                            client_conn
-                                .transport_data(&transport::ClientResponse::Error(
-                                    transport::ClientError::NotReady,
-                                ))
-                                .await
-                                .ok();
-                        }
-                    }
-                }
-                Err(e) => {
-                    //
-                    error!("error when reading socket: {}", e);
-                }
-            }
+            // handle the connection on the current thread
+            handle_connection_local(client_conn, ready_for_job.clone(), &mut tx_cancel).await;
         }
     }
 
@@ -94,18 +73,80 @@ pub(crate) async fn client_command(client: cli::Client) -> Result<(), Error> {
     Ok(())
 }
 
+/// handle a connection from the server locally, without spawning off to another task
+async fn handle_connection_local(
+    mut client_conn: transport::ClientConnection,
+    ready_for_job: Arc<AtomicBool>,
+    tx_cancel: &mut broadcast::Sender<()>,
+) {
+    match client_conn.receive_data().await {
+        Ok(request) => {
+            match request {
+                transport::RequestFromServer::StatusCheck => {
+                    let response = transport::StatusResponse::new(
+                        transport::Version::current_version(),
+                        ready_for_job.load(Ordering::Relaxed),
+                    );
+                    let wrapped_response = transport::ClientResponse::StatusCheck(response);
+
+                    if let Err(e) = client_conn.transport_data(&wrapped_response).await {
+                        error!("could not send status check response to client on main thread (currently busy): {}",e);
+                    }
+
+                    //
+                }
+                transport::RequestFromServer::KillJob => {
+                    kill_job(tx_cancel);
+                    // the server does not expect a reply in this situation
+                }
+                transport::RequestFromServer::InitPythonJob(_)
+                | transport::RequestFromServer::RunPythonJob(_)
+                | transport::RequestFromServer::InitSingularityJob(_)
+                | transport::RequestFromServer::RunSingularityJob(_)
+                | transport::RequestFromServer::FileReceived => {
+                    // TODO: log that we have gotten a real job request even though we are marked as
+                    // not-ready
+                    client_conn
+                        .transport_data(&transport::ClientResponse::Error(
+                            transport::ClientError::NotReady,
+                        ))
+                        .await
+                        .ok();
+                }
+            }
+        }
+        Err(e) => {
+            //
+            error!("error when reading socket: {}", e);
+        }
+    }
+}
+
+fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {
+    // try to send out the cancelation order to all children.
+    // since this function is called when there is an actively running
+    // job task. However, there is probably a race condition in there somewhere
+    // so we just ignore this possible error
+    tx_cancel.send(()).ok();
+}
+
+/// handle the server connection uniquely from within a spawn
 async fn start_server_connection(
     tcp_conn: TcpStream,
     base_path: PathBuf,
     ready_for_job: Arc<AtomicBool>,
+    mut cancel: broadcast::Receiver<()>,
 ) -> Result<(), Error> {
     let mut conn = transport::ClientConnection::new(tcp_conn);
+
+    let mut folder_state = execute::BindingFolderState::new();
 
     'main_loop: loop {
         let new_data = conn.receive_data().await;
         if let Ok(request) = new_data {
             info!("executing general request handler from main task");
-            let result_response = execute::general_request(request, &base_path).await;
+            let result_response =
+                execute::general_request(request, &base_path, &mut cancel, &mut folder_state).await;
 
             // make sure the request from the client was actually handled correctly
             if let Ok(prereq_client_response) = result_response {
@@ -121,6 +162,7 @@ async fn start_server_connection(
                     }
                     PrerequisiteOperations::SendFiles { paths, after } => {
                         debug!("there are {} files to send to the server", paths.len());
+                        let dist_save_path = base_path.join("distribute_save");
 
                         // start by writing all of the file bytes to the tcp stream
                         // TODO: this has potential to allocate too much memory depending on how
@@ -132,7 +174,9 @@ async fn start_server_connection(
                             match metadata.into_send_file() {
                                 Ok(mut send_file) => {
                                     send_file.file_path =
-                                        utils::remove_path_prefixes(send_file.file_path);
+                                        utils::remove_path_prefixes(send_file.file_path, &dist_save_path);
+
+                                    debug!("file name being sent from the client is  {}", send_file.file_path.display());
 
                                     let response = transport::ClientResponse::SendFile(send_file);
                                     send_client_response_with_logging(
@@ -173,6 +217,13 @@ async fn start_server_connection(
                             &base_path,
                         )
                         .await?;
+
+                        if let Err(e) = utils::clean_distribute_save(&base_path).await {
+                            error!(
+                                "could not clean distribute_save directory between runs!: {}",
+                                e
+                            );
+                        }
                     }
                     PrerequisiteOperations::DoNothing => {}
                 }
@@ -185,7 +236,7 @@ async fn start_server_connection(
                     "could not build project, sending response to server for new job (FIXME). {}",
                     e
                 );
-                let new_job = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
+                let new_job = transport::ClientResponse::FailedExecution;
 
                 send_client_response_with_logging(new_job, &mut conn, &ready_for_job, &base_path)
                     .await?;
