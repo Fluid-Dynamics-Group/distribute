@@ -23,21 +23,14 @@ where
         tokio::task::spawn(async move {
             while let Some(new_req) = self.receive_requests.recv().await {
                 match new_req {
+                    JobRequest::FinishJob(ident) => {
+                        info!("marking a finished job for {}", ident);
+                        self.remaining_jobs.finish_job(ident);
+                    }
                     // we want a new job from the scheduler
                     JobRequest::NewJob(new_req) => {
                         debug!("a node has asked for a new job");
                         // if we are requesting a new job -not- right after building a job
-                        if !new_req.after_building
-                            && new_req.initialized_job != JobIdentifier::none()
-                        {
-                            info!("marking a finished job for {}", new_req.initialized_job);
-                            self.remaining_jobs.finish_job(new_req.initialized_job);
-                        } else {
-                            debug!(
-                                "not marking finished job for {} - after building marker: {}",
-                                new_req.initialized_job, new_req.after_building
-                            );
-                        }
 
                         let new_task: JobResponse = self.remaining_jobs.fetch_new_task(
                             new_req.initialized_job,

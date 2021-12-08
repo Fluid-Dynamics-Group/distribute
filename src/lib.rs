@@ -28,6 +28,7 @@ pub use server::*;
 pub use client::client_command;
 pub use server::server_command;
 pub use status::status_command;
+pub use status::get_current_jobs;
 pub use kill::kill;
 pub use pause::pause;
 pub use add::add;

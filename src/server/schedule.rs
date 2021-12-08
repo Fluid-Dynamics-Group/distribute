@@ -216,7 +216,7 @@ impl Schedule for GpuPriority {
     }
 
     fn finish_job(&mut self, identifier: JobIdentifier) {
-        debug!("called finish job with {}", identifier);
+        debug!("called finish job with ident {}", identifier);
 
         if let Some(job_set) = self.map.get_mut(&identifier) {
             job_set.job_finished();
@@ -363,6 +363,7 @@ impl JobSet {
     fn next_job(&mut self) -> Option<storage::JobOpt> {
         if let Some(job) = self.remaining_jobs.pop() {
             self.currently_running_jobs += 1;
+            debug!("calling next_job() -> remaining jobs are now {}", self.currently_running_jobs);
             job.load_job().ok()
         } else {
             None
@@ -386,6 +387,7 @@ impl JobSet {
         if self.currently_running_jobs == 0 {
             warn!("a job from {}'s currently_running_jobs finished, but the value was already zero. This should not happen", &self.batch_name);
         } else {
+            debug!("calling job_finished() -> remaining jobs are now {}", self.currently_running_jobs);
             self.currently_running_jobs -= 1
         }
     }
@@ -474,9 +476,9 @@ impl JobSet {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RemainingJobs {
-    pub(crate) batch_name: String,
-    pub(crate) jobs_left: Vec<String>,
-    pub(crate) running_jobs: usize,
+    pub batch_name: String,
+    pub jobs_left: Vec<String>,
+    pub running_jobs: usize,
 }
 
 #[derive(From, Debug, Clone, Deserialize, Serialize)]

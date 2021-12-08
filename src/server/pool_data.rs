@@ -29,6 +29,7 @@ pub(crate) enum JobRequest {
     QueryRemainingJobs(RemainingJobsQuery),
     CancelBatchByName(CancelBatchQuery),
     MarkBuildFailure(MarkBuildFailure),
+    FinishJob(JobIdentifier),
 }
 
 pub(crate) struct MarkBuildFailure {
@@ -38,7 +39,6 @@ pub(crate) struct MarkBuildFailure {
 pub(crate) struct NewJobRequest {
     pub(crate) tx: oneshot::Sender<JobResponse>,
     pub(crate) initialized_job: JobIdentifier,
-    pub(crate) after_building: bool,
     pub(crate) capabilities: Arc<Requirements<NodeProvidedCaps>>,
     pub(crate) build_failures: BTreeSet<JobIdentifier>,
 }

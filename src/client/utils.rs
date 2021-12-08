@@ -67,11 +67,8 @@ pub(crate) async fn clear_input_files(base_path: &Path) -> Result<(), std::io::E
 
 /// remove the directories up until "distribute_save" so that the file names that we send are
 /// not absolute in their path - which makes saving things on the server side easier
-pub(crate) fn remove_path_prefixes(path: PathBuf) -> PathBuf {
-    path.components()
-        .skip_while(|x| x.as_os_str() == "distribute_save")
-        .skip(2)
-        .collect()
+pub(crate) fn remove_path_prefixes(path: PathBuf, distribute_save_path: &Path) -> PathBuf {
+    path.strip_prefix(distribute_save_path).unwrap().to_owned()
 }
 
 pub(crate) async fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {

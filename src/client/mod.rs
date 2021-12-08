@@ -162,6 +162,7 @@ async fn start_server_connection(
                     }
                     PrerequisiteOperations::SendFiles { paths, after } => {
                         debug!("there are {} files to send to the server", paths.len());
+                        let dist_save_path = base_path.join("distribute_save");
 
                         // start by writing all of the file bytes to the tcp stream
                         // TODO: this has potential to allocate too much memory depending on how
@@ -173,7 +174,9 @@ async fn start_server_connection(
                             match metadata.into_send_file() {
                                 Ok(mut send_file) => {
                                     send_file.file_path =
-                                        utils::remove_path_prefixes(send_file.file_path);
+                                        utils::remove_path_prefixes(send_file.file_path, &dist_save_path);
+
+                                    debug!("file name being sent from the client is  {}", send_file.file_path.display());
 
                                     let response = transport::ClientResponse::SendFile(send_file);
                                     send_client_response_with_logging(

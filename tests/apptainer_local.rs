@@ -21,6 +21,8 @@ async fn verify_singularity_execution() {
     let p1 = dir.join("output").join("_bind_path_0").join("file1.txt");
     let p2 = dir.join("output").join("_bind_path_1").join("file2.txt");
 
+    dbg!(&p1);
+
     assert_eq!(p1.exists(), true);
     assert_eq!(p2.exists(), true);
 

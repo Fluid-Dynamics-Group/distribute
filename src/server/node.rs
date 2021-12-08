@@ -56,7 +56,6 @@ impl InitializedNode {
     async fn fetch_new_job(
         &mut self,
         initialized_job: JobIdentifier,
-        after_building: bool,
     ) -> BuildTaskRunTask {
         loop {
             let (tx, rx) = oneshot::channel();
@@ -66,7 +65,6 @@ impl InitializedNode {
                 .send(JobRequest::from(NewJobRequest {
                     tx,
                     initialized_job,
-                    after_building,
                     capabilities: self.common.capabilities.clone(),
                     build_failures: self.errored_jobsets.clone(),
                 }))
@@ -87,11 +85,31 @@ impl InitializedNode {
                         "no more jobs to run on {} - sleeping and asking for more",
                         self.common.conn.addr
                     );
-                    tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
                     continue;
                 }
             }
         }
+    }
+
+    async fn mark_job_finish(
+        &mut self,
+        initialized_job: JobIdentifier
+    ) {
+        let response = self
+            .common
+            .request_job_tx
+            .send(JobRequest::FinishJob(initialized_job))
+            .await;
+
+        match response {
+            Ok(x) => x,
+            Err(_) => {
+                error!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &self.common.conn.addr);
+                panic!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &self.common.conn.addr);
+            }
+        }
+        
     }
 
     async fn execute_job_set(
@@ -105,10 +123,8 @@ impl InitializedNode {
         // this is the first time running this function - we need to fetch
         // the building task ourselves
         else {
-            let after_building = false;
-
             let task = self
-                .fetch_new_job(JobIdentifier::None, after_building)
+                .fetch_new_job(JobIdentifier::None)
                 .await;
 
             match task {
@@ -137,15 +153,13 @@ impl InitializedNode {
 
         let ready_executable = ready_executable?;
 
-        let after_build = true;
-
         // constantly ask for more jobs related to the job that we have
         // built on the node. If we receive a new job that is a build
         // request then we return out of this function to repeat
         // the process from the top
         loop {
             let job_to_run = self
-                .fetch_new_job(ready_executable.initialized_job, after_build)
+                .fetch_new_job(ready_executable.initialized_job)
                 .await;
 
             // if we have been told to build a new set of tasks then we
@@ -160,7 +174,10 @@ impl InitializedNode {
             // check that the task we were going to run was the task that we have currently
             // built
             if let Some(run) = running_node {
-                run.execute_task().await?
+                // execute the job
+                run.execute_task().await?;
+                // let the scheduler know that we have successfully finished the job
+                self.mark_job_finish(ready_executable.initialized_job).await;
             }
             // what we were asked to run did not make sense
             else {

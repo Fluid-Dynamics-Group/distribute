@@ -34,12 +34,12 @@ pub enum Arguments {
     Run(Run),
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// start this workstation as a node and prepare it for a server connection
 pub struct Client {
     /// location where all compilation and running takes place. all
     /// job init stuff will be done here
-    pub base_folder: String,
+    pub base_folder: PathBuf,
 
     #[structopt(long, default_value = CLIENT_PORT_STR, short)]
     /// the port to bind the client to (default 8953)
@@ -70,7 +70,7 @@ pub struct Server {
     pub clean_output: bool,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// check the status of all the nodes
 pub struct Status {
     #[structopt(long, short, default_value = SERVER_PORT_STR)]
@@ -106,7 +106,7 @@ pub struct Pause {
     pub duration: String,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// add a job set to the queue
 pub struct Add {
     #[structopt(default_value = "distribute-jobs.yaml")]
