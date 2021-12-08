@@ -1,0 +1,10 @@
+[Unit]
+Description=Accessible Distributed Computing
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=distribute
+Type=simple
+ExecStart=/home/distribute/.cargo/bin/distribute client "/home/distribute/logs" --log-file "/home/distribute/output.log"
+Restart=on-failure

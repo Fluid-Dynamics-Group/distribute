@@ -36,7 +36,7 @@ async fn wrap_main() -> Result<(), ErrorWrap> {
         .level_for("hyper", log::LevelFilter::Info)
         // Output to stdout, files, and other Dispatch configurations
         .chain(std::io::stdout())
-        .chain(fern::log_file("output.log").map_err(distribute::LogError::from).map_err(Error::from)?)
+        .chain(fern::log_file(&arguments.log_path()).map_err(distribute::LogError::from).map_err(Error::from)?)
         // Apply globally
         .apply()
         .map_err(distribute::LogError::from)

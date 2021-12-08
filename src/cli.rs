@@ -34,6 +34,15 @@ pub enum Arguments {
     Run(Run),
 }
 
+impl Arguments {
+    pub fn log_path(&self) -> PathBuf {
+        match &self {
+            Self::Client(c) => c.log_file.clone(),
+            _ => "./output.log".into()
+        }
+    }
+}
+
 #[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// start this workstation as a node and prepare it for a server connection
 pub struct Client {
@@ -44,6 +53,10 @@ pub struct Client {
     #[structopt(long, default_value = CLIENT_PORT_STR, short)]
     /// the port to bind the client to (default 8953)
     pub port: u16,
+
+    #[structopt(long, default_value = "./output.log", short)]
+    /// the port to bind the client to (default 8953)
+    pub log_file: PathBuf,
 }
 
 #[derive(StructOpt, PartialEq, Debug, Constructor)]
