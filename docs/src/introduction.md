@@ -36,7 +36,7 @@ day-to-day workstations, popular compute schedulers like slurm don't provision f
 Instead of complex scheduling algorithms and job queues, we can distill the overall architecture of the 
 system to a simple diagram:
 
-![](../figs/architecture.png)
+![](https://raw.githubusercontent.com/Fluid-Dynamics-Group/distribute/master/docs/figs/architecture.png?token=AKYKRYJFGIRJIFKEMPES5M3BWFNMY)
 
 In summary, there is a very simple flow of information from the server to the nodes, and from the nodes to
 the server. The server is charged with sending the nodes any user-specified files (such as initial conditions,
