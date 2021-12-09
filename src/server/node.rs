@@ -175,12 +175,18 @@ impl InitializedNode {
             // built
             if let Some(run) = running_node {
                 // execute the job
-                run.execute_task().await?;
+                if let Err(e) = run.execute_task().await {
+                    error!("could not execute the task on the client due to an error - marking this job as finished - {}", e);
+                    self.mark_job_finish(ready_executable.initialized_job).await;
+                    return Err(e)
+                }
+
                 // let the scheduler know that we have successfully finished the job
                 self.mark_job_finish(ready_executable.initialized_job).await;
             }
             // what we were asked to run did not make sense
             else {
+                error!("Could not initialize a node to run on - the job passed from the scheduler does not make sense - really bad shit might happen now");
                 return Err(Error::RunningJob(error::RunningNodeError::MissingBuildStep))?;
             }
         }
