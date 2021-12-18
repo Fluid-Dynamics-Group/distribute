@@ -6,7 +6,7 @@ After=network-online.target
 [Service]
 User=distribute
 Type=simple
-ExecStart=/home/distribute/.cargo/bin/distribute client "/home/distribute/data" --log-file "/home/distribute/logs/output.log"
+ExecStart=/bin/bash -c "PATH=/home/distribute/.cargo/bin:$PATH exec /home/distribute/.cargo/bin/distribute client '/home/distribute/data' --log-file '/home/distribute/logs/output.log'"
 Restart=on-failure
 
 [Install]
