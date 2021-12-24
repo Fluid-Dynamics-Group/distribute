@@ -326,6 +326,10 @@ async fn pull_files(
 
             match conn.receive_data().await {
                 Ok(transport::UserMessageToServer::FileReceived) => continue,
+                Err(error::Error::TcpConnection(error::TcpConnection::ConnectionClosed)) => {
+                    warn!("TCP connection has closed - severing the connection to the user");
+                    break
+                }
                 other => {
                     warn!("user response from file was {:?} which was unexpected - closing connection", other);
                 }
@@ -335,11 +339,6 @@ async fn pull_files(
         conn.transport_data(&transport::ServerResponseToUser::FinishFiles.into()).await.ok();
     }
 }
-
-//struct AbsoluteAndRelativePath {
-//    abs: PathBuf,
-//    abs: PathBuf,
-//}
 
 fn filter_files(
     dir_iter: impl Iterator<Item = Result<DirEntry, walkdir::Error>>,

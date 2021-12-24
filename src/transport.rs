@@ -25,6 +25,23 @@ pub enum RequestFromServer {
     RunSingularityJob(SingularityJob),
     FileReceived,
     KillJob,
+    CheckAlive,
+}
+
+impl RequestFromServer {
+    /// check to see if the server request should be handled on a side-thread
+    ///
+    /// if this function returns false then the request should be handled on the 
+    /// main thread (like a job to execute or build). Otherwise the job can be 
+    /// executed on a side thread to make some race conditions less likely
+    fn is_low_priority(&self) -> bool {
+        match self {
+            Self::CheckAlive => true,
+            Self::KillJob => true,
+            Self::StatusCheck => false,
+            _ => false
+        }
+    }
 }
 
 impl From<crate::server::JobOpt> for RequestFromServer {
@@ -158,6 +175,37 @@ pub enum ClientResponse {
     FailedExecution,
     #[display(fmt = "client error: _0.display()")]
     Error(ClientError),
+    #[display(fmt = "client is currently alive")]
+    RespondAlive
+}
+
+impl ClientResponse {
+    fn flatten(&self) -> FlatClientResponse {
+        match self {
+            Self::StatusCheck(_) => FlatClientResponse::StatusCheck,
+            Self::SendFile(_) => FlatClientResponse::SendFile,
+            Self::RequestNewJob(_) => FlatClientResponse::RequestNewJob,
+            Self::FailedExecution => FlatClientResponse::FailedExecution,
+            Self::Error(_) => FlatClientResponse::Error,
+            Self::RespondAlive => FlatClientResponse::RespondAlive
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Display, Debug)]
+pub enum FlatClientResponse {
+    #[display(fmt = "StatusCheck")]
+    StatusCheck,
+    #[display(fmt = "SendFile")]
+    SendFile,
+    #[display(fmt = "RequestNewJob")]
+    RequestNewJob,
+    #[display(fmt = "FailedExecution")]
+    FailedExecution,
+    #[display(fmt = "Error")]
+    Error,
+    #[display(fmt = "RespondAlive")]
+    RespondAlive
 }
 
 #[derive(Deserialize, Serialize, Display, Constructor, Debug)]

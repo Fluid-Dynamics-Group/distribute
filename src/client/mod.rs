@@ -99,6 +99,15 @@ async fn handle_connection_local(
                     kill_job(tx_cancel);
                     // the server does not expect a reply in this situation
                 }
+                transport::RequestFromServer::CheckAlive => {
+                    debug!("got keepalive check from the server - responding with true");
+
+                    // we have gotten a check for keepalive 
+                    client_conn
+                        .transport_data(&transport::ClientResponse::RespondAlive)
+                        .await
+                        .ok();
+                }
                 transport::RequestFromServer::InitPythonJob(_)
                 | transport::RequestFromServer::RunPythonJob(_)
                 | transport::RequestFromServer::InitSingularityJob(_)

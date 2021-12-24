@@ -152,6 +152,12 @@ pub(super) async fn general_request(
             warn!("got request to kill the job from the server but we dont have an actively running job");
             PrerequisiteOperations::DoNothing
         }
+        transport::RequestFromServer::CheckAlive => {
+            debug!("got keepalive check from the server - responding with true");
+
+            // we have gotten a check for keepalive 
+            PrerequisiteOperations::None(transport::ClientResponse::RespondAlive)
+        }
     };
 
     Ok(output)

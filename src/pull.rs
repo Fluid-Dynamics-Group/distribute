@@ -66,14 +66,14 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
                 writer.write_all(b"included files:").unwrap();
                 for f in resp.success_files {
                     writer
-                        .write_all(format!("\t{}", f.display()).as_bytes())
+                        .write_all(format!("\t{}\n", f.display()).as_bytes())
                         .unwrap();
                 }
 
-                writer.write_all(b"filtered files:").unwrap();
+                writer.write_all(b"\nfiltered files:").unwrap();
                 for f in resp.filtered_files {
                     writer
-                        .write_all(format!("\t{}", f.display()).as_bytes())
+                        .write_all(format!("\t{}\n", f.display()).as_bytes())
                         .unwrap();
                 }
             }

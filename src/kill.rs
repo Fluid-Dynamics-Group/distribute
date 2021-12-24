@@ -16,7 +16,7 @@ pub async fn kill(args: cli::Kill) -> Result<(), Error> {
 
     let kill_job = match conn.receive_data().await {
         Ok(transport::ServerResponseToUser::KillJob(result)) => result,
-        Ok(x) => unreachable!(),
+        Ok(_x) => unreachable!(),
         Err(e) => Err(e)?,
     };
 

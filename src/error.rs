@@ -36,6 +36,11 @@ pub enum Error {
     Template(#[from] TemplateError),
     #[error("{0}")]
     PullErrorLocal(#[from] PullErrorLocal),
+    #[error("{0}")]
+    UnexpectedResponse(#[from] UnexpectedResponse),
+    #[error("{0}")]
+    Timeout(#[from] TimeoutError),
+    
 }
 
 #[derive(Debug, Display, thiserror::Error, From)]
@@ -386,4 +391,23 @@ pub enum RunErrorLocal {
     LoadJobs(LoadJobsError),
     #[error("{0}")]
     GeneralError(Error),
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum UnexpectedResponse {
+    #[error("{0}")]
+    ServerClient(UnexpectedServerClientResponse),
+}
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "expected response {} from client - got {:?} instead", "expected", "response")]
+pub struct UnexpectedServerClientResponse {
+    response: crate::transport::ClientResponse,
+    expected: crate::transport::FlatClientResponse,
+}
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "Node at {} has timed out a keepalive connection", "addr")]
+pub struct TimeoutError {
+    addr: std::net::SocketAddr,
 }

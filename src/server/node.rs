@@ -58,6 +58,13 @@ impl InitializedNode {
         initialized_job: JobIdentifier,
     ) -> BuildTaskRunTask {
         loop {
+
+            if let Err(e) = check_keepalive(&self.common.conn.addr).await {
+                info!("node could not access the client before fetching a new job from the server (err: {})- scheduling a reconnect", e);
+                self.schedule_reconnect().await;
+                continue
+            }
+
             let (tx, rx) = oneshot::channel();
             let response = self
                 .common
@@ -235,12 +242,16 @@ impl<'a> BuildingNode<'a> {
         let req = transport::RequestFromServer::from(self.task_info.task);
         self.common.conn.transport_data(&req).await?;
 
+        let keepalive_check = complete_on_ping_failure(self.common.conn.addr.clone());
+
         let handle =
             handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
+
         let _execution = execute_with_cancellation(
             handle,
             &mut self.common.receive_cancellation,
             self.task_info.identifier,
+            keepalive_check
         )
         .await?;
 
@@ -286,12 +297,16 @@ impl<'a> RunningNode<'a> {
         let req = transport::RequestFromServer::from(self.task_info.task.clone());
         self.common.conn.transport_data(&req).await?;
 
+        let keepalive_check = complete_on_ping_failure(self.common.conn.addr.clone());
+
         let handle =
             handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
+    
         execute_with_cancellation(
             handle,
             &mut self.common.receive_cancellation,
             self.task_info.identifier,
+            keepalive_check
         )
         .await?;
 
@@ -322,12 +337,18 @@ async fn execute_with_cancellation<E>(
     fut: impl std::future::Future<Output = Result<(), E>>,
     cancel: &mut broadcast::Receiver<JobIdentifier>,
     current_ident: JobIdentifier,
-) -> Result<(), E> {
+    check_keepalive: impl std::future::Future<Output = ()>
+) -> Result<(), E> 
+where E: From<KeepaliveError> {
     tokio::select!(
         response = fut => {
             response
         }
         _cancel_result = check_cancellation(current_ident, cancel) => {
+            Ok(())
+        }
+        _keepalive_result = check_keepalive => {
+            error!("execute_with_cancellation ending due to keepalive failure");
             Ok(())
         }
     )
@@ -342,7 +363,7 @@ async fn handle_client_response<E>(
     save_path: &Path,
 ) -> Result<(), E>
 where
-    E: From<Error> + From<()>,
+    E: From<Error> + From<ClientError>,
 {
     loop {
         let response = conn.receive_data().await?;
@@ -365,7 +386,11 @@ where
                 );
                 continue;
             }
-            transport::ClientResponse::FailedExecution => return Err(E::from(())),
+            transport::ClientResponse::FailedExecution => return Err(E::from(ClientError)),
+            transport::ClientResponse::RespondAlive => {
+                warn!("RespondAlive was received from the client on {}, we were expectinga file or job request. This should not happen", &conn.addr);
+                continue
+            }
         };
     }
 
@@ -378,6 +403,22 @@ enum LocalOrClientError {
     Local(Error),
     #[display(fmt = "the cleint failed to execute the build / job")]
     ClientExecution,
+    KeepaliveFailure
+}
+
+struct KeepaliveError;
+struct ClientError;
+
+impl From<KeepaliveError> for LocalOrClientError {
+    fn from(_: KeepaliveError) -> Self {
+        Self::KeepaliveFailure
+    }
+}
+
+impl From<ClientError> for LocalOrClientError {
+    fn from(_: ClientError) -> Self {
+        Self::ClientExecution
+    }
 }
 
 async fn receive_file(
@@ -410,3 +451,28 @@ async fn receive_file(
 
     Ok(())
 }
+
+/// constantly polls a connection to ensure that 
+async fn complete_on_ping_failure(address: std::net::SocketAddr) -> () {
+    loop {
+        if let Err(e) = check_keepalive(&address).await {
+            error!("error checking the keepalive for node at {}: {}", address, e);
+            return ()
+        }
+    }
+}
+
+async fn check_keepalive(address: &std::net::SocketAddr) -> Result<(), Error> {
+    // TODO: this connection might be able to stall, im not sure
+    let mut conn = transport::ServerConnection::new(*address).await?;
+    conn.transport_data(&transport::RequestFromServer::CheckAlive).await?;
+
+    match tokio::time::timeout(Duration::from_secs(10), conn.receive_data()).await {
+        Ok(response) => match response? {
+            transport::ClientResponse::RespondAlive => Ok(()),
+            x => Err(error::UnexpectedResponse::from(error::UnexpectedServerClientResponse::new(x, transport::FlatClientResponse::RespondAlive)).into())
+        }
+        Err(_) => Err(Error::Timeout(error::TimeoutError::new(address.clone())))
+    }
+}
+
