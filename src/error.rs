@@ -40,7 +40,6 @@ pub enum Error {
     UnexpectedResponse(#[from] UnexpectedResponse),
     #[error("{0}")]
     Timeout(#[from] TimeoutError),
-    
 }
 
 #[derive(Debug, Display, thiserror::Error, From)]
@@ -400,7 +399,11 @@ pub enum UnexpectedResponse {
 }
 
 #[derive(Debug, Display, thiserror::Error, Constructor)]
-#[display(fmt = "expected response {} from client - got {:?} instead", "expected", "response")]
+#[display(
+    fmt = "expected response {} from client - got {:?} instead",
+    "expected",
+    "response"
+)]
 pub struct UnexpectedServerClientResponse {
     response: crate::transport::ClientResponse,
     expected: crate::transport::FlatClientResponse,

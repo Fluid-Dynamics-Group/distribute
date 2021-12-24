@@ -281,7 +281,12 @@ async fn pull_files(
         .collect();
 
     let walk_dir = WalkDir::new(&batch_path);
-    let files = filter_files(walk_dir.into_iter(), filters, pull_files.is_include_filter, namespace_path);
+    let files = filter_files(
+        walk_dir.into_iter(),
+        filters,
+        pull_files.is_include_filter,
+        namespace_path,
+    );
 
     // if we are executing a dry response and only sending the names of the
     // files that matched and didnt match then
@@ -291,8 +296,8 @@ async fn pull_files(
         let mut filtered = Vec::new();
 
         files.for_each(|x| match x {
-            FilterResult::Include {abs: _, rel} => matched.push(rel),
-            FilterResult::Skip {abs: _, rel} => filtered.push(rel),
+            FilterResult::Include { abs: _, rel } => matched.push(rel),
+            FilterResult::Skip { abs: _, rel } => filtered.push(rel),
         });
 
         let ret = transport::PullFilesDryResponse::new(matched, filtered);
@@ -302,12 +307,16 @@ async fn pull_files(
     // to be sent to the client
     else {
         let send_files = files.filter_map(|x| match x {
-            FilterResult::Include{ abs, rel }  => Some((abs, rel)),
+            FilterResult::Include { abs, rel } => Some((abs, rel)),
             _ => None,
         });
 
         for (abs_path, relative_path) in send_files {
-            debug!("sending file to user at abs path: `{}` rel path `{}`", abs_path.display(), relative_path.display());
+            debug!(
+                "sending file to user at abs path: `{}` rel path `{}`",
+                abs_path.display(),
+                relative_path.display()
+            );
 
             let send_file = if abs_path.is_dir() {
                 transport::SendFile::new(relative_path, false, vec![])
@@ -328,7 +337,7 @@ async fn pull_files(
                 Ok(transport::UserMessageToServer::FileReceived) => continue,
                 Err(error::Error::TcpConnection(error::TcpConnection::ConnectionClosed)) => {
                     warn!("TCP connection has closed - severing the connection to the user");
-                    break
+                    break;
                 }
                 other => {
                     warn!("user response from file was {:?} which was unexpected - closing connection", other);
@@ -336,7 +345,9 @@ async fn pull_files(
             }
         }
 
-        conn.transport_data(&transport::ServerResponseToUser::FinishFiles.into()).await.ok();
+        conn.transport_data(&transport::ServerResponseToUser::FinishFiles.into())
+            .await
+            .ok();
     }
 }
 
@@ -354,23 +365,34 @@ fn filter_files(
         // if the file is not a directory - cycle to make sure that we match on the regular
         // expressions
         else {
-            filter_path(filters.iter(), is_include_filter, x.path(), &prefix_to_strip)
+            filter_path(
+                filters.iter(),
+                is_include_filter,
+                x.path(),
+                &prefix_to_strip,
+            )
         }
     })
 }
 
 enum FilterResult {
-    Skip{ abs: PathBuf, rel: PathBuf },
+    Skip { abs: PathBuf, rel: PathBuf },
     Include { abs: PathBuf, rel: PathBuf },
 }
 
 impl FilterResult {
     fn skip(abs: PathBuf, prefix_to_strip: &Path) -> Self {
-        Self::Skip { rel: abs.strip_prefix(prefix_to_strip).unwrap().to_owned(), abs }
+        Self::Skip {
+            rel: abs.strip_prefix(prefix_to_strip).unwrap().to_owned(),
+            abs,
+        }
     }
 
     fn include(abs: PathBuf, prefix_to_strip: &Path) -> Self {
-        Self::Include { rel: abs.strip_prefix(prefix_to_strip).unwrap().to_owned(), abs }
+        Self::Include {
+            rel: abs.strip_prefix(prefix_to_strip).unwrap().to_owned(),
+            abs,
+        }
     }
 }
 
@@ -379,7 +401,7 @@ fn filter_path<'a>(
     filters: impl Iterator<Item = &'a regex::Regex>,
     is_include_filter: bool,
     path: &Path,
-    prefix_to_strip: &Path
+    prefix_to_strip: &Path,
 ) -> FilterResult {
     for expr in filters {
         // if we have a match to the expression

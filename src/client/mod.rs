@@ -102,7 +102,7 @@ async fn handle_connection_local(
                 transport::RequestFromServer::CheckAlive => {
                     debug!("got keepalive check from the server - responding with true");
 
-                    // we have gotten a check for keepalive 
+                    // we have gotten a check for keepalive
                     client_conn
                         .transport_data(&transport::ClientResponse::RespondAlive)
                         .await
@@ -182,10 +182,15 @@ async fn start_server_connection(
 
                             match metadata.into_send_file() {
                                 Ok(mut send_file) => {
-                                    send_file.file_path =
-                                        utils::remove_path_prefixes(send_file.file_path, &dist_save_path);
+                                    send_file.file_path = utils::remove_path_prefixes(
+                                        send_file.file_path,
+                                        &dist_save_path,
+                                    );
 
-                                    debug!("file name being sent from the client is  {}", send_file.file_path.display());
+                                    debug!(
+                                        "file name being sent from the client is  {}",
+                                        send_file.file_path.display()
+                                    );
 
                                     let response = transport::ClientResponse::SendFile(send_file);
                                     send_client_response_with_logging(

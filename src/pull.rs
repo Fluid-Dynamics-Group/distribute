@@ -11,8 +11,8 @@ use std::path::Path;
 pub async fn pull(args: cli::Pull) -> Result<(), Error> {
     dbg!(&args);
 
-    let config: config::Jobs = config::load_config(&args.job_file)
-        .map_err(error::PullErrorLocal::from)?;
+    let config: config::Jobs =
+        config::load_config(&args.job_file).map_err(error::PullErrorLocal::from)?;
 
     let req = match args.filter {
         Some(cli::RegexFilter::Include { include }) => {
@@ -121,7 +121,10 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
 /// helper function to process a SendFile from the server and save it
 /// to an appropriate location
 fn save_file(save_location: &Path, file: transport::SendFile) -> Result<(), error::PullErrorLocal> {
-    debug!("path from the server that is being saved is {}", file.file_path.display());
+    debug!(
+        "path from the server that is being saved is {}",
+        file.file_path.display()
+    );
 
     let path = save_location.join(file.file_path);
 

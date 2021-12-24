@@ -31,15 +31,15 @@ pub enum RequestFromServer {
 impl RequestFromServer {
     /// check to see if the server request should be handled on a side-thread
     ///
-    /// if this function returns false then the request should be handled on the 
-    /// main thread (like a job to execute or build). Otherwise the job can be 
+    /// if this function returns false then the request should be handled on the
+    /// main thread (like a job to execute or build). Otherwise the job can be
     /// executed on a side thread to make some race conditions less likely
     fn is_low_priority(&self) -> bool {
         match self {
             Self::CheckAlive => true,
             Self::KillJob => true,
             Self::StatusCheck => false,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -176,7 +176,7 @@ pub enum ClientResponse {
     #[display(fmt = "client error: _0.display()")]
     Error(ClientError),
     #[display(fmt = "client is currently alive")]
-    RespondAlive
+    RespondAlive,
 }
 
 impl ClientResponse {
@@ -187,7 +187,7 @@ impl ClientResponse {
             Self::RequestNewJob(_) => FlatClientResponse::RequestNewJob,
             Self::FailedExecution => FlatClientResponse::FailedExecution,
             Self::Error(_) => FlatClientResponse::Error,
-            Self::RespondAlive => FlatClientResponse::RespondAlive
+            Self::RespondAlive => FlatClientResponse::RespondAlive,
         }
     }
 }
@@ -205,7 +205,7 @@ pub enum FlatClientResponse {
     #[display(fmt = "Error")]
     Error,
     #[display(fmt = "RespondAlive")]
-    RespondAlive
+    RespondAlive,
 }
 
 #[derive(Deserialize, Serialize, Display, Constructor, Debug)]
@@ -238,7 +238,11 @@ impl Version {
         let patch = iter.next().unwrap().parse().unwrap();
 
         // TODO: pull this from cargo.toml
-        Self { major, minor, patch, }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 }
 

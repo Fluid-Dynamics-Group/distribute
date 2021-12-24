@@ -155,7 +155,7 @@ pub(super) async fn general_request(
         transport::RequestFromServer::CheckAlive => {
             debug!("got keepalive check from the server - responding with true");
 
-            // we have gotten a check for keepalive 
+            // we have gotten a check for keepalive
             PrerequisiteOperations::None(transport::ClientResponse::RespondAlive)
         }
     };

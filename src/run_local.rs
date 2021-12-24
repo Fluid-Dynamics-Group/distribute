@@ -9,7 +9,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
-
     create_required_dirs(&args).await?;
 
     let (build, jobs) = load_config(&args.job_file).await?;
@@ -27,11 +26,11 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
 
     for job in jobs {
         let name = job.job_name.clone();
-        client::execute::run_singularity_job(job, &args.save_dir, &mut rx, &mut state).await?; 
+        client::execute::run_singularity_job(job, &args.save_dir, &mut rx, &mut state).await?;
         fs::rename(&distribute_save, archive.join(name))?;
         fs::create_dir(&distribute_save)?;
     }
-    
+
     Ok(())
 }
 
@@ -40,9 +39,8 @@ async fn create_required_dirs(args: &cli::Run) -> Result<(), RunErrorLocal> {
     if args.save_dir.exists() {
         if args.clean_save {
             crate::client::utils::clean_output_dir(&args.save_dir).await?;
-        }
-        else {
-            return Err(RunErrorLocal::FolderExists) 
+        } else {
+            return Err(RunErrorLocal::FolderExists);
         }
     } else {
         crate::client::utils::clean_output_dir(&args.save_dir).await?;
@@ -51,24 +49,28 @@ async fn create_required_dirs(args: &cli::Run) -> Result<(), RunErrorLocal> {
     Ok(())
 }
 
-/// load the config files 
-async fn load_config(path: &Path) -> Result<(transport::SingularityJobInit, Vec<transport::SingularityJob>), RunErrorLocal> {
+/// load the config files
+async fn load_config(
+    path: &Path,
+) -> Result<
+    (
+        transport::SingularityJobInit,
+        Vec<transport::SingularityJob>,
+    ),
+    RunErrorLocal,
+> {
     let jobs = config::load_config::<config::Jobs>(&path)?;
 
     debug!("loading job information from files");
     let loaded_jobs = match jobs.load_jobs().await? {
-        config::JobOpts::Python(_) => {
-            return Err(RunErrorLocal::OnlyApptainer)
-        },
-        config::JobOpts::Singularity(s) => s
+        config::JobOpts::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
+        config::JobOpts::Singularity(s) => s,
     };
 
     debug!("loading build information from files");
     let loaded_build = match jobs.load_build().await? {
-        config::BuildOpts::Python(_) => {
-            return Err(RunErrorLocal::OnlyApptainer)
-        },
-        config::BuildOpts::Singularity(s) => s
+        config::BuildOpts::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
+        config::BuildOpts::Singularity(s) => s,
     };
 
     Ok((loaded_build, loaded_jobs))

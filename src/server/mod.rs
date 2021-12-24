@@ -10,8 +10,8 @@ use job_pool::JobPool;
 use node::{Common, InitializedNode};
 use pool_data::JobRequest;
 
-pub use schedule::{NodeProvidedCaps, RemainingJobs};
 pub use schedule::{JobRequiredCaps, Requirement, Requirements};
+pub use schedule::{NodeProvidedCaps, RemainingJobs};
 
 pub use pool_data::CancelResult;
 pub(crate) use storage::{JobOpt, OwnedJobSet};

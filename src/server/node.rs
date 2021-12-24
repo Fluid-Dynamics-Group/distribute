@@ -53,16 +53,12 @@ impl InitializedNode {
         })
     }
 
-    async fn fetch_new_job(
-        &mut self,
-        initialized_job: JobIdentifier,
-    ) -> BuildTaskRunTask {
+    async fn fetch_new_job(&mut self, initialized_job: JobIdentifier) -> BuildTaskRunTask {
         loop {
-
             if let Err(e) = check_keepalive(&self.common.conn.addr).await {
                 info!("node could not access the client before fetching a new job from the server (err: {})- scheduling a reconnect", e);
                 self.schedule_reconnect().await;
-                continue
+                continue;
             }
 
             let (tx, rx) = oneshot::channel();
@@ -99,10 +95,7 @@ impl InitializedNode {
         }
     }
 
-    async fn mark_job_finish(
-        &mut self,
-        initialized_job: JobIdentifier
-    ) {
+    async fn mark_job_finish(&mut self, initialized_job: JobIdentifier) {
         let response = self
             .common
             .request_job_tx
@@ -116,7 +109,6 @@ impl InitializedNode {
                 panic!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &self.common.conn.addr);
             }
         }
-        
     }
 
     async fn execute_job_set(
@@ -130,9 +122,7 @@ impl InitializedNode {
         // this is the first time running this function - we need to fetch
         // the building task ourselves
         else {
-            let task = self
-                .fetch_new_job(JobIdentifier::None)
-                .await;
+            let task = self.fetch_new_job(JobIdentifier::None).await;
 
             match task {
                 BuildTaskRunTask::Build(b) => b,
@@ -165,9 +155,7 @@ impl InitializedNode {
         // request then we return out of this function to repeat
         // the process from the top
         loop {
-            let job_to_run = self
-                .fetch_new_job(ready_executable.initialized_job)
-                .await;
+            let job_to_run = self.fetch_new_job(ready_executable.initialized_job).await;
 
             // if we have been told to build a new set of tasks then we
             // return so that we can run this function from the top -
@@ -185,7 +173,7 @@ impl InitializedNode {
                 if let Err(e) = run.execute_task().await {
                     error!("could not execute the task on the client due to an error - marking this job as finished - {}", e);
                     self.mark_job_finish(ready_executable.initialized_job).await;
-                    return Err(e)
+                    return Err(e);
                 }
 
                 // let the scheduler know that we have successfully finished the job
@@ -251,7 +239,7 @@ impl<'a> BuildingNode<'a> {
             handle,
             &mut self.common.receive_cancellation,
             self.task_info.identifier,
-            keepalive_check
+            keepalive_check,
         )
         .await?;
 
@@ -301,12 +289,12 @@ impl<'a> RunningNode<'a> {
 
         let handle =
             handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
-    
+
         execute_with_cancellation(
             handle,
             &mut self.common.receive_cancellation,
             self.task_info.identifier,
-            keepalive_check
+            keepalive_check,
         )
         .await?;
 
@@ -337,9 +325,11 @@ async fn execute_with_cancellation<E>(
     fut: impl std::future::Future<Output = Result<(), E>>,
     cancel: &mut broadcast::Receiver<JobIdentifier>,
     current_ident: JobIdentifier,
-    check_keepalive: impl std::future::Future<Output = ()>
-) -> Result<(), E> 
-where E: From<KeepaliveError> {
+    check_keepalive: impl std::future::Future<Output = ()>,
+) -> Result<(), E>
+where
+    E: From<KeepaliveError>,
+{
     tokio::select!(
         response = fut => {
             response
@@ -389,7 +379,7 @@ where
             transport::ClientResponse::FailedExecution => return Err(E::from(ClientError)),
             transport::ClientResponse::RespondAlive => {
                 warn!("RespondAlive was received from the client on {}, we were expectinga file or job request. This should not happen", &conn.addr);
-                continue
+                continue;
             }
         };
     }
@@ -403,7 +393,7 @@ enum LocalOrClientError {
     Local(Error),
     #[display(fmt = "the cleint failed to execute the build / job")]
     ClientExecution,
-    KeepaliveFailure
+    KeepaliveFailure,
 }
 
 struct KeepaliveError;
@@ -452,12 +442,15 @@ async fn receive_file(
     Ok(())
 }
 
-/// constantly polls a connection to ensure that 
+/// constantly polls a connection to ensure that
 async fn complete_on_ping_failure(address: std::net::SocketAddr) -> () {
     loop {
         if let Err(e) = check_keepalive(&address).await {
-            error!("error checking the keepalive for node at {}: {}", address, e);
-            return ()
+            error!(
+                "error checking the keepalive for node at {}: {}",
+                address, e
+            );
+            return ();
         }
     }
 }
@@ -465,14 +458,20 @@ async fn complete_on_ping_failure(address: std::net::SocketAddr) -> () {
 async fn check_keepalive(address: &std::net::SocketAddr) -> Result<(), Error> {
     // TODO: this connection might be able to stall, im not sure
     let mut conn = transport::ServerConnection::new(*address).await?;
-    conn.transport_data(&transport::RequestFromServer::CheckAlive).await?;
+    conn.transport_data(&transport::RequestFromServer::CheckAlive)
+        .await?;
 
     match tokio::time::timeout(Duration::from_secs(10), conn.receive_data()).await {
         Ok(response) => match response? {
             transport::ClientResponse::RespondAlive => Ok(()),
-            x => Err(error::UnexpectedResponse::from(error::UnexpectedServerClientResponse::new(x, transport::FlatClientResponse::RespondAlive)).into())
-        }
-        Err(_) => Err(Error::Timeout(error::TimeoutError::new(address.clone())))
+            x => Err(
+                error::UnexpectedResponse::from(error::UnexpectedServerClientResponse::new(
+                    x,
+                    transport::FlatClientResponse::RespondAlive,
+                ))
+                .into(),
+            ),
+        },
+        Err(_) => Err(Error::Timeout(error::TimeoutError::new(address.clone()))),
     }
 }
-

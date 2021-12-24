@@ -1,6 +1,6 @@
+use super::NormalizePaths;
 use crate::error::{self};
 use crate::transport;
-use super::NormalizePaths;
 use derive_more::Constructor;
 
 use serde::{Deserialize, Serialize};
@@ -67,16 +67,20 @@ impl Description {
 }
 
 impl NormalizePaths for Description {
-    fn normalize_paths(&mut self, base: PathBuf) { 
+    fn normalize_paths(&mut self, base: PathBuf) {
         // for initialize
-        self.initialize.python_build_file_path = super::common::normalize_pathbuf(self.initialize.python_build_file_path.clone(), base.clone());
+        self.initialize.python_build_file_path = super::common::normalize_pathbuf(
+            self.initialize.python_build_file_path.clone(),
+            base.clone(),
+        );
         for file in self.initialize.required_files.iter_mut() {
             file.normalize_paths(base.clone());
         }
 
         // for jobs
         for job in self.jobs.iter_mut() {
-            job.python_job_file = super::common::normalize_pathbuf(job.python_job_file.clone(), base.clone());
+            job.python_job_file =
+                super::common::normalize_pathbuf(job.python_job_file.clone(), base.clone());
 
             for file in job.required_files.iter_mut() {
                 file.normalize_paths(base.clone())

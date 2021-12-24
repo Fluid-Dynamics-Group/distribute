@@ -1,11 +1,11 @@
 use distribute::cli::Pull;
 use distribute::cli::Server;
 
-use std::path::PathBuf;
-use std::net::IpAddr;
 use std::fs;
-use std::time::Duration;
+use std::net::IpAddr;
+use std::path::PathBuf;
 use std::thread;
+use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn check_pull() {
@@ -14,9 +14,9 @@ async fn check_pull() {
     }
 
     let server_port = 9980;
-    let addr : IpAddr = [0, 0, 0, 0].into();
+    let addr: IpAddr = [0, 0, 0, 0].into();
 
-    let dir : PathBuf = "./tests/check_pull/".into();
+    let dir: PathBuf = "./tests/check_pull/".into();
     let save_dir = dir.join("destination_dir");
 
     // server stuff
@@ -58,11 +58,24 @@ async fn check_pull() {
 
     // initialize the pull and server commands as they would be read from the CLI
 
-    let pull = Pull::new(addr, dir.join("distribute-jobs.yaml"), false, server_port, save_dir.clone(), None);
-    let server = Server::new(nodes_file, server_path.clone(), server_temp.clone(), server_port, false);
+    let pull = Pull::new(
+        addr,
+        dir.join("distribute-jobs.yaml"),
+        false,
+        server_port,
+        save_dir.clone(),
+        None,
+    );
+    let server = Server::new(
+        nodes_file,
+        server_path.clone(),
+        server_temp.clone(),
+        server_port,
+        false,
+    );
 
     dbg!(&server);
-    
+
     // start the server
     tokio::spawn(async move {
         println!("starting server");
@@ -78,10 +91,13 @@ async fn check_pull() {
 
     // make sure that all the paths exist - we dont include the namespace in the output
     let out_namespace = save_dir.join("some_batch");
-    assert_eq!(dbg!(out_namespace.join("job_1").join("file1.txt")).exists(), true);
+    assert_eq!(
+        dbg!(out_namespace.join("job_1").join("file1.txt")).exists(),
+        true
+    );
     assert_eq!(out_namespace.join("job_2").join("file2.txt").exists(), true);
     assert_eq!(out_namespace.join("job_3").join("file3.txt").exists(), true);
-    
+
     // cleaup remaining files
     fs::remove_dir_all(&save_dir).ok();
     fs::remove_dir_all(&server_path).ok();
@@ -108,5 +124,6 @@ fn logger() {
         .chain(std::io::stdout())
         // Apply globally
         .apply()
-        .map_err(distribute::LogError::from).unwrap();
+        .map_err(distribute::LogError::from)
+        .unwrap();
 }

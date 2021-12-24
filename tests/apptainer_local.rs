@@ -1,18 +1,21 @@
 use distribute::cli::Run;
 use distribute::run_local;
 
-use std::path::PathBuf;
-use std::net::IpAddr;
 use std::fs;
-use std::time::Duration;
+use std::net::IpAddr;
+use std::path::PathBuf;
 use std::thread;
-
+use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn verify_singularity_execution() {
     let dir = PathBuf::from("./tests/apptainer_local");
 
-    assert_eq!(dir.join("apptainer_local.sif").exists(), true, "you need to run ./tests/apptainer_local/build.sh before executing tests");
+    assert_eq!(
+        dir.join("apptainer_local.sif").exists(),
+        true,
+        "you need to run ./tests/apptainer_local/build.sh before executing tests"
+    );
 
     let run = Run::new(dir.join("distribute-jobs.yaml"), dir.join("output"), true);
 

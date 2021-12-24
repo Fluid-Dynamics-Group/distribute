@@ -1,7 +1,7 @@
+use super::NormalizePaths;
 use crate::error;
 use crate::transport;
 use derive_more::Constructor;
-use super::NormalizePaths;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -53,9 +53,10 @@ impl Description {
 }
 
 impl NormalizePaths for Description {
-    fn normalize_paths(&mut self, base: PathBuf) { 
+    fn normalize_paths(&mut self, base: PathBuf) {
         // for initialize
-        self.initialize.sif = super::common::normalize_pathbuf(self.initialize.sif.clone(), base.clone());
+        self.initialize.sif =
+            super::common::normalize_pathbuf(self.initialize.sif.clone(), base.clone());
         for file in self.initialize.required_files.iter_mut() {
             file.normalize_paths(base.clone());
         }

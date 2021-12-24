@@ -363,7 +363,10 @@ impl JobSet {
     fn next_job(&mut self) -> Option<storage::JobOpt> {
         if let Some(job) = self.remaining_jobs.pop() {
             self.currently_running_jobs += 1;
-            debug!("calling next_job() -> remaining jobs are now {}", self.currently_running_jobs);
+            debug!(
+                "calling next_job() -> remaining jobs are now {}",
+                self.currently_running_jobs
+            );
             job.load_job().ok()
         } else {
             None
@@ -387,7 +390,10 @@ impl JobSet {
         if self.currently_running_jobs == 0 {
             warn!("a job from {}'s currently_running_jobs finished, but the value was already zero. This should not happen", &self.batch_name);
         } else {
-            debug!("calling job_finished() -> remaining jobs are now {}", self.currently_running_jobs);
+            debug!(
+                "calling job_finished() -> remaining jobs are now {}",
+                self.currently_running_jobs
+            );
             self.currently_running_jobs -= 1
         }
     }

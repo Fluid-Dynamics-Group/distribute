@@ -9,7 +9,6 @@ use std::net::SocketAddr;
 /// check that all the nodes are up *and* the versions match. returns `true` if all nodes are
 /// healthy w/ version matches
 pub async fn status_command(args: cli::Status) -> Result<(), Error> {
-
     let job_list = get_current_jobs(&args).await?;
 
     for batch in job_list {
@@ -25,7 +24,9 @@ pub async fn status_command(args: cli::Status) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn get_current_jobs(args: &cli::Status) -> Result<Vec<crate::server::RemainingJobs>, Error> {
+pub async fn get_current_jobs(
+    args: &cli::Status,
+) -> Result<Vec<crate::server::RemainingJobs>, Error> {
     let addr = SocketAddr::from((args.ip, args.port));
 
     let mut conn = transport::UserConnectionToServer::new(addr).await?;

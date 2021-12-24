@@ -7,8 +7,8 @@ use crate::{server, transport};
 use derive_more::{Display, Unwrap};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Nodes {
@@ -121,8 +121,14 @@ pub trait NormalizePaths {
 impl NormalizePaths for Jobs {
     fn normalize_paths(&mut self, base: PathBuf) {
         match self {
-            Self::Python {meta: _meta, python } => python.normalize_paths(base),
-            Self::Singularity {meta: _meta, singularity } => singularity.normalize_paths(base)
+            Self::Python {
+                meta: _meta,
+                python,
+            } => python.normalize_paths(base),
+            Self::Singularity {
+                meta: _meta,
+                singularity,
+            } => singularity.normalize_paths(base),
         }
     }
 }
@@ -154,11 +160,13 @@ impl BuildOpts {
     }
 }
 
-pub fn load_config<T: DeserializeOwned + NormalizePaths>(path: &Path) -> Result<T, ConfigurationError> {
-    let file =
-        std::fs::File::open(path).map_err(|e| (path.display().to_string(), ConfigErrorReason::from(e)))?;
+pub fn load_config<T: DeserializeOwned + NormalizePaths>(
+    path: &Path,
+) -> Result<T, ConfigurationError> {
+    let file = std::fs::File::open(path)
+        .map_err(|e| (path.display().to_string(), ConfigErrorReason::from(e)))?;
 
-    let mut config : T= serde_yaml::from_reader(file)
+    let mut config: T = serde_yaml::from_reader(file)
         .map_err(|e| (path.display().to_string(), ConfigErrorReason::from(e)))?;
 
     config.normalize_paths(path.parent().unwrap().to_owned());

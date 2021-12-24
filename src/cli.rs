@@ -1,7 +1,7 @@
+use derive_more::Constructor;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use derive_more::Constructor;
 
 #[allow(dead_code)]
 pub const SERVER_PORT: u16 = 8952;
@@ -38,7 +38,7 @@ impl Arguments {
     pub fn log_path(&self) -> PathBuf {
         match &self {
             Self::Client(c) => c.log_file.clone(),
-            _ => "./output.log".into()
+            _ => "./output.log".into(),
         }
     }
 }
@@ -214,5 +214,5 @@ pub struct Run {
     #[structopt(long)]
     /// allow the save_dir to exist, but remove all the contents
     /// of it before executing the code
-    pub(crate) clean_save: bool
+    pub(crate) clean_save: bool,
 }
