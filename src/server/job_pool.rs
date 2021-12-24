@@ -42,16 +42,9 @@ where
                     // a job failed to execute on the node
                     JobRequest::DeadNode(pending_job) => {
                         debug!("a node has died for now, the job is returning to the scheduler");
+                        self.remaining_jobs
+                            .add_job_back(pending_job.task, pending_job.identifier);
 
-                        match pending_job.task {
-                            JobOrInit::Job(job) => {
-                                self.remaining_jobs
-                                    .add_job_back(job, pending_job.identifier);
-                            }
-                            // an initialization job does not need to be returned to the
-                            // scheduler
-                            JobOrInit::JobInit(_init) => (),
-                        };
                         continue;
                     }
                     // the server got a request to add a new job set

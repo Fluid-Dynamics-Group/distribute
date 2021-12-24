@@ -24,7 +24,7 @@ pub(crate) enum JobResponse {
 #[derive(derive_more::From)]
 pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
-    DeadNode(TaskInfo),
+    DeadNode(RunTaskInfo),
     AddJobSet(storage::OwnedJobSet),
     QueryRemainingJobs(RemainingJobsQuery),
     CancelBatchByName(CancelBatchQuery),

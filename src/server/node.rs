@@ -2,7 +2,7 @@ use super::ok_if_exists;
 use super::schedule::{JobIdentifier, NodeProvidedCaps, Requirements};
 
 use super::pool_data::{
-    BuildTaskInfo, BuildTaskRunTask, JobRequest, JobResponse, NewJobRequest, RunTaskInfo,
+    BuildTaskInfo, BuildTaskRunTask, JobRequest, JobResponse, NewJobRequest, RunTaskInfo, TaskInfo,
 };
 use crate::{error, error::Error, transport};
 
@@ -166,18 +166,28 @@ impl InitializedNode {
             };
 
             let running_node = RunningNode::new(&ready_executable, job, &mut self.common);
+
             // check that the task we were going to run was the task that we have currently
             // built
-            if let Some(run) = running_node {
+            if let Some(mut run) = running_node {
                 // execute the job
                 if let Err(e) = run.execute_task().await {
-                    error!("could not execute the task on the client due to an error - marking this job as finished - {}", e);
-                    self.mark_job_finish(ready_executable.initialized_job).await;
+                    match e {
+                        LocalOrClientError::KeepaliveFailure => {
+                            // we dont want to make this job not executed EVER, we should add it
+                            // back to the job queue so that someone else can take care of it while
+                            // this node is down
+                            info!("adding job back to queue after timeout failure:");
+                            return_job_to_queue(run.common, run.task_info).await;
+                        }
+                        _ => {
+                            error!("could not execute the task on the client due to an error - marking this job as finished - {}", e);
+                            self.mark_job_finish(ready_executable.initialized_job).await;
+                        }
+                    }
+
                     return Err(e);
                 }
-
-                // let the scheduler know that we have successfully finished the job
-                self.mark_job_finish(ready_executable.initialized_job).await;
             }
             // what we were asked to run did not make sense
             else {
@@ -200,6 +210,20 @@ impl InitializedNode {
     async fn _schedule_reconnect(&mut self) -> Result<(), Error> {
         tokio::time::sleep(Duration::from_secs(60)).await;
         self.common.conn.reconnect().await
+    }
+}
+
+/// return a job that failed to execute (for valid reasons) back to the queue
+/// this is a broken-out function since mutable borrowing rules
+async fn return_job_to_queue(common: &mut Common, info: RunTaskInfo) {
+    let response = common.request_job_tx.send(JobRequest::DeadNode(info)).await;
+
+    match response {
+        Ok(_) => (),
+        Err(_) => {
+            error!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", common.conn.addr);
+            panic!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", common.conn.addr);
+        }
     }
 }
 
@@ -273,7 +297,7 @@ impl<'a> RunningNode<'a> {
         Some(Self { common, task_info })
     }
 
-    async fn execute_task(self) -> Result<(), LocalOrClientError> {
+    async fn execute_task(&mut self) -> Result<(), LocalOrClientError> {
         let save_path: PathBuf = self
             .task_info
             .batch_save_path(&self.common.save_path)
