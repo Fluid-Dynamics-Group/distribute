@@ -16,36 +16,11 @@ async fn main() {
 }
 
 async fn wrap_main() -> Result<(), ErrorWrap> {
-    let arguments = cli::Arguments::from_args();
+    let arguments = cli::ArgsWrapper::from_args();
 
-    fern::Dispatch::new()
-        // Perform allocation-free log formatting
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        // Add blanket level filter -
-        .level(log::LevelFilter::Debug)
-        // - and per-module overrides
-        .level_for("hyper", log::LevelFilter::Info)
-        // Output to stdout, files, and other Dispatch configurations
-        .chain(std::io::stdout())
-        .chain(
-            fern::log_file(&arguments.log_path())
-                .map_err(distribute::LogError::from)
-                .map_err(Error::from)?,
-        )
-        // Apply globally
-        .apply()
-        .map_err(distribute::LogError::from)
-        .map_err(Error::from)?;
+    setup_logs(&arguments)?;
 
-    match arguments {
+    match arguments.command {
         cli::Arguments::Client(client) => distribute::client_command(client)
             .await
             .map_err(ErrorWrap::from),
@@ -64,6 +39,48 @@ async fn wrap_main() -> Result<(), ErrorWrap> {
         cli::Arguments::Pull(pull) => distribute::pull(pull).await.map_err(ErrorWrap::from),
         cli::Arguments::Run(pull) => distribute::run_local(pull).await.map_err(ErrorWrap::from),
     }
+}
+
+fn setup_logs(args: &cli::ArgsWrapper) -> Result<(), ErrorWrap> {
+    
+    let mut logger = fern::Dispatch::new()
+        // Perform allocation-free log formatting
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "{}[{}][{}] {}",
+                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                record.target(),
+                record.level(),
+                message
+            ))
+        })
+        // Add blanket level filter -
+        .level(log::LevelFilter::Debug)
+        // - and per-module overrides
+        .level_for("hyper", log::LevelFilter::Info);
+
+
+    if args.show_logs {
+        logger = logger
+            .chain(std::io::stdout())
+    }
+
+    if args.save_log {
+        logger = logger
+            .chain(
+            fern::log_file(&args.command.log_path())
+                .map_err(distribute::LogError::from)
+                .map_err(Error::from)?,
+        )
+    }
+
+    logger
+        // Apply globally
+        .apply()
+        .map_err(distribute::LogError::from)
+        .map_err(Error::from)?;
+
+    Ok(())
 }
 
 #[derive(derive_more::From, thiserror::Error, Debug)]

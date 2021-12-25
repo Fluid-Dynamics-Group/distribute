@@ -9,19 +9,24 @@ pub const SERVER_PORT_STR: &'static str = "8952";
 pub const CLIENT_PORT: u16 = 8953;
 pub const CLIENT_PORT_STR: &'static str = "8953";
 
-//#[derive(StructOpt, PartialEq, Debug)]
-///// distribute compute jobs between multiple machines
-//pub struct Arguments {
-//    #[structopt(subcommand)]
-//    pub(crate) command: Command,
-//}
-
 #[derive(StructOpt, PartialEq, Debug)]
 #[structopt(
     name = "distribute", 
     about = "A utility for scheduling jobs on a cluster", 
     version=env!("CARGO_PKG_VERSION")
 )]
+pub struct ArgsWrapper {
+    #[structopt(long)]
+    pub save_log: bool,
+
+    #[structopt(long)]
+    pub show_logs: bool,
+
+    #[structopt(subcommand)]
+    pub command: Arguments,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
 pub enum Arguments {
     Client(Client),
     Server(Server),
