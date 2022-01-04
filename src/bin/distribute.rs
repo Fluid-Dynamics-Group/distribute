@@ -42,7 +42,6 @@ async fn wrap_main() -> Result<(), ErrorWrap> {
 }
 
 fn setup_logs(args: &cli::ArgsWrapper) -> Result<(), ErrorWrap> {
-    
     let mut logger = fern::Dispatch::new()
         // Perform allocation-free log formatting
         .format(|out, message, record| {

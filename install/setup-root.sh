@@ -20,3 +20,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable distribute-compute
 sudo systemctl start distribute-compute
 
+
+echo "setting up new user `distribute` without root access"
+sudo useradd -m distribute
+echo "setting the password for `distribute`"
+sudo passwd distribute

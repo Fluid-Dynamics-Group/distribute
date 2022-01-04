@@ -89,6 +89,12 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
     // otherwise, if the request is not for a dry run we can expect
     // the server to start sending us some files
     else {
+        if !args.save_dir.exists() {
+            std::fs::create_dir(&args.save_dir)
+                .map_err(|e| error::CreateDirError::new(e, args.save_dir.to_owned()))
+                .map_err(error::PullErrorLocal::from)?;
+        }
+
         loop {
             match conn.receive_data().await? {
                 transport::ServerResponseToUser::SendFile(file) => {

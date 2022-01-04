@@ -1,3 +1,8 @@
+# copy and paste this into bash on the `distribute` user
+# since the repo will not be cloned yet. 
+#
+# This script cannot be run by `fish`
+
 git config --global credential.helper store
 git clone https://github.com/Fluid-Dynamics-Group/matrix-notify
 git clone https://github.com/Fluid-Dynamics-Group/distribute
