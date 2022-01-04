@@ -12,6 +12,9 @@ use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn check_deallocate_jobs() {
+    if false {
+        distribute::logger();
+    }
     let server_port = 9981;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
@@ -108,3 +111,4 @@ async fn check_deallocate_jobs() {
     fs::remove_dir_all(&server_temp_dir).ok();
     fs::remove_dir_all(&client_workdir).ok();
 }
+

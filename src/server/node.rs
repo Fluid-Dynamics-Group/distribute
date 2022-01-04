@@ -187,6 +187,8 @@ impl InitializedNode {
                     }
 
                     return Err(e);
+                } else {
+                    self.mark_job_finish(ready_executable.initialized_job).await;
                 }
             }
             // what we were asked to run did not make sense
@@ -476,6 +478,8 @@ async fn complete_on_ping_failure(address: std::net::SocketAddr) -> () {
             );
             return ();
         }
+
+        tokio::time::sleep(Duration::from_secs(10)).await
     }
 }
 

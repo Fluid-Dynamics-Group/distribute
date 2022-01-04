@@ -10,7 +10,7 @@ use std::time::Duration;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn check_pull() {
     if false {
-        logger();
+        distribute::logger();
     }
 
     let server_port = 9980;
@@ -102,28 +102,4 @@ async fn check_pull() {
     fs::remove_dir_all(&save_dir).ok();
     fs::remove_dir_all(&server_path).ok();
     fs::remove_dir_all(&server_temp).ok();
-}
-
-fn logger() {
-    fern::Dispatch::new()
-        // Perform allocation-free log formatting
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        // Add blanket level filter -
-        .level(log::LevelFilter::Debug)
-        // - and per-module overrides
-        .level_for("hyper", log::LevelFilter::Info)
-        // Output to stdout, files, and other Dispatch configurations
-        .chain(std::io::stdout())
-        // Apply globally
-        .apply()
-        .map_err(distribute::LogError::from)
-        .unwrap();
 }
