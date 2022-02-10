@@ -285,6 +285,8 @@ pub enum AddError {
     NoCompatableNodes,
     #[error("Could not add the job set on the server side. This is generally a really really bad error. You should tell brooks about this.")]
     FailedToAdd,
+    #[error("There were no actual jobs specified in the configuration file")]
+    NoJobsToAdd,
 }
 
 #[derive(Debug, From, thiserror::Error)]

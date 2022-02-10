@@ -56,6 +56,19 @@ pub struct Meta {
 }
 
 impl Jobs {
+    pub fn len_jobs(&self) -> usize {
+        match &self {
+            Self::Python { meta: _, python } => {
+                python.len_jobs()
+            }
+            Self::Singularity {
+                meta: _,
+                singularity,
+            } => {
+                singularity.len_jobs()
+            }
+        }
+    }
     pub async fn load_jobs(&self) -> Result<JobOpts, error::LoadJobsError> {
         match &self {
             Self::Python { meta: _, python } => {

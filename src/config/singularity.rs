@@ -15,6 +15,10 @@ pub struct Description {
 }
 
 impl Description {
+    pub(crate) fn len_jobs(&self) -> usize {
+        self.jobs.len()
+    }
+
     pub(crate) async fn load_jobs(
         &self,
     ) -> Result<Vec<transport::SingularityJob>, error::LoadJobsError> {

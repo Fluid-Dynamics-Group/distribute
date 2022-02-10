@@ -12,6 +12,10 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     let jobs = config::load_config::<config::Jobs>(&args.jobs)?;
 
+    if jobs.len_jobs() == 0 {
+        return Err(Error::Add(error::AddError::NoJobsToAdd))
+    }
+
     debug!("loading job information from files");
     let loaded_jobs = jobs.load_jobs().await.map_err(error::ServerError::from)?;
 
