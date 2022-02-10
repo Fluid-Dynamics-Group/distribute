@@ -6,4 +6,4 @@ nodes:
   - ip: "134.197.95.127"
     capabilities: [gfortran, fftw, cargo, singularity, apptainer, lab2, lab2-3, python3, lab1-2]
   - ip: "134.197.94.179"
-    capabilities: [gcc, clang, gfortran, cargo, fftw, python3, openfoam, singularity, apptainer, lab1-3, lab2-3]
+    capabilities: [gcc, clang, gfortran, cargo, fftw, python3, openfoam, singularity, apptainer, lab1-3, lab2-3, lab3]
