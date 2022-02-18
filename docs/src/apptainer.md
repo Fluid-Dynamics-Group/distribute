@@ -143,6 +143,30 @@ assert(allowed_processors_int, 16)
 of cores, make sure you specify this in your `capabilities` section! **Do not run single threaded
 processes on the distributed computing network - they will not go faster**.
 
+Full documentation on apptainer definition files can be found on the [official site](https://apptainer.org/user-docs/master/definition_files.html). 
+If you are building an apptainer image based on nvidia HPC resources, your header would look something like this 
+([nvidia documentation](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/nvhpc)):
+
+```
+Bootstrap: docker
+From: nvcr.io/nvidia/nvhpc:22.1-devel-cuda_multi-ubuntu20.05
+```
+
+## Building Apptainer Images
+
+Compiling an apptainer definition file to a `.sif` file to run on the `distribute` compute is relatively simple (on linux). Run something like this:
+
+```
+mkdir ~/singularity
+SINGULARITY_TMPDIR="~/singularity" sudo -E singularity build your-output-file.sif build.singularity
+```
+
+where `your-output-file.sif` is the desired name of the `.sif` file that apptainer will spit out, and `build.singularity` is the 
+definition file you have built. The `SINGULARITY_TMPDIR="~/singularity"` portion of the command sets the `SINGULARITY_TMPDIR` environment
+variable to a location on disk (`~/singularity`) because singularity / apptainer can often require more memory to compile the `sif` file
+than what is available on your computer (yes, more than your 64 GB). Since `singularity build` requires root privileges, it must be run with `sudo`. The additional
+`-E` passed to `sudo` copies the environment variables from the host shell (which is needed for `SINGULARITY_TMPDIR`)
+
 ## Binding Volumes (Mutable Filesystems)
 
 In order for your compute job to do meaningful work, you will likely save some files. But we know that 
