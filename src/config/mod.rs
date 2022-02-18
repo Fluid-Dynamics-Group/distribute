@@ -125,6 +125,13 @@ impl Jobs {
             Self::Singularity { meta, .. } => meta.namespace.clone(),
         }
     }
+
+    /// write the config file to a provided `Write`r
+    pub fn to_writer<W: std::io::Write>(&self, writer: W) -> Result<(), serde_yaml::Error> {
+        serde_yaml::to_writer(writer, &self)?;
+        
+        Ok(())
+    }
 }
 
 pub trait NormalizePaths {
