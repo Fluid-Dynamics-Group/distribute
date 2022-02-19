@@ -1,12 +1,9 @@
-#![allow(unused_imports)]
-
 use distribute::cli;
 use distribute::Error;
 
 use structopt::StructOpt;
 
-#[macro_use]
-extern crate log;
+use log;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {

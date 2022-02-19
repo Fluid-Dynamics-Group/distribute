@@ -1,6 +1,6 @@
 use crate::{
-    cli, config,
-    error::{self, Error},
+    cli,
+    error::{Error},
     transport,
 };
 

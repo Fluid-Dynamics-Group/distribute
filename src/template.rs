@@ -2,7 +2,7 @@ use super::cli;
 use super::cli::Template;
 use crate::config::{self, common, python, singularity};
 use crate::error::{Error, TemplateError};
-use std::path::PathBuf;
+
 
 pub fn template(args: Template) -> Result<(), Error> {
     let out = to_template(args.mode)?;

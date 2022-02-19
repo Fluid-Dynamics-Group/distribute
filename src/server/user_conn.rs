@@ -10,7 +10,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::JobRequest;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
-use std::io;
+
 use walkdir::{DirEntry, WalkDir};
 
 /// handle incomming requests from the user over CLI on any node

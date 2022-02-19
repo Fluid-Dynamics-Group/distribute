@@ -1,13 +1,12 @@
 mod unix;
-use std::marker::PhantomData;
+
 
 use crate::{
     cli,
     error::{self, Error, PauseError},
-    transport,
 };
 
-use std::net::{Ipv4Addr, SocketAddr};
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};

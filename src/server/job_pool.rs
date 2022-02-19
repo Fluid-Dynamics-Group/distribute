@@ -1,6 +1,6 @@
 use super::schedule::{JobIdentifier, Schedule};
 
-use super::pool_data::{CancelResult, JobOrInit, JobRequest, JobResponse};
+use super::pool_data::{CancelResult, JobRequest, JobResponse};
 
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;

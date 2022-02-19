@@ -3,7 +3,7 @@ use super::schedule::JobIdentifier;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
 use super::pool_data::{
-    BuildTaskInfo, BuildTaskRunTask, JobRequest, JobResponse, NewJobRequest, RunTaskInfo, TaskInfo,
+    BuildTaskInfo, BuildTaskRunTask, JobRequest, JobResponse, NewJobRequest, RunTaskInfo,
 };
 use crate::{error, error::Error, transport};
 

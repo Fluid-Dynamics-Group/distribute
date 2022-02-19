@@ -1,12 +1,12 @@
 use crate::cli;
 use crate::client;
 use crate::config;
-use crate::error::{self, Error, RunErrorLocal};
-use crate::server;
+use crate::error::{RunErrorLocal};
+
 use crate::transport;
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
     create_required_dirs(&args).await?;
