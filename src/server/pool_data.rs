@@ -1,8 +1,8 @@
 use super::ok_if_exists;
 use super::schedule::JobIdentifier;
-use crate::config::requirements::{NodeProvidedCaps, Requirements};
 use super::storage;
 use crate::config;
+use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
 use std::collections::BTreeSet;
 

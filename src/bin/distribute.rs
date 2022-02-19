@@ -58,15 +58,12 @@ fn setup_logs(args: &cli::ArgsWrapper) -> Result<(), ErrorWrap> {
         // - and per-module overrides
         .level_for("hyper", log::LevelFilter::Info);
 
-
     if args.show_logs {
-        logger = logger
-            .chain(std::io::stdout())
+        logger = logger.chain(std::io::stdout())
     }
 
     if args.save_log {
-        logger = logger
-            .chain(
+        logger = logger.chain(
             fern::log_file(&args.command.log_path())
                 .map_err(distribute::LogError::from)
                 .map_err(Error::from)?,

@@ -480,7 +480,6 @@ impl JobSet {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RemainingJobs {
     pub batch_name: String,

@@ -6,9 +6,9 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use {
+    bincode::config::Options,
     tokio::io::{AsyncReadExt, AsyncWriteExt},
     tokio::net::TcpStream,
-    bincode::config::Options,
 };
 
 use crate::config::{self, requirements};

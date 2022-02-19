@@ -1,16 +1,16 @@
 use super::NormalizePaths;
 use derive_more::Constructor;
 
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use super::LoadJobsError;
 use super::ReadBytesError;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
-#[cfg(feature="cli")]
+#[cfg(feature = "cli")]
 use super::common::load_from_file;
 use super::common::File;
 
-#[cfg(feature="cli")]
+#[cfg(feature = "cli")]
 use crate::transport;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
@@ -19,15 +19,13 @@ pub struct Description {
     pub jobs: Vec<Job>,
 }
 
-#[cfg(feature="cli")]
+#[cfg(feature = "cli")]
 impl Description {
     pub(crate) fn len_jobs(&self) -> usize {
         self.jobs.len()
     }
 
-    pub(crate) async fn load_jobs(
-        &self,
-    ) -> Result<Vec<transport::SingularityJob>, LoadJobsError> {
+    pub(crate) async fn load_jobs(&self) -> Result<Vec<transport::SingularityJob>, LoadJobsError> {
         let mut out = Vec::with_capacity(self.jobs.len());
 
         for job in &self.jobs {

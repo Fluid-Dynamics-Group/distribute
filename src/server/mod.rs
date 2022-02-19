@@ -12,8 +12,8 @@ use node::{Common, InitializedNode};
 use pool_data::JobRequest;
 
 pub use pool_data::CancelResult;
-pub(crate) use storage::{JobOpt, OwnedJobSet};
 pub(crate) use schedule::RemainingJobs;
+pub(crate) use storage::{JobOpt, OwnedJobSet};
 
 use crate::{cli, config, error, error::Error, status};
 

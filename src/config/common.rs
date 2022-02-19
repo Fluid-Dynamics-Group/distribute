@@ -1,11 +1,11 @@
 use super::LoadJobsError;
-use super::ReadBytesError;
 use super::MissingFileNameError;
+use super::ReadBytesError;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[cfg(feature="cli")]
+#[cfg(feature = "cli")]
 use crate::transport;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -37,16 +37,14 @@ impl File {
     }
 }
 
-#[cfg(feature="cli")]
-pub(crate) async fn load_from_file(
-    files: &[File],
-) -> Result<Vec<transport::File>, LoadJobsError> {
+#[cfg(feature = "cli")]
+pub(crate) async fn load_from_file(files: &[File]) -> Result<Vec<transport::File>, LoadJobsError> {
     let mut job_files = vec![];
 
     for file in files.iter() {
-        let file_bytes = tokio::fs::read(&file.path).await.map_err(|e| {
-            LoadJobsError::from(ReadBytesError::new(e, file.path.clone()))
-        })?;
+        let file_bytes = tokio::fs::read(&file.path)
+            .await
+            .map_err(|e| LoadJobsError::from(ReadBytesError::new(e, file.path.clone())))?;
 
         let file_name = file.filename()?;
 

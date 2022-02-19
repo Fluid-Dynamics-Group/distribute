@@ -323,7 +323,11 @@ async fn pull_files(
                 transport::SendFile::new(relative_path, false, vec![])
             } else {
                 if let Ok(bytes) = std::fs::read(&abs_path) {
-                    debug!("size of buffer after reading file {} capacity: {}", bytes.len(), bytes.capacity());
+                    debug!(
+                        "size of buffer after reading file {} capacity: {}",
+                        bytes.len(),
+                        bytes.capacity()
+                    );
                     transport::SendFile::new(relative_path, true, bytes)
                 } else {
                     // send an error message for this file

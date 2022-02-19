@@ -1,7 +1,7 @@
+use crate::config;
 use derive_more::{Constructor, Display, From, Unwrap};
 use std::io;
 use std::path::PathBuf;
-use crate::config;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -167,7 +167,6 @@ pub struct JobsConfigError {
     configuration_error: config::ConfigurationError,
     path: String,
 }
-
 
 #[derive(Debug, Display, From, thiserror::Error)]
 #[display(fmt = "Could not map ip address {} to a SocketAddr", ip)]
