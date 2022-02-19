@@ -366,6 +366,7 @@ pub(crate) async fn run_singularity_job(
     let command = tokio::process::Command::new("singularity")
         .args(&[
             "run",
+            "--nv",
             "--app",
             "distribute",
             "--bind",
