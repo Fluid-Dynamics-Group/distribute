@@ -1,12 +1,17 @@
 use super::NormalizePaths;
-use crate::error;
-use crate::transport;
 use derive_more::Constructor;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use super::LoadJobsError;
+use super::ReadBytesError;
 
-use super::common::{load_from_file, File};
+#[cfg(feature="cli")]
+use super::common::load_from_file;
+use super::common::File;
+
+#[cfg(feature="cli")]
+use crate::transport;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 pub struct Description {
@@ -14,6 +19,7 @@ pub struct Description {
     pub jobs: Vec<Job>,
 }
 
+#[cfg(feature="cli")]
 impl Description {
     pub(crate) fn len_jobs(&self) -> usize {
         self.jobs.len()
@@ -21,7 +27,7 @@ impl Description {
 
     pub(crate) async fn load_jobs(
         &self,
-    ) -> Result<Vec<transport::SingularityJob>, error::LoadJobsError> {
+    ) -> Result<Vec<transport::SingularityJob>, LoadJobsError> {
         let mut out = Vec::with_capacity(self.jobs.len());
 
         for job in &self.jobs {
@@ -40,10 +46,10 @@ impl Description {
     pub(crate) async fn load_build(
         &self,
         batch_name: String,
-    ) -> Result<transport::SingularityJobInit, error::LoadJobsError> {
+    ) -> Result<transport::SingularityJobInit, LoadJobsError> {
         let sif_bytes = tokio::fs::read(&self.initialize.sif)
             .await
-            .map_err(|e| error::ReadBytesError::new(e, self.initialize.sif.clone()))?;
+            .map_err(|e| ReadBytesError::new(e, self.initialize.sif.clone()))?;
 
         let build_files = load_from_file(&self.initialize.required_files).await?;
 

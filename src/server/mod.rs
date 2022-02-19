@@ -1,25 +1,26 @@
 mod job_pool;
 mod matrix;
 mod node;
+mod user_conn;
+
 mod pool_data;
 mod schedule;
 mod storage;
-mod user_conn;
 
 use job_pool::JobPool;
 use node::{Common, InitializedNode};
 use pool_data::JobRequest;
 
-pub use schedule::{JobRequiredCaps, Requirement, Requirements};
-pub use schedule::{NodeProvidedCaps, RemainingJobs};
-
 pub use pool_data::CancelResult;
 pub(crate) use storage::{JobOpt, OwnedJobSet};
+pub(crate) use schedule::RemainingJobs;
 
 use crate::{cli, config, error, error::Error, status};
 
+#[cfg(feature = "cli")]
 use tokio::sync::{broadcast, mpsc};
 
+#[cfg(feature = "cli")]
 pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     debug!("starting server");
 
@@ -109,6 +110,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     Ok(())
 }
 
+#[cfg(feature = "cli")]
 pub(crate) fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io::Error> {
     match x {
         Ok(_) => Ok(()),

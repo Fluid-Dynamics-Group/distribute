@@ -1,12 +1,17 @@
 use super::NormalizePaths;
-use crate::error::{self};
-use crate::transport;
 use derive_more::Constructor;
+use super::LoadJobsError;
+use super::ReadBytesError;
+
+#[cfg(feature="cli")]
+use crate::transport;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use super::common::{load_from_file, File};
+#[cfg(feature="cli")]
+use super::common::load_from_file;
+use super::common::File;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 pub struct Description {
@@ -14,6 +19,7 @@ pub struct Description {
     jobs: Vec<Job>,
 }
 
+#[cfg(feature="cli")]
 impl Description {
     pub(crate) fn len_jobs(&self) -> usize {
         self.jobs.len()
@@ -21,12 +27,12 @@ impl Description {
 
     pub(crate) async fn load_jobs(
         &self,
-    ) -> Result<Vec<transport::PythonJob>, error::LoadJobsError> {
+    ) -> Result<Vec<transport::PythonJob>, LoadJobsError> {
         let mut out = Vec::with_capacity(self.jobs.len());
 
         for job in &self.jobs {
             let bytes = tokio::fs::read(&job.python_job_file).await.map_err(|e| {
-                error::LoadJobsError::from(error::ReadBytesError::new(
+                LoadJobsError::from(ReadBytesError::new(
                     e,
                     job.python_job_file.clone(),
                 ))
@@ -48,11 +54,11 @@ impl Description {
     pub(crate) async fn load_build(
         &self,
         batch_name: String,
-    ) -> Result<transport::PythonJobInit, error::LoadJobsError> {
+    ) -> Result<transport::PythonJobInit, LoadJobsError> {
         let bytes = tokio::fs::read(&self.initialize.python_build_file_path)
             .await
             .map_err(|e| {
-                error::ReadBytesError::new(e, self.initialize.python_build_file_path.clone())
+                ReadBytesError::new(e, self.initialize.python_build_file_path.clone())
             })?;
 
         let additional_build_files = load_from_file(&self.initialize.required_files).await?;

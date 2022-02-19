@@ -1,11 +1,12 @@
 use derive_more::{Constructor, Display, From, Unwrap};
 use std::io;
 use std::path::PathBuf;
+use crate::config;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Could not load configuration file. {0}")]
-    InvalidConfiguration(#[from] ConfigurationError),
+    InvalidConfiguration(#[from] config::ConfigurationError),
     #[error("{0}")]
     TcpConnection(#[from] TcpConnection),
     #[error("{0}")]
@@ -40,24 +41,6 @@ pub enum Error {
     UnexpectedResponse(#[from] UnexpectedResponse),
     #[error("{0}")]
     Timeout(#[from] TimeoutError),
-}
-
-#[derive(Debug, Display, thiserror::Error, From)]
-#[display(
-    fmt = "configuration file: `{}` reason: `{}`",
-    "configuration_file",
-    "error"
-)]
-pub struct ConfigurationError {
-    configuration_file: String,
-    error: ConfigErrorReason,
-}
-
-#[derive(Debug, Display, From)]
-pub enum ConfigErrorReason {
-    #[display(fmt = "deserialization error: {}", _0)]
-    Deserialization(serde_yaml::Error),
-    MissingFile(std::io::Error),
 }
 
 #[derive(Debug, From, thiserror::Error, Unwrap)]
@@ -152,7 +135,7 @@ pub enum ServerError {
     #[error("error: One node failed to respond correctly. The server will not start")]
     MissingNode,
     #[error("{0}")]
-    LoadJobs(LoadJobsError),
+    LoadJobs(config::LoadJobsError),
     #[error("{0}")]
     ParseIp(ParseIpError),
     #[error("{0}")]
@@ -170,7 +153,7 @@ pub enum ServerError {
     path
 )]
 pub struct NodesConfigError {
-    configuration_error: ConfigurationError,
+    configuration_error: config::ConfigurationError,
     path: String,
 }
 
@@ -181,36 +164,10 @@ pub struct NodesConfigError {
     path
 )]
 pub struct JobsConfigError {
-    configuration_error: ConfigurationError,
+    configuration_error: config::ConfigurationError,
     path: String,
 }
 
-#[derive(Debug, From, thiserror::Error)]
-pub enum LoadJobsError {
-    #[error("{0}")]
-    ReadBytes(ReadBytesError),
-    #[error("{0}")]
-    MissingFileName(MissingFileNameError),
-}
-
-#[derive(Debug, Display, From, thiserror::Error, Constructor)]
-#[display(
-    fmt = "Error loading configuration for jobs (`{}`): {:?} ",
-    error,
-    path
-)]
-/// error that happens when loading the bytes of a job file from path
-pub struct ReadBytesError {
-    error: std::io::Error,
-    path: std::path::PathBuf,
-}
-
-#[derive(Debug, Display, From, thiserror::Error)]
-#[display(fmt = "Error loading configuration for jobs {:?} ", path)]
-/// happens when a file path does not contain a filename
-pub struct MissingFileNameError {
-    path: PathBuf,
-}
 
 #[derive(Debug, Display, From, thiserror::Error)]
 #[display(fmt = "Could not map ip address {} to a SocketAddr", ip)]
@@ -354,7 +311,7 @@ pub enum PullError {
 #[derive(Debug, From, thiserror::Error)]
 pub enum PullErrorLocal {
     #[error("Error with configuration file: {0}")]
-    Config(ConfigurationError),
+    Config(config::ConfigurationError),
     #[error("{0}")]
     Regex(RegexError),
     #[error("Unexpected resposne from the server")]
@@ -375,7 +332,7 @@ pub struct RegexError {
 #[derive(Debug, From, thiserror::Error)]
 pub enum RunErrorLocal {
     #[error("Error with configuration file: {0}")]
-    Config(ConfigurationError),
+    Config(config::ConfigurationError),
     #[error("Unexpected resposne from the server")]
     UnexpectedResponse,
     #[error("{0}")]
@@ -389,7 +346,7 @@ pub enum RunErrorLocal {
     #[error("A python configuration was specified, but run-local only supports singularity configurations")]
     OnlyApptainer,
     #[error("{0}")]
-    LoadJobs(LoadJobsError),
+    LoadJobs(config::LoadJobsError),
     #[error("{0}")]
     GeneralError(Error),
 }

@@ -1,7 +1,7 @@
 use super::pool_data::{JobOrInit, JobResponse, TaskInfo};
 use super::storage::{self, StoredJob, StoredJobInit};
 
-use crate::config;
+use crate::config::{self, requirements};
 use crate::error::{self, ScheduleError};
 
 use derive_more::{Constructor, Display, From};
@@ -18,7 +18,7 @@ pub(crate) trait Schedule {
     fn fetch_new_task(
         &mut self,
         current_compiled_job: JobIdentifier,
-        node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        node_caps: Arc<requirements::Requirements<requirements::NodeProvidedCaps>>,
         build_failures: &BTreeSet<JobIdentifier>,
     ) -> JobResponse;
 
@@ -70,7 +70,7 @@ impl GpuPriority {
     /// therefore, this function only returns a job initialization task or empty jobs
     fn take_first_job(
         &mut self,
-        node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        node_caps: Arc<requirements::Requirements<requirements::NodeProvidedCaps>>,
         build_failures: &BTreeSet<JobIdentifier>,
     ) -> JobResponse {
         if let Some((ident, job_set)) = self
@@ -142,7 +142,7 @@ impl Schedule for GpuPriority {
     fn fetch_new_task(
         &mut self,
         current_compiled_job: JobIdentifier,
-        node_caps: Arc<Requirements<NodeProvidedCaps>>,
+        node_caps: Arc<requirements::Requirements<requirements::NodeProvidedCaps>>,
         build_failures: &BTreeSet<JobIdentifier>,
     ) -> JobResponse {
         // go through our entire job set and see if there is a gpu job
@@ -346,7 +346,7 @@ impl Schedule for GpuPriority {
 #[derive(Constructor, Debug)]
 pub(crate) struct JobSet {
     build: StoredJobInit,
-    requirements: Requirements<JobRequiredCaps>,
+    requirements: requirements::Requirements<requirements::JobRequiredCaps>,
     remaining_jobs: Vec<StoredJob>,
     currently_running_jobs: usize,
     pub(crate) batch_name: String,
@@ -480,71 +480,12 @@ impl JobSet {
     }
 }
 
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RemainingJobs {
     pub batch_name: String,
     pub jobs_left: Vec<String>,
     pub running_jobs: usize,
-}
-
-#[derive(From, Debug, Clone, Deserialize, Serialize)]
-#[serde(transparent)]
-pub struct Requirements<T> {
-    reqs: BTreeSet<Requirement>,
-    #[serde(skip)]
-    marker: std::marker::PhantomData<T>,
-}
-
-impl Requirements<NodeProvidedCaps> {
-    pub(crate) fn can_accept_job(&self, job_reqs: &Requirements<JobRequiredCaps>) -> bool {
-        self.reqs.is_superset(&job_reqs.reqs)
-    }
-}
-
-impl<T> FromIterator<Requirement> for Requirements<T> {
-    fn from_iter<V>(iter: V) -> Self
-    where
-        V: IntoIterator<Item = Requirement>,
-    {
-        Requirements {
-            reqs: iter.into_iter().collect(),
-            marker: std::marker::PhantomData::<T>,
-        }
-    }
-}
-
-impl Requirements<JobRequiredCaps> {
-    fn requires_gpu(&self) -> bool {
-        // TODO: can probably make Requirement<T> and work with
-        // generics to remove this heap allocation
-        self.reqs.contains(&Requirement("gpu".to_string()))
-    }
-}
-
-impl<T> fmt::Display for Requirements<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let formatted = self
-            .reqs
-            .iter()
-            .map(|x| format!("{}, ", x))
-            .collect::<String>();
-        write!(f, "{}", formatted)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct NodeProvidedCaps;
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct JobRequiredCaps;
-
-#[derive(From, Ord, Eq, PartialEq, PartialOrd, Debug, Clone, Deserialize, Serialize, Display)]
-pub struct Requirement(String);
-
-impl From<&str> for Requirement {
-    fn from(x: &str) -> Self {
-        Requirement(x.to_string())
-    }
 }
 
 #[cfg(test)]

@@ -8,7 +8,8 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
 
-use super::{JobRequest, NodeProvidedCaps, Requirements};
+use super::JobRequest;
+use crate::config::requirements::{NodeProvidedCaps, Requirements};
 use std::io;
 use walkdir::{DirEntry, WalkDir};
 

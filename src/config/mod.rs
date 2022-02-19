@@ -1,14 +1,67 @@
 pub mod common;
 pub mod python;
 pub mod singularity;
+pub mod requirements;
 
-use crate::error::{self, ConfigErrorReason, ConfigurationError};
-use crate::{server, transport};
-use derive_more::{Display, Unwrap};
+#[cfg(feature = "cli")]
+use crate::transport;
+
+use derive_more::{Display, Unwrap, From, Constructor};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
+
+#[allow(dead_code)]
+pub const SERVER_PORT: u16 = 8952;
+pub const SERVER_PORT_STR: &'static str = "8952";
+pub const CLIENT_PORT: u16 = 8953;
+pub const CLIENT_PORT_STR: &'static str = "8953";
+
+#[derive(Debug, Display, thiserror::Error, From)]
+#[display(
+    fmt = "configuration file: `{}` reason: `{}`",
+    "configuration_file",
+    "error"
+)]
+pub struct ConfigurationError {
+    configuration_file: String,
+    error: ConfigErrorReason,
+}
+
+#[derive(Debug, Display, From)]
+pub enum ConfigErrorReason {
+    #[display(fmt = "deserialization error: {}", _0)]
+    Deserialization(serde_yaml::Error),
+    MissingFile(std::io::Error),
+}
+
+#[derive(Debug, From, thiserror::Error)]
+pub enum LoadJobsError {
+    #[error("{0}")]
+    ReadBytes(ReadBytesError),
+    #[error("{0}")]
+    MissingFileName(MissingFileNameError),
+}
+
+#[derive(Debug, Display, From, thiserror::Error)]
+#[display(fmt = "Error loading configuration for jobs {:?} ", path)]
+/// happens when a file path does not contain a filename
+pub struct MissingFileNameError {
+    path: PathBuf,
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
+    fmt = "Error loading configuration for jobs (`{}`): {:?} ",
+    error,
+    path
+)]
+/// error that happens when loading the bytes of a job file from path
+pub struct ReadBytesError {
+    error: std::io::Error,
+    path: std::path::PathBuf,
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Nodes {
@@ -21,11 +74,11 @@ pub struct Node {
     pub(crate) ip: std::net::IpAddr,
     #[serde(default = "default_client_port")]
     pub(crate) port: u16,
-    pub(crate) capabilities: server::Requirements<server::NodeProvidedCaps>,
+    pub(crate) capabilities: requirements::Requirements<requirements::NodeProvidedCaps>,
 }
 
 fn default_client_port() -> u16 {
-    crate::cli::CLIENT_PORT
+    CLIENT_PORT
 }
 
 impl Node {
@@ -52,9 +105,10 @@ pub struct Meta {
     pub batch_name: String,
     pub namespace: String,
     pub matrix: Option<matrix_notify::UserId>,
-    pub capabilities: server::Requirements<server::JobRequiredCaps>,
+    pub capabilities: requirements::Requirements<requirements::JobRequiredCaps>,
 }
 
+#[cfg(feature = "cli")]
 impl Jobs {
     pub fn len_jobs(&self) -> usize {
         match &self {
@@ -69,7 +123,7 @@ impl Jobs {
             }
         }
     }
-    pub async fn load_jobs(&self) -> Result<JobOpts, error::LoadJobsError> {
+    pub async fn load_jobs(&self) -> Result<JobOpts, LoadJobsError> {
         match &self {
             Self::Python { meta: _, python } => {
                 let py_jobs = python.load_jobs().await?;
@@ -85,7 +139,7 @@ impl Jobs {
         }
     }
 
-    pub async fn load_build(&self) -> Result<BuildOpts, error::LoadJobsError> {
+    pub async fn load_build(&self) -> Result<BuildOpts, LoadJobsError> {
         match &self {
             Self::Python { meta, python } => {
                 let py_build = python.load_build(meta.batch_name.clone()).await?;
@@ -98,7 +152,7 @@ impl Jobs {
         }
     }
 
-    pub(crate) fn capabilities(&self) -> &server::Requirements<server::JobRequiredCaps> {
+    pub(crate) fn capabilities(&self) -> &requirements::Requirements<requirements::JobRequiredCaps> {
         match &self {
             Self::Python { meta, .. } => &meta.capabilities,
             Self::Singularity { meta, .. } => &meta.capabilities,
@@ -126,6 +180,9 @@ impl Jobs {
         }
     }
 
+}
+
+impl Jobs {
     /// write the config file to a provided `Write`r
     pub fn to_writer<W: std::io::Write>(&self, writer: W) -> Result<(), serde_yaml::Error> {
         serde_yaml::to_writer(writer, &self)?;
@@ -160,17 +217,20 @@ impl NormalizePaths for Nodes {
 }
 
 #[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, Unwrap)]
+#[cfg(feature = "cli")]
 pub enum JobOpts {
     Python(Vec<transport::PythonJob>),
     Singularity(Vec<transport::SingularityJob>),
 }
 
 #[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[cfg(feature = "cli")]
 pub enum BuildOpts {
     Python(transport::PythonJobInit),
     Singularity(transport::SingularityJobInit),
 }
 
+#[cfg(feature = "cli")]
 impl BuildOpts {
     pub(crate) fn batch_name(&self) -> &str {
         match &self {

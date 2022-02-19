@@ -1,5 +1,6 @@
 use super::ok_if_exists;
-use super::schedule::{JobIdentifier, NodeProvidedCaps, Requirements};
+use super::schedule::JobIdentifier; 
+use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
 use super::pool_data::{
     BuildTaskInfo, BuildTaskRunTask, JobRequest, JobResponse, NewJobRequest, RunTaskInfo, TaskInfo,

@@ -5,14 +5,16 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use {
+    tokio::io::{AsyncReadExt, AsyncWriteExt},
+    tokio::net::TcpStream,
+    bincode::config::Options,
+};
 
-use crate::config;
+use crate::config::{self, requirements};
 use crate::error;
 use crate::error::Error;
 use crate::server;
-use bincode::config::Options;
 
 #[derive(
     Deserialize, Serialize, Debug, Clone, PartialEq, derive_more::From, derive_more::Unwrap,
@@ -99,7 +101,7 @@ pub enum ServerResponseToUser {
     #[display(fmt = "job set failed to add")]
     JobSetAddedFailed,
     #[display(fmt = "capabilities")]
-    Capabilities(Vec<server::Requirements<server::NodeProvidedCaps>>),
+    Capabilities(Vec<requirements::Requirements<requirements::NodeProvidedCaps>>),
     #[display(fmt = "job names")]
     JobNames(Vec<server::RemainingJobs>),
     #[display(fmt = "job names failed to query")]

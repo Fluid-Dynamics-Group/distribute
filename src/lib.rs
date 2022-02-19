@@ -1,42 +1,57 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
-mod add;
-pub mod cli;
-mod client;
 mod config;
-mod error;
-mod kill;
-mod pause;
-mod pull;
-mod run_local;
-mod server;
-mod status;
-mod template;
-mod transport;
 
-pub use error::Error;
-pub use error::LogError;
-pub use error::RunErrorLocal;
+#[cfg(feature="cli")]
+mod error;
+#[cfg(feature="cli")]
+mod server;
+#[cfg(feature="cli")]
+mod transport;
+#[cfg(feature="cli")]
+mod add;
+#[cfg(feature="cli")]
+pub mod cli;
+#[cfg(feature="cli")]
+mod client;
+#[cfg(feature="cli")]
+mod kill;
+#[cfg(feature="cli")]
+mod pause;
+#[cfg(feature="cli")]
+mod pull;
+#[cfg(feature="cli")]
+mod run_local;
+#[cfg(feature="cli")]
+mod status;
+#[cfg(feature="cli")]
+mod template;
+
+#[cfg(feature="cli")]
+pub use error::{Error, LogError, RunErrorLocal};
 
 #[macro_use]
+#[cfg(feature="cli")]
 extern crate log;
 
 pub use config::*;
-pub use server::*;
 pub use serde_yaml;
 pub use matrix_notify::UserId;
 
-pub use add::add;
-pub use client::client_command;
-pub use kill::kill;
-pub use pause::pause;
-pub use pull::pull;
-pub use run_local::run_local;
-pub use server::server_command;
-pub use status::get_current_jobs;
-pub use status::status_command;
-pub use template::template;
+#[cfg(feature="cli")]
+pub use {
+    add::add,
+    client::client_command,
+    kill::kill,
+    pause::pause,
+    pull::pull,
+    run_local::run_local,
+    server::server_command,
+    status::get_current_jobs,
+    status::status_command,
+    template::template,
+};
 
 #[cfg(test)]
 mod reexports {
@@ -56,6 +71,7 @@ mod reexports {
 }
 
 // helper function to setup logging in some integration tests
+#[cfg(feature="cli")]
 pub fn logger() {
     fern::Dispatch::new()
         // Perform allocation-free log formatting

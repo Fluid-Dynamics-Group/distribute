@@ -3,11 +3,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-#[allow(dead_code)]
-pub const SERVER_PORT: u16 = 8952;
-pub const SERVER_PORT_STR: &'static str = "8952";
-pub const CLIENT_PORT: u16 = 8953;
-pub const CLIENT_PORT_STR: &'static str = "8953";
+use crate::config::{SERVER_PORT, SERVER_PORT_STR, CLIENT_PORT, CLIENT_PORT_STR };
 
 #[derive(StructOpt, PartialEq, Debug)]
 #[structopt(

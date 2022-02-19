@@ -3,8 +3,6 @@ use crate::transport;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::{JobRequiredCaps, Requirements};
-
 use crate::config;
 use derive_more::{Constructor, From};
 use serde::{Deserialize, Serialize};
@@ -391,7 +389,7 @@ fn load_files(files: &[LazyFile], delete: bool) -> Result<Vec<transport::File>, 
 #[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
 pub struct OwnedJobSet {
     pub(crate) build: config::BuildOpts,
-    pub(crate) requirements: Requirements<JobRequiredCaps>,
+    pub(crate) requirements: config::requirements::Requirements<config::requirements::JobRequiredCaps>,
     pub(crate) remaining_jobs: config::JobOpts,
     pub(crate) currently_running_jobs: usize,
     pub(crate) batch_name: String,
