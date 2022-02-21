@@ -9,8 +9,6 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet};
 
-
-
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -490,6 +488,7 @@ pub struct RemainingJobs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::requirements::Requirements;
     use crate::server::storage::OwnedJobSet;
     use crate::transport;
 

@@ -1,14 +1,14 @@
 use derive_more::{Display, From};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet};
+use std::collections::BTreeSet;
 use std::fmt;
 
 #[derive(From, Debug, Clone, Deserialize, Serialize)]
 #[serde(transparent)]
 pub struct Requirements<T> {
-    reqs: BTreeSet<Requirement>,
+    pub(crate) reqs: BTreeSet<Requirement>,
     #[serde(skip)]
-    marker: std::marker::PhantomData<T>,
+    pub(crate) marker: std::marker::PhantomData<T>,
 }
 
 impl Requirements<NodeProvidedCaps> {

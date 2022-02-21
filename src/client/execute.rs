@@ -6,7 +6,6 @@ use tokio::io::AsyncWriteExt;
 
 use tokio::sync::broadcast;
 
-
 use std::path::{Path, PathBuf};
 
 pub(crate) struct BindingFolderState {
@@ -363,24 +362,27 @@ pub(crate) async fn run_singularity_job(
 
     info!("binding argument for singularity job is {}", bind_arg);
 
-    let command = tokio::process::Command::new("singularity")
-        .args(&[
-            "run",
-            "--nv",
-            "--app",
-            "distribute",
-            "--bind",
-            &bind_arg,
-            &singularity_path,
-            &num_cpus::get_physical().to_string(),
-        ])
-        .output();
+    let mut command = tokio::process::Command::new("singularity");
+    command.args(&[
+        "run",
+        "--nv",
+        "--app",
+        "distribute",
+        "--bind",
+        &bind_arg,
+        &singularity_path,
+        &num_cpus::get_physical().to_string(),
+    ]);
+
+    debug!("command to be run: {:?}", command);
+
+    let command_output = command.output();
 
     let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
 
     command_with_cancellation(
         None,
-        command,
+        command_output,
         output_file_path,
         &job.job_name,
         false,

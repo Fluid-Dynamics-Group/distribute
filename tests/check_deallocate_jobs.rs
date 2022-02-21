@@ -3,7 +3,6 @@ use distribute::cli::Client;
 use distribute::cli::Server;
 use distribute::cli::Status;
 
-
 use std::fs;
 use std::net::IpAddr;
 use std::path::PathBuf;

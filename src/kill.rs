@@ -1,8 +1,4 @@
-use crate::{
-    cli,
-    error::{Error},
-    transport,
-};
+use crate::{cli, error::Error, transport};
 
 use std::net::SocketAddr;
 

@@ -1,11 +1,9 @@
 mod unix;
 
-
 use crate::{
     cli,
     error::{self, Error, PauseError},
 };
-
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;

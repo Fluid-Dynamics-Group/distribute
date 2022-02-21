@@ -3,7 +3,6 @@ use super::cli::Template;
 use crate::config::{self, common, python, singularity};
 use crate::error::{Error, TemplateError};
 
-
 pub fn template(args: Template) -> Result<(), Error> {
     let out = to_template(args.mode)?;
 
