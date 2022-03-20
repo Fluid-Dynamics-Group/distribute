@@ -98,7 +98,7 @@ pub(super) async fn general_request(
 
             let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
 
-            let paths = utils::read_save_folder(&base_path).await;
+            let paths = utils::read_save_folder(&base_path);
 
             PrerequisiteOperations::SendFiles { paths, after }
         }
@@ -107,7 +107,7 @@ pub(super) async fn general_request(
 
             if let Some(_) = run_python_job(job, base_path, cancel).await? {
                 let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths = utils::read_save_folder(base_path).await;
+                let paths = utils::read_save_folder(base_path);
                 PrerequisiteOperations::SendFiles { paths, after }
             } else {
                 // we cancelled this job early - dont send any files
@@ -126,14 +126,14 @@ pub(super) async fn general_request(
 
             let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
 
-            let paths = utils::read_save_folder(&base_path).await;
+            let paths = utils::read_save_folder(&base_path);
 
             PrerequisiteOperations::SendFiles { paths, after }
         }
         transport::RequestFromServer::RunSingularityJob(job) => {
             if let Some(_) = run_singularity_job(job, base_path, cancel, folder_state).await? {
                 let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths = utils::read_save_folder(&base_path).await;
+                let paths = utils::read_save_folder(&base_path);
 
                 PrerequisiteOperations::SendFiles { paths, after }
             } else {
@@ -166,15 +166,15 @@ pub(crate) struct FileMetadata {
 }
 
 impl FileMetadata {
-    pub(super) fn into_send_file(self) -> Result<transport::SendFile, Error> {
+    pub(crate) fn into_send_file(self) -> Result<transport::SendFile, error::ReadBytes> {
         let Self { file_path, is_file } = self;
 
         // if its a file read the bytes, otherwise skip it
         let bytes = if is_file {
-            std::fs::read(&file_path).map_err(|e| error::RunJobError::ReadBytes {
-                path: file_path.to_owned(),
-                full_error: e,
-            })?
+            std::fs::read(&file_path).map_err(|e| error::ReadBytes::new(
+                e,
+                file_path.to_owned(),
+            ))?
         } else {
             vec![]
         };
@@ -219,7 +219,7 @@ pub(crate) async fn run_python_job(
     // reset the input files directory
     utils::clear_input_files(base_path)
         .await
-        .map_err(|e| error::CreateDirError::new(e, base_path.to_owned()))
+        .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
         .map_err(|e| error::RunJobError::CreateDir(e))?;
 
     // write all of _our_ job files to the output directory
@@ -345,7 +345,7 @@ pub(crate) async fn run_singularity_job(
     // reset the input files directory
     utils::clear_input_files(base_path)
         .await
-        .map_err(|e| error::CreateDirError::new(e, base_path.to_owned()))
+        .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
         .map_err(|e| error::RunJobError::CreateDir(e))?;
 
     // copy all the files for this job to the directory

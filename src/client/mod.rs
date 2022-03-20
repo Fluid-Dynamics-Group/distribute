@@ -1,7 +1,7 @@
 pub(crate) mod execute;
 pub(crate) mod utils;
 
-pub(crate) use execute::{initialize_python_job, initialize_singularity_job, run_python_job, run_singularity_job};
+pub(crate) use execute::{initialize_python_job, initialize_singularity_job, run_python_job, run_singularity_job, BindingFolderState};
 
 use execute::PrerequisiteOperations;
 

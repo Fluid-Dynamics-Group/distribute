@@ -3,6 +3,7 @@ pub(crate) use crate::config::requirements::{NodeProvidedCaps, Requirements};
 pub(crate) use crate::error;
 pub(crate) use crate::server;
 pub(crate) use crate::transport;
+pub(crate) use crate::client;
 
 pub(crate) use std::path::PathBuf;
 pub(crate) use tokio::sync::broadcast;

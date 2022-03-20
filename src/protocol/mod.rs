@@ -8,6 +8,7 @@ mod prepare_build;
 mod uninit;
 mod compiling;
 mod built;
+mod send_files;
 
 pub(crate) struct Machine<StateMarker, State> {
     _marker: StateMarker,
@@ -33,8 +34,3 @@ pub(crate) struct Common {
     errored_jobs: BTreeSet<server::JobIdentifier>
 }
 
-mod send_files {
-    pub(crate) struct SendFiles;
-    pub(crate) struct ClientSendFilesState;
-    pub(crate) struct ServerSendFilesState;
-}

@@ -94,17 +94,14 @@ pub enum RunJobError {
         full_error: std::io::Error,
     },
     #[error("{0}")]
-    CreateDir(CreateDirError),
+    CreateDir(CreateDir),
     #[error("could not open file `{path}`, full error: {full_error}")]
     OpenFile {
         path: std::path::PathBuf,
         full_error: std::io::Error,
     },
-    #[error("could not read bytes`{path}`, full error: {full_error}")]
-    ReadBytes {
-        path: std::path::PathBuf,
-        full_error: std::io::Error,
-    },
+    #[error("{0}")]
+    ReadBytes(ReadBytes),
     #[error("could not write bytes`{path}`, full error: {full_error}")]
     WriteBytes {
         path: std::path::PathBuf,
@@ -145,7 +142,7 @@ pub enum ServerError {
     #[error("{0}")]
     WriteFile(WriteFile),
     #[error("{0}")]
-    CreateDir(CreateDirError),
+    CreateDir(CreateDir),
     #[error("{0}")]
     RemoveDir(RemoveDirError),
 }
@@ -186,9 +183,16 @@ pub struct WriteFile {
     path: PathBuf,
 }
 
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(fmt = "Failed to read the bytes for file {} - error: {}", "path.display()", error)]
+pub struct ReadBytes {
+    error: std::io::Error,
+    path: PathBuf,
+}
+
 #[derive(Debug, Display, From, Constructor, thiserror::Error)]
 #[display(fmt = "Could create directory {:?}, error: {}", path, error)]
-pub struct CreateDirError {
+pub struct CreateDir {
     error: std::io::Error,
     path: PathBuf,
 }
@@ -270,7 +274,7 @@ pub struct StoreSet {
 #[derive(Debug, From, thiserror::Error)]
 pub enum BuildJobError {
     #[error("{0}")]
-    CreateDirector(CreateDirError),
+    CreateDirector(CreateDir),
     #[error("{0}")]
     Other(Box<Error>),
     #[error("The scheduler returned a runnable job instead of an initialization job when we first requested a task.")]
@@ -280,7 +284,7 @@ pub enum BuildJobError {
 #[derive(Debug, From, thiserror::Error)]
 pub enum RunningNodeError {
     #[error("{0}")]
-    CreateDirector(CreateDirError),
+    CreateDirector(CreateDir),
     #[error("{0}")]
     Other(Box<Error>),
     #[error("The job returned to us has not been built before")]
@@ -320,7 +324,7 @@ pub enum PullErrorLocal {
     #[error("Unexpected resposne from the server")]
     UnexpectedResponse,
     #[error("{0}")]
-    CreateDir(CreateDirError),
+    CreateDir(CreateDir),
     #[error("{0}")]
     WriteFile(WriteFile),
 }
@@ -339,7 +343,7 @@ pub enum RunErrorLocal {
     #[error("Unexpected resposne from the server")]
     UnexpectedResponse,
     #[error("{0}")]
-    CreateDir(CreateDirError),
+    CreateDir(CreateDir),
     #[error("{0}")]
     WriteFile(WriteFile),
     #[error("the specified --save_dir folder exists and --clean-save was not specifed")]

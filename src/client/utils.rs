@@ -71,7 +71,7 @@ pub(crate) fn remove_path_prefixes(path: PathBuf, distribute_save_path: &Path) -
     path.strip_prefix(distribute_save_path).unwrap().to_owned()
 }
 
-pub(crate) async fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {
+pub(crate) fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {
     walkdir::WalkDir::new(base_path.join("distribute_save"))
         .into_iter()
         .flat_map(|x| x.ok())

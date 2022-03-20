@@ -91,7 +91,7 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
     else {
         if !args.save_dir.exists() {
             std::fs::create_dir(&args.save_dir)
-                .map_err(|e| error::CreateDirError::new(e, args.save_dir.to_owned()))
+                .map_err(|e| error::CreateDir::new(e, args.save_dir.to_owned()))
                 .map_err(error::PullErrorLocal::from)?;
         }
 
@@ -137,7 +137,7 @@ fn save_file(save_location: &Path, file: transport::SendFile) -> Result<(), erro
     if file.is_file {
         std::fs::write(&path, file.bytes).map_err(|e| error::WriteFile::new(e, path))?;
     } else {
-        std::fs::create_dir(&path).map_err(|e| error::CreateDirError::new(e, path))?;
+        std::fs::create_dir(&path).map_err(|e| error::CreateDir::new(e, path))?;
     }
 
     Ok(())

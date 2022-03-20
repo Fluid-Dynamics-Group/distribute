@@ -34,7 +34,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     }
 
     ok_if_exists(tokio::fs::create_dir_all(&server.save_path).await).map_err(|e| {
-        error::ServerError::from(error::CreateDirError::new(e, server.save_path.clone()))
+        error::ServerError::from(error::CreateDir::new(e, server.save_path.clone()))
     })?;
 
     debug!("creating an output folder for the server");
@@ -43,7 +43,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     match std::fs::create_dir_all(&server.save_path) {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
-        Err(e) => Err(error::ServerError::from(error::CreateDirError::new(
+        Err(e) => Err(error::ServerError::from(error::CreateDir::new(
             e,
             server.save_path.clone(),
         ))),

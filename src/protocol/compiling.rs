@@ -7,6 +7,7 @@ pub(crate) struct ClientBuildingState {
     build_opt: config::BuildOpts,
     conn: transport::FollowerConnection<ClientMsg>,
     working_dir: PathBuf,
+    folder_state: client::BindingFolderState
 }
 
 pub(crate) struct ServerBuildingState {

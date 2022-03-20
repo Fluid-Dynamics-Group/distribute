@@ -17,6 +17,7 @@ pub(crate) struct Built;
 pub(crate) struct ClientBuiltState {
     conn: transport::FollowerConnection<ClientMsg>,
     working_dir: PathBuf,
+    folder_state: client::BindingFolderState
 }
 
 pub(crate) struct ServerBuiltState {

@@ -24,8 +24,8 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="0.77593294"
-     inkscape:cx="488.44427"
-     inkscape:cy="376.96557"
+     inkscape:cx="529.68495"
+     inkscape:cy="420.78379"
      inkscape:window-width="1904"
      inkscape:window-height="1020"
      inkscape:window-x="8"
@@ -118,6 +118,20 @@
          d="M 0,0 5,-5 -12.5,0 5,5 Z"
          id="path41244-97" />
     </marker>
+    <marker
+       style="overflow:visible"
+       id="marker41550-3"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow1Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         id="path41548-1" />
+    </marker>
   </defs>
   <g
      inkscape:label="Layer 1"
@@ -207,7 +221,7 @@
        sodipodi:nodetypes="cc" />
     <path
        style="fill:none;stroke:#000000;stroke-width:0.315437;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1Lend)"
-       d="m 242.25609,114.02228 c 6.10363,4.00159 14.6268,23.2233 5.12373,39.62009"
+       d="m 267.65431,110.63744 -19.90324,44.0031"
        id="path41544"
        sodipodi:nodetypes="cc" />
     <path
@@ -254,6 +268,11 @@
        style="fill:none;stroke:#0000e5;stroke-width:0.282957;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:2.26365, 2.26365;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#Arrow1Lend-34)"
        d="M 195.12203,149.55665 81.425043,44.652769"
        id="path48063-37"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.241677;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker41550-3)"
+       d="M 238.89285,98.16047 C 201.63979,79.389038 169.50313,43.046362 164.32501,25.777947"
+       id="path41558-1"
        sodipodi:nodetypes="cc" />
   </g>
 </svg>
