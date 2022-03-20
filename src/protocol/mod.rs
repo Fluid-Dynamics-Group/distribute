@@ -3,9 +3,11 @@ use crate::server::JobIdentifier;
 use tokio::sync::broadcast;
 use std::collections::BTreeSet;
 
+mod executing;
 mod prepare_build;
 mod uninit;
 mod compiling;
+mod built;
 
 pub(crate) struct Machine<StateMarker, State> {
     _marker: StateMarker,
@@ -16,6 +18,9 @@ pub(crate) enum Either<T,V> {
     Left(T),
     Right(V),
 }
+
+type ClientEitherPrepareBuild<T> = Either<Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>, T>;
+type ServerEitherPrepareBuild<T> = Either<Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>, T>;
 
 #[derive(Constructor)]
 // copy pasted from node.rs
@@ -28,13 +33,8 @@ pub(crate) struct Common {
     errored_jobs: BTreeSet<server::JobIdentifier>
 }
 
-
-
-mod built {
-    pub(crate) struct Built;
-    pub(crate) struct ClientBuiltState;
-    pub(crate) struct ServerBuiltState;
+mod send_files {
+    pub(crate) struct SendFiles;
+    pub(crate) struct ClientSendFilesState;
+    pub(crate) struct ServerSendFilesState;
 }
-
-pub(crate) struct Executing;
-pub(crate) struct SendFiles;

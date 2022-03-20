@@ -34,6 +34,12 @@ pub(crate) enum Error {
 
 impl Machine<Building, ClientBuildingState> {
     /// compile the job on the node and tell the server if the job was successfully built
+    ///
+    /// Successful compilations return `Machine<Built, _>`.
+    ///
+    /// Cancelled compilations or Failed compilations return `Machine<PrepareBuild, _>`
+    ///
+    /// this routine is also responsible for listening for cancellation requests from the server
     async fn build_job(mut self) -> Result<Either<Machine<Built, ClientBuiltState>, Machine<PrepareBuild, ClientPrepareBuildState>>, Error> {
         // TODO: should probably wipe the folder and instantiate the folders here
 
@@ -123,9 +129,6 @@ impl Machine<Building, ServerBuildingState> {
 #[derive(Serialize, Deserialize, Unwrap)]
 pub(crate) enum ServerMsg {}
 
-#[derive(Debug)]
-enum FlatServerMsg {}
-
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ClientMsg {
     SuccessfullCompilation,
@@ -152,10 +155,6 @@ impl ClientMsg {
         }
     }
 }
-
-
-#[derive(Debug)]
-enum FlatClientMsg {}
 
 impl transport::AssociatedMessage for ServerMsg {
     type Receive = ClientMsg;

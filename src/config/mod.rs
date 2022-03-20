@@ -1,12 +1,12 @@
 pub mod common;
 pub mod python;
-pub mod requirements;
 pub mod singularity;
+pub mod requirements;
 
 #[cfg(feature = "cli")]
 use crate::transport;
 
-use derive_more::{Constructor, Display, From, Unwrap};
+use derive_more::{Display, Unwrap, From, Constructor};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -112,11 +112,15 @@ pub struct Meta {
 impl Jobs {
     pub fn len_jobs(&self) -> usize {
         match &self {
-            Self::Python { meta: _, python } => python.len_jobs(),
+            Self::Python { meta: _, python } => {
+                python.len_jobs()
+            }
             Self::Singularity {
                 meta: _,
                 singularity,
-            } => singularity.len_jobs(),
+            } => {
+                singularity.len_jobs()
+            }
         }
     }
     pub async fn load_jobs(&self) -> Result<JobOpts, LoadJobsError> {
@@ -148,9 +152,7 @@ impl Jobs {
         }
     }
 
-    pub(crate) fn capabilities(
-        &self,
-    ) -> &requirements::Requirements<requirements::JobRequiredCaps> {
+    pub(crate) fn capabilities(&self) -> &requirements::Requirements<requirements::JobRequiredCaps> {
         match &self {
             Self::Python { meta, .. } => &meta.capabilities,
             Self::Singularity { meta, .. } => &meta.capabilities,
@@ -177,13 +179,14 @@ impl Jobs {
             Self::Singularity { meta, .. } => meta.namespace.clone(),
         }
     }
+
 }
 
 impl Jobs {
     /// write the config file to a provided `Write`r
     pub fn to_writer<W: std::io::Write>(&self, writer: W) -> Result<(), serde_yaml::Error> {
         serde_yaml::to_writer(writer, &self)?;
-
+        
         Ok(())
     }
 }
