@@ -131,8 +131,6 @@ pub(super) async fn general_request(
             PrerequisiteOperations::SendFiles { paths, after }
         }
         transport::RequestFromServer::RunSingularityJob(job) => {
-            info!("running singularity job");
-
             if let Some(_) = run_singularity_job(job, base_path, cancel, folder_state).await? {
                 let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
                 let paths = utils::read_save_folder(&base_path).await;
@@ -192,7 +190,7 @@ impl FileMetadata {
 /// execute a job after the build file has already been built
 ///
 /// returns None if the job was cancelled
-async fn run_python_job(
+pub(crate) async fn run_python_job(
     job: transport::PythonJob,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
@@ -270,7 +268,7 @@ async fn write_init_file<T: AsRef<Path>>(
 /// run the build file for a job
 ///
 /// returns None if the process was cancelled
-async fn initialize_python_job(
+pub(crate) async fn initialize_python_job(
     init: transport::PythonJobInit,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,

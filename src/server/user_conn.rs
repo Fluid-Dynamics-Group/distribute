@@ -341,7 +341,7 @@ async fn pull_files(
 
             match conn.receive_data().await {
                 Ok(transport::UserMessageToServer::FileReceived) => continue,
-                Err(error::Error::TcpConnection(error::TcpConnection::ConnectionClosed)) => {
+                Err(error::TcpConnection::ConnectionClosed) => {
                     warn!("TCP connection has closed - severing the connection to the user");
                     break;
                 }

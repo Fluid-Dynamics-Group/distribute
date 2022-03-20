@@ -44,7 +44,7 @@ pub async fn get_current_jobs(
 /// poll each node for its current version and availablility
 pub(crate) async fn status_check_nodes(
     nodes: &[config::Node],
-) -> Result<Vec<transport::ServerConnection>, Error> {
+) -> Result<Vec<transport::ServerConnection<transport::RequestFromServer>>, Error> {
     let mut connections = vec![];
     let mut print_statements = vec![];
 

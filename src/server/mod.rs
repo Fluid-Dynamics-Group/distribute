@@ -1,18 +1,18 @@
 mod job_pool;
 mod matrix;
-mod node;
+pub(crate) mod node;
 mod user_conn;
 
-mod pool_data;
+pub(crate) mod pool_data;
 mod schedule;
 mod storage;
 
 use job_pool::JobPool;
-use node::{Common, InitializedNode};
-use pool_data::JobRequest;
+use crate::protocol::Common;
+pub(crate) use pool_data::JobRequest;
 
 pub use pool_data::CancelResult;
-pub(crate) use schedule::RemainingJobs;
+pub(crate) use schedule::{JobIdentifier, RemainingJobs};
 pub(crate) use storage::{JobOpt, OwnedJobSet};
 
 use crate::{cli, config, error, error::Error, status};
@@ -87,25 +87,25 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     )
     .spawn();
 
-    let mut handles = vec![handle];
+    //let mut handles = vec![handle];
 
     // spawn off each node connection to its own task
     for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
         info!("starting NodeConnection for {}", server_connection.addr);
-        let common = Common::new(
-            server_connection,
-            request_job.clone(),
-            tx_cancel.subscribe(),
-            caps,
-            server.save_path.clone(),
-        );
+        //let common = Common::new(
+        //    server_connection,
+        //    request_job.clone(),
+        //    tx_cancel.subscribe(),
+        //    caps,
+        //    server.save_path.clone(),
+        //);
 
-        let handle = InitializedNode::new(common, Default::default()).spawn();
+        // let handle = InitializedNode::new(common, Default::default()).spawn();
 
-        handles.push(handle);
+        //handles.push(handle);
     }
 
-    futures::future::join_all(handles).await;
+    //futures::future::join_all(handles).await;
 
     Ok(())
 }

@@ -15,6 +15,10 @@ mod kill;
 #[cfg(feature = "cli")]
 mod pause;
 #[cfg(feature = "cli")]
+mod prelude;
+#[cfg(feature = "cli")]
+mod protocol;
+#[cfg(feature = "cli")]
 mod pull;
 #[cfg(feature = "cli")]
 mod run_local;

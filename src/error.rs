@@ -51,6 +51,10 @@ pub enum TcpConnection {
     ConnectionClosed,
     #[error("{0}")]
     ParseAddress(AddressParseError),
+    #[error("TCP deserialization error {0}")]
+    Deser(Deserialization),
+    #[error("TCP serialization error {0}")]
+    Ser(Serialization),
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]
@@ -368,7 +372,8 @@ pub struct UnexpectedServerClientResponse {
 }
 
 #[derive(Debug, Display, thiserror::Error, Constructor)]
-#[display(fmt = "Node at {} has timed out a keepalive connection", "addr")]
+#[display(fmt = "Node at {} /  {} has timed out a keepalive connection", "name", "addr")]
 pub struct TimeoutError {
     addr: std::net::SocketAddr,
+    name: String
 }

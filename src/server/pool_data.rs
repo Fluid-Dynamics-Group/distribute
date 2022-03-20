@@ -80,7 +80,7 @@ pub(crate) struct TaskInfo {
 }
 
 impl TaskInfo {
-    pub(crate) fn flatten(self) -> BuildTaskRunTask {
+    pub(crate) fn flatten(self) -> FetchedJob {
         let TaskInfo {
             namespace,
             batch_name,
@@ -107,9 +107,10 @@ impl TaskInfo {
 }
 
 #[derive(From)]
-pub(crate) enum BuildTaskRunTask {
+pub(crate) enum FetchedJob {
     Build(BuildTaskInfo),
     Run(RunTaskInfo),
+    MissedKeepalive,
 }
 
 #[derive(From, Clone, Constructor)]
@@ -119,6 +120,7 @@ pub(crate) struct BuildTaskInfo {
     pub(crate) identifier: JobIdentifier,
     pub(crate) task: config::BuildOpts,
 }
+
 impl BuildTaskInfo {
     pub(crate) async fn batch_save_path(
         &self,

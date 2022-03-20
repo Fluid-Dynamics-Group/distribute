@@ -30,6 +30,22 @@ pub enum RequestFromServer {
     CheckAlive,
 }
 
+#[derive(Serialize, Deserialize)]
+pub(crate) struct KeepaliveCheck;
+#[derive(Serialize, Deserialize)]
+pub(crate) struct KeepaliveResponse;
+
+impl AssociatedMessage for KeepaliveCheck {
+    type Receive = KeepaliveResponse;
+}
+
+impl AssociatedMessage for KeepaliveResponse {
+    type Receive = KeepaliveCheck;
+}
+
+
+
+
 impl RequestFromServer {
     /// check to see if the server request should be handled on a side-thread
     ///
@@ -278,29 +294,46 @@ fn serialization_options() -> bincode::config::DefaultOptions {
     bincode::config::DefaultOptions::new()
 }
 
-#[derive(derive_more::From)]
-pub struct ServerConnection {
-    conn: TcpStream,
-    pub addr: std::net::SocketAddr,
+pub(crate) trait AssociatedMessage {
+    type Receive;
 }
 
-impl ServerConnection {
+impl AssociatedMessage for RequestFromServer {
+    type Receive = ClientResponse;
+}
+
+#[derive(derive_more::From)]
+pub(crate) struct ServerConnection<T> {
+    conn: TcpStream,
+    pub addr: std::net::SocketAddr,
+    _marker: std::marker::PhantomData<T>,
+}
+
+impl<TX, RX> ServerConnection<TX>
+where
+    TX: Serialize + AssociatedMessage<Receive = RX>,
+    RX: DeserializeOwned,
+{
     pub(crate) async fn new(addr: SocketAddr) -> Result<Self, error::TcpConnection> {
         let conn = TcpStream::connect(addr)
             .await
             .map_err(error::TcpConnection::from)?;
 
-        Ok(Self { conn, addr })
+        Ok(Self {
+            conn,
+            addr,
+            _marker: std::marker::PhantomData,
+        })
     }
 
     pub(crate) async fn transport_data(
         &mut self,
-        request: &RequestFromServer,
-    ) -> Result<(), Error> {
+        request: &TX,
+    ) -> Result<(), error::TcpConnection> {
         transport(&mut self.conn, request).await
     }
 
-    pub(crate) async fn receive_data(&mut self) -> Result<ClientResponse, Error> {
+    pub(crate) async fn receive_data(&mut self) -> Result<RX, error::TcpConnection> {
         receive(&mut self.conn).await
     }
 
@@ -331,11 +364,13 @@ impl UserConnectionToServer {
     pub(crate) async fn transport_data(
         &mut self,
         request: &UserMessageToServer,
-    ) -> Result<(), Error> {
+    ) -> Result<(), error::TcpConnection> {
         transport(&mut self.conn, request).await
     }
 
-    pub(crate) async fn receive_data(&mut self) -> Result<ServerResponseToUser, Error> {
+    pub(crate) async fn receive_data(
+        &mut self,
+    ) -> Result<ServerResponseToUser, error::TcpConnection> {
         receive(&mut self.conn).await
     }
 }
@@ -349,11 +384,41 @@ impl ServerConnectionToUser {
     pub(crate) async fn transport_data(
         &mut self,
         request: &ServerResponseToUser,
-    ) -> Result<(), Error> {
+    ) -> Result<(), error::TcpConnection> {
         transport(&mut self.conn, request).await
     }
 
-    pub(crate) async fn receive_data(&mut self) -> Result<UserMessageToServer, Error> {
+    pub(crate) async fn receive_data(
+        &mut self,
+    ) -> Result<UserMessageToServer, error::TcpConnection> {
+        receive(&mut self.conn).await
+    }
+}
+
+pub(crate) struct FollowerConnection<TX> {
+    conn: TcpStream,
+    _marker: std::marker::PhantomData<TX>,
+}
+
+impl<TX, RX> FollowerConnection<TX>
+where
+    TX: AssociatedMessage<Receive = RX> + Serialize,
+    RX: DeserializeOwned,
+{
+    pub(crate) fn new(conn: TcpStream) -> Self {
+        Self {
+            conn,
+            _marker: Default::default(),
+        }
+    }
+    pub(crate) async fn transport_data(
+        &mut self,
+        response: &TX,
+    ) -> Result<(), error::TcpConnection> {
+        transport(&mut self.conn, response).await
+    }
+
+    pub(crate) async fn receive_data(&mut self) -> Result<RX, error::TcpConnection> {
         receive(&mut self.conn).await
     }
 }
@@ -364,16 +429,22 @@ pub struct ClientConnection {
 }
 
 impl ClientConnection {
-    pub(crate) async fn transport_data(&mut self, response: &ClientResponse) -> Result<(), Error> {
+    pub(crate) async fn transport_data(
+        &mut self,
+        response: &ClientResponse,
+    ) -> Result<(), error::TcpConnection> {
         transport(&mut self.conn, response).await
     }
 
-    pub(crate) async fn receive_data(&mut self) -> Result<RequestFromServer, Error> {
+    pub(crate) async fn receive_data(&mut self) -> Result<RequestFromServer, error::TcpConnection> {
         receive(&mut self.conn).await
     }
 }
 
-async fn transport<T: Serialize>(tcp_connection: &mut TcpStream, data: &T) -> Result<(), Error> {
+async fn transport<T: Serialize>(
+    tcp_connection: &mut TcpStream,
+    data: &T,
+) -> Result<(), error::TcpConnection> {
     let serializer = serialization_options();
     let bytes = serializer
         .serialize(&data)
@@ -384,22 +455,18 @@ async fn transport<T: Serialize>(tcp_connection: &mut TcpStream, data: &T) -> Re
     let bytes_len: u64 = bytes.len() as u64;
 
     // write the length of the data that we are first sending
-    tcp_connection
-        .write_all(&bytes_len.to_le_bytes())
-        .await
-        .map_err(error::TcpConnection::from)?;
+    tcp_connection.write_all(&bytes_len.to_le_bytes()).await?;
 
     // write the contents of the actual data now that the length of the data is
     // actually known
-    tcp_connection
-        .write_all(&bytes)
-        .await
-        .map_err(error::TcpConnection::from)?;
+    tcp_connection.write_all(&bytes).await?;
 
     Ok(())
 }
 
-async fn receive<T: DeserializeOwned>(tcp_connection: &mut TcpStream) -> Result<T, Error> {
+async fn receive<T: DeserializeOwned>(
+    tcp_connection: &mut TcpStream,
+) -> Result<T, error::TcpConnection> {
     let deserializer = serialization_options();
 
     let mut buf: [u8; 8] = [0; 8];
@@ -421,15 +488,18 @@ async fn receive<T: DeserializeOwned>(tcp_connection: &mut TcpStream) -> Result<
     Ok(output)
 }
 
-async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<(), Error> {
+async fn read_buffer_bytes(
+    buffer: &mut [u8],
+    conn: &mut TcpStream,
+) -> Result<(), error::TcpConnection> {
     let mut starting_idx = 0;
 
     loop {
-        trace!(
-            "reading buffer bytes w/ index {} and buffer len {}",
-            starting_idx,
-            buffer.len()
-        );
+        //trace!(
+        //    "reading buffer bytes w/ index {} and buffer len {}",
+        //    starting_idx,
+        //    buffer.len()
+        //);
 
         let bytes_read = conn
             .read(&mut buffer[starting_idx..])
@@ -438,7 +508,7 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
 
         // this should mean that the other party has closed the connection
         if bytes_read == 0 {
-            return Err(Error::TcpConnection(error::TcpConnection::ConnectionClosed));
+            return Err(error::TcpConnection::ConnectionClosed);
         }
 
         starting_idx += bytes_read;

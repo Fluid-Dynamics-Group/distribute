@@ -1,10 +1,11 @@
 pub(crate) mod execute;
 pub(crate) mod utils;
 
+pub(crate) use execute::{initialize_python_job, initialize_singularity_job, run_python_job, run_singularity_job};
+
 use execute::PrerequisiteOperations;
 
 use crate::{cli, error, error::Error, transport};
-//pub(crate) use state::ClientState;
 
 use std::net::SocketAddr;
 
@@ -280,11 +281,11 @@ async fn start_server_connection(
 /// that we should mark ourselves ready for additional jobs
 ///
 /// returns true if the connection has been closed
-fn is_closed_connection(error: Error) -> bool {
+fn is_closed_connection(error: error::TcpConnection) -> bool {
     match error {
         // TODO: experiment with what exactly is the EOF on a TCP connection
         // and what exactly constitutes waiting for more data
-        Error::TcpConnection(error::TcpConnection::ConnectionClosed) => true,
+        error::TcpConnection::ConnectionClosed => true,
         _ => false,
     }
 }
@@ -308,7 +309,7 @@ async fn send_client_response_with_logging(
         utils::clean_output_dir(base_save)
             .await
             .map_err(error::ClientInitError::from)?;
-        Err(e)
+        Err(error::Error::from(e))?
     } else {
         Ok(())
     }
