@@ -7,15 +7,15 @@ pub(crate) mod pool_data;
 mod schedule;
 mod storage;
 
-use job_pool::JobPool;
 use crate::protocol::Common;
+use job_pool::JobPool;
 pub(crate) use pool_data::JobRequest;
 
 pub use pool_data::CancelResult;
 pub(crate) use schedule::{JobIdentifier, RemainingJobs};
-pub(crate) use storage::{JobOpt, OwnedJobSet};
+pub(crate) use storage::OwnedJobSet;
 
-use crate::{cli, config, error, error::Error, status};
+use crate::{cli, config, error, error::Error};
 
 #[cfg(feature = "cli")]
 use tokio::sync::{broadcast, mpsc};
@@ -53,7 +53,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     // then something is wrong
 
     log::info!("checking connection status of each node");
-    let connections = status::status_check_nodes(&nodes.nodes).await?;
+    //let connections = status::status_check_nodes(&nodes.nodes).await?;
 
     let node_caps = nodes
         .nodes
@@ -90,8 +90,8 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     //let mut handles = vec![handle];
 
     // spawn off each node connection to its own task
-    for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
-        info!("starting NodeConnection for {}", server_connection.addr);
+    //for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
+        //info!("starting NodeConnection for {}", server_connection.addr);
         //let common = Common::new(
         //    server_connection,
         //    request_job.clone(),
@@ -103,7 +103,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         // let handle = InitializedNode::new(common, Default::default()).spawn();
 
         //handles.push(handle);
-    }
+    //}
 
     //futures::future::join_all(handles).await;
 

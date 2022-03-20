@@ -46,7 +46,7 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
 
     info!("connecing to server...");
     let addr = SocketAddr::from((args.ip, args.port));
-    let mut conn = transport::UserConnectionToServer::new(addr).await?;
+    let mut conn = transport::Connection::new(addr).await?;
     debug!("finished connecting to server");
 
     if let Err(e) = conn.transport_data(&req.into()).await {

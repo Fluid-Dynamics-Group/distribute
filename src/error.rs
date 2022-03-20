@@ -38,8 +38,6 @@ pub enum Error {
     #[error("{0}")]
     PullErrorLocal(#[from] PullErrorLocal),
     #[error("{0}")]
-    UnexpectedResponse(#[from] UnexpectedResponse),
-    #[error("{0}")]
     Timeout(#[from] TimeoutError),
 }
 
@@ -184,7 +182,11 @@ pub struct WriteFile {
 }
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
-#[display(fmt = "Failed to read the bytes for file {} - error: {}", "path.display()", error)]
+#[display(
+    fmt = "Failed to read the bytes for file {} - error: {}",
+    "path.display()",
+    error
+)]
 pub struct ReadBytes {
     error: std::io::Error,
     path: PathBuf,
@@ -358,26 +360,13 @@ pub enum RunErrorLocal {
     GeneralError(Error),
 }
 
-#[derive(Debug, From, thiserror::Error)]
-pub enum UnexpectedResponse {
-    #[error("{0}")]
-    ServerClient(UnexpectedServerClientResponse),
-}
-
 #[derive(Debug, Display, thiserror::Error, Constructor)]
 #[display(
-    fmt = "expected response {} from client - got {:?} instead",
-    "expected",
-    "response"
+    fmt = "Node at {} /  {} has timed out a keepalive connection",
+    "name",
+    "addr"
 )]
-pub struct UnexpectedServerClientResponse {
-    response: crate::transport::ClientResponse,
-    expected: crate::transport::FlatClientResponse,
-}
-
-#[derive(Debug, Display, thiserror::Error, Constructor)]
-#[display(fmt = "Node at {} /  {} has timed out a keepalive connection", "name", "addr")]
 pub struct TimeoutError {
     addr: std::net::SocketAddr,
-    name: String
+    name: String,
 }

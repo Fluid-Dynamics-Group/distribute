@@ -38,7 +38,8 @@ pub(crate) async fn handle_user_requests(
 
         info!("new user connection from {}", address);
 
-        let conn = transport::ServerConnectionToUser::new(tcp_conn);
+        let conn =
+            transport::Connection::<transport::ServerResponseToUser>::from_connection(tcp_conn);
 
         let tx_c = tx.clone();
         let node_c = node_capabilities.clone();
@@ -55,7 +56,7 @@ pub(crate) async fn handle_user_requests(
 // TODO: add user message to end the connection
 // so that this function does not hang forever and generate extra tasks
 async fn single_user_request(
-    mut conn: transport::ServerConnectionToUser,
+    mut conn: transport::Connection<transport::ServerResponseToUser>,
     tx: mpsc::Sender<JobRequest>,
     node_capabilities: Vec<Arc<Requirements<NodeProvidedCaps>>>,
     path: PathBuf,
@@ -109,7 +110,7 @@ async fn single_user_request(
 async fn add_job_set(
     tx: &mpsc::Sender<JobRequest>,
     set: super::OwnedJobSet,
-    conn: &mut transport::ServerConnectionToUser,
+    conn: &mut transport::Connection<transport::ServerResponseToUser>,
 ) {
     // the output of sending the message to the server
     let tx_result = tx.send(JobRequest::AddJobSet(set)).await.map_err(|e| {
@@ -154,7 +155,7 @@ async fn add_job_set(
 }
 
 async fn query_capabilities(
-    conn: &mut transport::ServerConnectionToUser,
+    conn: &mut transport::Connection<transport::ServerResponseToUser>,
     node_capabilities: &Vec<Arc<Requirements<NodeProvidedCaps>>>,
 ) {
     // clone all the data so that we have non-Arc'd data
@@ -171,7 +172,7 @@ async fn query_capabilities(
 
 async fn query_job_names(
     tx: &mpsc::Sender<JobRequest>,
-    conn: &mut transport::ServerConnectionToUser,
+    conn: &mut transport::Connection<transport::ServerResponseToUser>,
 ) {
     let (tx_respond, rx_respond) = oneshot::channel();
 
@@ -220,7 +221,7 @@ async fn query_job_names(
 
 async fn cancel_job_by_name(
     tx: &mpsc::Sender<JobRequest>,
-    conn: &mut transport::ServerConnectionToUser,
+    conn: &mut transport::Connection<transport::ServerResponseToUser>,
     batch: String,
 ) {
     let (tx_respond, rx_respond) = oneshot::channel();
@@ -251,7 +252,7 @@ async fn cancel_job_by_name(
 
 async fn pull_files(
     folder_path: &Path,
-    conn: &mut transport::ServerConnectionToUser,
+    conn: &mut transport::Connection<transport::ServerResponseToUser>,
     pull_files: transport::PullFileRequest,
 ) {
     let namespace_path = folder_path.join(pull_files.namespace);

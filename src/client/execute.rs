@@ -70,96 +70,6 @@ pub(crate) struct BindedFolder {
     pub(crate) container_path: PathBuf,
 }
 
-/// handle all branches of a request from the server
-pub(super) async fn general_request(
-    request: transport::RequestFromServer,
-    base_path: &Path,
-    cancel: &mut broadcast::Receiver<()>,
-    folder_state: &mut BindingFolderState,
-) -> Result<PrerequisiteOperations, Error> {
-    let output = match request {
-        transport::RequestFromServer::StatusCheck => {
-            info!("running status check request");
-            // if we have been spawned off into this thread it means we are not doing anything
-            // right now which means that `ready` is true
-            let response =
-                transport::StatusResponse::new(transport::Version::current_version(), true);
-            PrerequisiteOperations::None(transport::ClientResponse::StatusCheck(response))
-        }
-        transport::RequestFromServer::InitPythonJob(init) => {
-            info!("running init python job request");
-
-            utils::clean_output_dir(base_path)
-                .await
-                .map_err(|e| error::RemovePreviousDir::new(e, base_path.to_owned()))
-                .map_err(error::InitJobError::from)?;
-
-            initialize_python_job(init, base_path, cancel).await?;
-
-            let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-
-            let paths = utils::read_save_folder(&base_path);
-
-            PrerequisiteOperations::SendFiles { paths, after }
-        }
-        transport::RequestFromServer::RunPythonJob(job) => {
-            info!("running python job");
-
-            if let Some(_) = run_python_job(job, base_path, cancel).await? {
-                let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths = utils::read_save_folder(base_path);
-                PrerequisiteOperations::SendFiles { paths, after }
-            } else {
-                // we cancelled this job early - dont send any files
-                PrerequisiteOperations::DoNothing
-            }
-        }
-        transport::RequestFromServer::InitSingularityJob(init_job) => {
-            info!("initializing a singularity job");
-
-            utils::clean_output_dir(base_path)
-                .await
-                .map_err(|e| error::RemovePreviousDir::new(e, base_path.to_owned()))
-                .map_err(error::InitJobError::from)?;
-
-            initialize_singularity_job(init_job, base_path, cancel, folder_state).await?;
-
-            let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-
-            let paths = utils::read_save_folder(&base_path);
-
-            PrerequisiteOperations::SendFiles { paths, after }
-        }
-        transport::RequestFromServer::RunSingularityJob(job) => {
-            if let Some(_) = run_singularity_job(job, base_path, cancel, folder_state).await? {
-                let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths = utils::read_save_folder(&base_path);
-
-                PrerequisiteOperations::SendFiles { paths, after }
-            } else {
-                // we cancelled this job early - dont send any files
-                PrerequisiteOperations::DoNothing
-            }
-        }
-        transport::RequestFromServer::FileReceived => {
-            warn!("got a file recieved message from the server but we didnt send any files");
-            PrerequisiteOperations::DoNothing
-        }
-        transport::RequestFromServer::KillJob => {
-            warn!("got request to kill the job from the server but we dont have an actively running job");
-            PrerequisiteOperations::DoNothing
-        }
-        transport::RequestFromServer::CheckAlive => {
-            debug!("got keepalive check from the server - responding with true");
-
-            // we have gotten a check for keepalive
-            PrerequisiteOperations::None(transport::ClientResponse::RespondAlive)
-        }
-    };
-
-    Ok(output)
-}
-
 pub(crate) struct FileMetadata {
     pub file_path: PathBuf,
     pub is_file: bool,
@@ -171,10 +81,7 @@ impl FileMetadata {
 
         // if its a file read the bytes, otherwise skip it
         let bytes = if is_file {
-            std::fs::read(&file_path).map_err(|e| error::ReadBytes::new(
-                e,
-                file_path.to_owned(),
-            ))?
+            std::fs::read(&file_path).map_err(|e| error::ReadBytes::new(e, file_path.to_owned()))?
         } else {
             vec![]
         };
@@ -482,15 +389,6 @@ async fn command_with_cancellation(
            Ok(None)
        }
     )
-}
-
-pub(super) enum PrerequisiteOperations {
-    None(transport::ClientResponse),
-    SendFiles {
-        paths: Vec<FileMetadata>,
-        after: transport::ClientResponse,
-    },
-    DoNothing,
 }
 
 async fn command_output_to_file(output: std::process::Output, path: PathBuf) {

@@ -1,11 +1,10 @@
 use crate::transport;
 
 use std::io;
-use std::path::{Path, PathBuf};
+use crate::prelude::*;
 
 use crate::config;
-use derive_more::{Constructor, From};
-use serde::{Deserialize, Serialize};
+use transport::JobOpt;
 
 /// stores job data on disk
 #[derive(Debug)]
@@ -121,20 +120,6 @@ impl StoredJob {
     }
 }
 
-#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize)]
-pub(crate) enum JobOpt {
-    Singularity(transport::SingularityJob),
-    Python(transport::PythonJob),
-}
-
-impl JobOpt {
-    pub(crate) fn name(&self) -> &str {
-        match &self {
-            Self::Singularity(x) => &x.job_name,
-            Self::Python(x) => &x.job_name,
-        }
-    }
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct LazyPythonJob {

@@ -4,12 +4,10 @@ use super::storage::{self, StoredJob, StoredJobInit};
 use crate::config::{self, requirements};
 use crate::error::{self, ScheduleError};
 
-use derive_more::{Constructor, Display};
-use serde::{Deserialize, Serialize};
+use crate::prelude::*;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub(crate) trait Schedule {
@@ -22,7 +20,7 @@ pub(crate) trait Schedule {
 
     fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError>;
 
-    fn add_job_back(&mut self, job: storage::JobOpt, identifier: JobIdentifier);
+    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobIdentifier);
 
     fn finish_job(&mut self, job: JobIdentifier);
 
@@ -201,7 +199,7 @@ impl Schedule for GpuPriority {
         Ok(())
     }
 
-    fn add_job_back(&mut self, job: storage::JobOpt, identifier: JobIdentifier) {
+    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobIdentifier) {
         if let Some(job_set) = self.map.get_mut(&identifier) {
             job_set.add_errored_job(job, &self.base_path)
         } else {
@@ -358,7 +356,7 @@ impl JobSet {
         self.remaining_jobs.len() > 0
     }
 
-    fn next_job(&mut self) -> Option<storage::JobOpt> {
+    fn next_job(&mut self) -> Option<transport::JobOpt> {
         if let Some(job) = self.remaining_jobs.pop() {
             self.currently_running_jobs += 1;
             debug!(
@@ -375,7 +373,7 @@ impl JobSet {
         self.build.load_build()
     }
 
-    fn add_errored_job(&mut self, job: storage::JobOpt, base_path: &Path) {
+    fn add_errored_job(&mut self, job: transport::JobOpt, base_path: &Path) {
         self.currently_running_jobs -= 1;
 
         match StoredJob::from_opt(job, base_path) {
@@ -509,7 +507,7 @@ mod tests {
     fn check_job(response: JobResponse, expected_job: transport::PythonJob) {
         match response {
             JobResponse::SetupOrRun(task) => {
-                assert_eq!(task.task.unwrap_job(), storage::JobOpt::from(expected_job));
+                assert_eq!(task.task.unwrap_job(), transport::JobOpt::from(expected_job));
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),
         }

@@ -1,20 +1,9 @@
 use super::ok_if_exists;
 use super::schedule::JobIdentifier;
 use super::storage;
-use crate::config;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
-use std::collections::BTreeSet;
-
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
-
-use tokio::sync::oneshot;
-
-use derive_more::{Constructor, Display, From};
-
-use serde::{Deserialize, Serialize};
+use crate::prelude::*;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum JobResponse {
@@ -140,7 +129,7 @@ pub(crate) struct RunTaskInfo {
     namespace: String,
     batch_name: String,
     pub(crate) identifier: JobIdentifier,
-    pub(crate) task: storage::JobOpt,
+    pub(crate) task: transport::JobOpt,
 }
 
 impl RunTaskInfo {
@@ -164,6 +153,6 @@ impl RunTaskInfo {
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone, Debug, PartialEq)]
 pub(crate) enum JobOrInit {
-    Job(storage::JobOpt),
+    Job(transport::JobOpt),
     JobInit(config::BuildOpts),
 }

@@ -2,13 +2,11 @@ use super::ok_if_exists;
 use super::schedule::JobIdentifier;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
-use super::pool_data::{
-    BuildTaskInfo, JobRequest, JobResponse, NewJobRequest, RunTaskInfo,
-};
+use super::pool_data::{BuildTaskInfo, JobRequest, JobResponse, NewJobRequest, RunTaskInfo};
 use crate::{error, error::Error, transport};
 
-use std::collections::BTreeSet;
 use super::pool_data;
+use std::collections::BTreeSet;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -170,9 +168,9 @@ use crate::prelude::*;
 //}
 
 pub(crate) async fn fetch_new_job(
-    scheduler_tx: &mut mpsc::Sender<JobRequest>, 
-    initialized_job: JobIdentifier, 
-    node_name: &str, 
+    scheduler_tx: &mut mpsc::Sender<JobRequest>,
+    initialized_job: JobIdentifier,
+    node_name: &str,
     info_addr: &SocketAddr,
     keepalive_addr: &SocketAddr,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
@@ -181,7 +179,7 @@ pub(crate) async fn fetch_new_job(
     loop {
         if let Err(e) = check_keepalive(keepalive_addr, node_name).await {
             info!("{} could not access the client before fetching a new job from the server (err: {})- scheduling a reconnect", node_name, e);
-            return pool_data::FetchedJob::MissedKeepalive
+            return pool_data::FetchedJob::MissedKeepalive;
         }
 
         let (tx, rx) = oneshot::channel();
@@ -220,7 +218,7 @@ pub(crate) async fn fetch_new_job(
 // /// this is a broken-out function since mutable borrowing rules
 // async fn return_job_to_queue(common: &mut Common, info: RunTaskInfo) {
 //     let response = common.request_job_tx.send(JobRequest::DeadNode(info)).await;
-// 
+//
 //     match response {
 //         Ok(_) => (),
 //         Err(_) => {
@@ -229,7 +227,6 @@ pub(crate) async fn fetch_new_job(
 //         }
 //     }
 // }
-
 
 //struct BuildingNode<'a> {
 //    common: &'a mut Common,
@@ -337,7 +334,7 @@ pub(crate) async fn fetch_new_job(
 //         }
 //     }
 // }
-// 
+
 // /// execute a generic future returning a result while also checking for possible cancellations
 // /// from the job pool
 // async fn execute_with_cancellation<E>(
@@ -362,138 +359,38 @@ pub(crate) async fn fetch_new_job(
 //         }
 //     )
 // }
-// 
-// /// check what the client responded to the job request (not init) that we sent them
-// ///
-// /// save any files that they sent us and return a simplified
-// /// version of the response they had
-// async fn handle_client_response<E>(
-//     conn: &mut transport::ServerConnection<transport::RequestFromServer>,
-//     save_path: &Path,
-// ) -> Result<(), E>
-// where
-//     E: From<Error> + From<ClientError>,
-// {
-//     loop {
-//         let response = conn.receive_data().await?;
-//         match response {
-//             transport::ClientResponse::SendFile(send_file) => {
-//                 receive_file(conn, &save_path, send_file).await?
-//             }
-//             transport::ClientResponse::RequestNewJob(_job_request) => {
-//                 // we handle this at the call site of this function
-//                 break;
-//             }
-//             transport::ClientResponse::StatusCheck(s) => {
-//                 warn!("status check was received from the client on {}, we were expecting a file or job request: {}", &conn.addr, s);
-//                 continue;
-//             }
-//             transport::ClientResponse::Error(e) => {
-//                 warn!(
-//                     "client on {} experienced an error building the job: {:?}",
-//                     conn.addr, e
-//                 );
-//                 continue;
-//             }
-//             transport::ClientResponse::FailedExecution => return Err(E::from(ClientError)),
-//             transport::ClientResponse::RespondAlive => {
-//                 warn!("RespondAlive was received from the client on {}, we were expectinga file or job request. This should not happen", &conn.addr);
-//                 continue;
-//             }
-//         };
-//     }
-// 
-//     Ok(())
-// }
-// 
-// #[derive(From, Display)]
-// enum LocalOrClientError {
-//     #[display(fmt = "local:{}", _0)]
-//     Local(Error),
-//     #[display(fmt = "the cleint failed to execute the build / job")]
-//     ClientExecution,
-//     KeepaliveFailure,
-// }
-// 
-// struct KeepaliveError;
-// struct ClientError;
-// 
-// impl From<KeepaliveError> for LocalOrClientError {
-//     fn from(_: KeepaliveError) -> Self {
-//         Self::KeepaliveFailure
-//     }
-// }
-// 
-// impl From<ClientError> for LocalOrClientError {
-//     fn from(_: ClientError) -> Self {
-//         Self::ClientExecution
-//     }
-// }
-// 
-// async fn receive_file(
-//     conn: &mut transport::ServerConnection<transport::RequestFromServer>,
-//     save_path: &Path,
-//     send_file: transport::SendFile,
-// ) -> Result<(), Error> {
-//     // we need to store this file
-//     let save_location = save_path.join(send_file.file_path);
-//     info!("saving solver file to {:?}", save_location);
-//     if send_file.is_file {
-//         // TODO: fix these unwraps
-//         let mut file = tokio::fs::File::create(&save_location)
-//             .await
-//             .map_err(|error| error::WriteFile::from((error, save_location.clone())))
-//             .map_err(|e| error::ServerError::from(e))?;
-// 
-//         file.write_all(&send_file.bytes).await.unwrap();
-//     } else {
-//         // just create the directory
-//         ok_if_exists(tokio::fs::create_dir(&save_location).await)
-//             .map_err(|error| error::CreateDirError::from((error, save_location.clone())))
-//             .map_err(|e| error::ServerError::from(e))?;
-//     }
-// 
-//     // after we have received the file, let the client know this and send another
-//     // file
-//     conn.transport_data(&transport::RequestFromServer::FileReceived)
-//         .await?;
-// 
-//     Ok(())
-// }
 
-// /// constantly polls a connection to ensure that
-// async fn complete_on_ping_failure(address: std::net::SocketAddr) -> () {
-//     loop {
-//         if let Err(e) = check_keepalive(&address).await {
-//             error!(
-//                 "error checking the keepalive for node at {}: {}",
-//                 address, e
-//             );
-//             return ();
-//         }
-// 
-//         #[cfg(not(test))]
-//         tokio::time::sleep(Duration::from_secs(6*60)).await;
-// 
-//         #[cfg(test)]
-//         tokio::time::sleep(Duration::from_secs(5*60)).await;
-//     }
-// }
-// 
+/// constantly polls a connection to ensure that
+async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> () {
+    loop {
+        if let Err(e) = check_keepalive(&address, name).await {
+            error!(
+                "error checking the keepalive for node at {}: {}",
+                address, e
+            );
+            return ();
+        }
 
+        #[cfg(not(test))]
+        tokio::time::sleep(Duration::from_secs(6 * 60)).await;
 
-/// ping an address and 
+        #[cfg(test)]
+        tokio::time::sleep(Duration::from_secs(10)).await;
+    }
+}
+
+/// ping an address and
 async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(), Error> {
     // TODO: this connection might be able to stall, im not sure
-    let mut conn = transport::ServerConnection::new(*address).await?;
-    conn.transport_data(&transport::KeepaliveCheck)
-        .await?;
+    let mut conn = transport::Connection::new(*address).await?;
+    conn.transport_data(&transport::ServerQuery::KeepaliveCheck).await?;
 
     match tokio::time::timeout(Duration::from_secs(10), conn.receive_data()).await {
-        Ok(inner) => {inner?; ()},
-        Err(_elapsed) => {
-            return Err(error::TimeoutError::new(*address, name.to_string()).into())
+        Ok(inner) => {
+            inner?;
+            ()
         }
+        Err(_elapsed) => return Err(error::TimeoutError::new(*address, name.to_string()).into()),
     }
 
     Ok(())

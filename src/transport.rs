@@ -1,6 +1,6 @@
-use derive_more::{Constructor, Display};
+use crate::prelude::*;
+
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -11,73 +11,45 @@ use {
     tokio::net::TcpStream,
 };
 
-use crate::config::{self, requirements};
+use crate::config::requirements;
 use crate::error;
 use crate::error::Error;
 use crate::server;
 
-#[derive(
-    Deserialize, Serialize, Debug, Clone, PartialEq, derive_more::From, derive_more::Unwrap,
-)]
-pub enum RequestFromServer {
-    StatusCheck,
-    InitPythonJob(PythonJobInit),
-    RunPythonJob(PythonJob),
-    InitSingularityJob(SingularityJobInit),
-    RunSingularityJob(SingularityJob),
-    FileReceived,
-    KillJob,
-    CheckAlive,
+
+#[derive(Serialize, Deserialize)]
+pub(crate) enum ServerQuery {
+    KeepaliveCheck
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct KeepaliveCheck;
-#[derive(Serialize, Deserialize)]
-pub(crate) struct KeepaliveResponse;
-
-impl AssociatedMessage for KeepaliveCheck {
-    type Receive = KeepaliveResponse;
+pub(crate) enum ClientQueryAnswer {
+    KeepaliveResponse
 }
 
-impl AssociatedMessage for KeepaliveResponse {
-    type Receive = KeepaliveCheck;
+pub(crate) trait AssociatedMessage {
+    type Receive;
 }
 
+mod messages {
+    use super::*;
 
-
-
-impl RequestFromServer {
-    /// check to see if the server request should be handled on a side-thread
-    ///
-    /// if this function returns false then the request should be handled on the
-    /// main thread (like a job to execute or build). Otherwise the job can be
-    /// executed on a side thread to make some race conditions less likely
-    fn is_low_priority(&self) -> bool {
-        match self {
-            Self::CheckAlive => true,
-            Self::KillJob => true,
-            Self::StatusCheck => false,
-            _ => false,
-        }
+    impl AssociatedMessage for UserMessageToServer {
+        type Receive = ServerResponseToUser;
     }
-}
 
-impl From<crate::server::JobOpt> for RequestFromServer {
-    fn from(x: crate::server::JobOpt) -> Self {
-        match x {
-            crate::server::JobOpt::Python(p) => Self::RunPythonJob(p),
-            crate::server::JobOpt::Singularity(s) => Self::RunSingularityJob(s),
-        }
+    impl AssociatedMessage for ServerResponseToUser {
+        type Receive = UserMessageToServer;
     }
-}
 
-impl From<config::BuildOpts> for RequestFromServer {
-    fn from(x: config::BuildOpts) -> Self {
-        match x {
-            config::BuildOpts::Python(p) => Self::InitPythonJob(p),
-            config::BuildOpts::Singularity(s) => Self::InitSingularityJob(s),
-        }
+    impl AssociatedMessage for ServerQuery {
+        type Receive = ClientQueryAnswer;
     }
+
+    impl AssociatedMessage for ClientQueryAnswer {
+        type Receive = ServerQuery;
+    }
+
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
@@ -181,61 +153,35 @@ pub struct SingularityJob {
     pub job_files: Vec<File>,
 }
 
-#[derive(Deserialize, Serialize, Display, Debug)]
-pub enum ClientResponse {
-    #[display(fmt = "status check: _0.display()")]
-    StatusCheck(StatusResponse),
-    #[display(fmt = "send file: _0.display()")]
-    SendFile(SendFile),
-    #[display(fmt = "request new job: _0.display()")]
-    RequestNewJob(NewJobRequest),
-    #[display(fmt = "failed to execute request")]
-    FailedExecution,
-    #[display(fmt = "client error: _0.display()")]
-    Error(ClientError),
-    #[display(fmt = "client is currently alive")]
-    RespondAlive,
+#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[cfg(feature = "cli")]
+pub enum BuildOpts {
+    Python(PythonJobInit),
+    Singularity(SingularityJobInit),
 }
 
-impl ClientResponse {
-    fn flatten(&self) -> FlatClientResponse {
-        match self {
-            Self::StatusCheck(_) => FlatClientResponse::StatusCheck,
-            Self::SendFile(_) => FlatClientResponse::SendFile,
-            Self::RequestNewJob(_) => FlatClientResponse::RequestNewJob,
-            Self::FailedExecution => FlatClientResponse::FailedExecution,
-            Self::Error(_) => FlatClientResponse::Error,
-            Self::RespondAlive => FlatClientResponse::RespondAlive,
+#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize)]
+pub(crate) enum JobOpt {
+    Singularity(SingularityJob),
+    Python(PythonJob),
+}
+
+impl JobOpt {
+    pub(crate) fn name(&self) -> &str {
+        match &self {
+            Self::Singularity(x) => &x.job_name,
+            Self::Python(x) => &x.job_name,
         }
     }
 }
 
-#[derive(Deserialize, Serialize, Display, Debug)]
-pub enum FlatClientResponse {
-    #[display(fmt = "StatusCheck")]
-    StatusCheck,
-    #[display(fmt = "SendFile")]
-    SendFile,
-    #[display(fmt = "RequestNewJob")]
-    RequestNewJob,
-    #[display(fmt = "FailedExecution")]
-    FailedExecution,
-    #[display(fmt = "Error")]
-    Error,
-    #[display(fmt = "RespondAlive")]
-    RespondAlive,
-}
-
-#[derive(Deserialize, Serialize, Display, Constructor, Debug)]
-#[display(fmt = "version: {} ready: {}", version, ready)]
-pub struct StatusResponse {
-    pub version: Version,
-    pub ready: bool,
-}
-
-impl PartialEq<Version> for StatusResponse {
-    fn eq(&self, other: &Version) -> bool {
-        self.version == *other
+#[cfg(feature = "cli")]
+impl BuildOpts {
+    pub(crate) fn batch_name(&self) -> &str {
+        match &self {
+            Self::Singularity(s) => &s.batch_name,
+            Self::Python(p) => &p.batch_name,
+        }
     }
 }
 
@@ -294,22 +240,15 @@ fn serialization_options() -> bincode::config::DefaultOptions {
     bincode::config::DefaultOptions::new()
 }
 
-pub(crate) trait AssociatedMessage {
-    type Receive;
-}
 
-impl AssociatedMessage for RequestFromServer {
-    type Receive = ClientResponse;
-}
 
 #[derive(derive_more::From)]
-pub(crate) struct ServerConnection<T> {
+pub(crate) struct Connection<T> {
     conn: TcpStream,
-    pub addr: std::net::SocketAddr,
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<TX, RX> ServerConnection<TX>
+impl<TX, RX> Connection<TX>
 where
     TX: Serialize + AssociatedMessage<Receive = RX>,
     RX: DeserializeOwned,
@@ -321,9 +260,15 @@ where
 
         Ok(Self {
             conn,
-            addr,
             _marker: std::marker::PhantomData,
         })
+    }
+
+    pub(crate) fn from_connection(conn: TcpStream) -> Self {
+        Self {
+            conn,
+            _marker: std::marker::PhantomData,
+        }
     }
 
     pub(crate) async fn transport_data(
@@ -337,107 +282,13 @@ where
         receive(&mut self.conn).await
     }
 
-    pub(crate) async fn reconnect(&mut self) -> Result<(), Error> {
-        let conn = TcpStream::connect(self.addr)
+    pub(crate) async fn reconnect(&mut self, addr: &SocketAddr) -> Result<(), Error> {
+        let conn = TcpStream::connect(&addr)
             .await
             .map_err(error::TcpConnection::from)?;
         self.conn = conn;
 
         Ok(())
-    }
-}
-
-pub struct UserConnectionToServer {
-    conn: TcpStream,
-    pub addr: std::net::SocketAddr,
-}
-
-impl UserConnectionToServer {
-    pub(crate) async fn new(addr: SocketAddr) -> Result<Self, error::TcpConnection> {
-        let conn = TcpStream::connect(addr)
-            .await
-            .map_err(error::TcpConnection::from)?;
-
-        Ok(Self { conn, addr })
-    }
-
-    pub(crate) async fn transport_data(
-        &mut self,
-        request: &UserMessageToServer,
-    ) -> Result<(), error::TcpConnection> {
-        transport(&mut self.conn, request).await
-    }
-
-    pub(crate) async fn receive_data(
-        &mut self,
-    ) -> Result<ServerResponseToUser, error::TcpConnection> {
-        receive(&mut self.conn).await
-    }
-}
-
-#[derive(derive_more::From, derive_more::Constructor)]
-pub struct ServerConnectionToUser {
-    conn: TcpStream,
-}
-
-impl ServerConnectionToUser {
-    pub(crate) async fn transport_data(
-        &mut self,
-        request: &ServerResponseToUser,
-    ) -> Result<(), error::TcpConnection> {
-        transport(&mut self.conn, request).await
-    }
-
-    pub(crate) async fn receive_data(
-        &mut self,
-    ) -> Result<UserMessageToServer, error::TcpConnection> {
-        receive(&mut self.conn).await
-    }
-}
-
-pub(crate) struct FollowerConnection<TX> {
-    conn: TcpStream,
-    _marker: std::marker::PhantomData<TX>,
-}
-
-impl<TX, RX> FollowerConnection<TX>
-where
-    TX: AssociatedMessage<Receive = RX> + Serialize,
-    RX: DeserializeOwned,
-{
-    pub(crate) fn new(conn: TcpStream) -> Self {
-        Self {
-            conn,
-            _marker: Default::default(),
-        }
-    }
-    pub(crate) async fn transport_data(
-        &mut self,
-        response: &TX,
-    ) -> Result<(), error::TcpConnection> {
-        transport(&mut self.conn, response).await
-    }
-
-    pub(crate) async fn receive_data(&mut self) -> Result<RX, error::TcpConnection> {
-        receive(&mut self.conn).await
-    }
-}
-
-#[derive(derive_more::Constructor)]
-pub struct ClientConnection {
-    conn: TcpStream,
-}
-
-impl ClientConnection {
-    pub(crate) async fn transport_data(
-        &mut self,
-        response: &ClientResponse,
-    ) -> Result<(), error::TcpConnection> {
-        transport(&mut self.conn, response).await
-    }
-
-    pub(crate) async fn receive_data(&mut self) -> Result<RequestFromServer, error::TcpConnection> {
-        receive(&mut self.conn).await
     }
 }
 

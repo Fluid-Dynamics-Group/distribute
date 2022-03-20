@@ -26,7 +26,6 @@ pub struct ArgsWrapper {
 pub enum Arguments {
     Client(Client),
     Server(Server),
-    Status(Status),
     Kill(Kill),
     Pause(Pause),
     Add(Add),
@@ -82,18 +81,6 @@ pub struct Server {
     #[structopt(long, short)]
     /// clean and remove the entire output tree
     pub clean_output: bool,
-}
-
-#[derive(StructOpt, PartialEq, Debug, Constructor)]
-/// check the status of all the nodes
-pub struct Status {
-    #[structopt(long, short, default_value = SERVER_PORT_STR)]
-    /// the port that the server uses (default 8952)
-    pub port: u16,
-
-    #[structopt(long)]
-    /// the ip address that the server is located at
-    pub ip: IpAddr,
 }
 
 #[derive(StructOpt, PartialEq, Debug)]

@@ -24,9 +24,6 @@ async fn wrap_main() -> Result<(), ErrorWrap> {
         cli::Arguments::Server(server) => distribute::server_command(server)
             .await
             .map_err(ErrorWrap::from),
-        cli::Arguments::Status(status) => distribute::status_command(status)
-            .await
-            .map_err(ErrorWrap::from),
         cli::Arguments::Kill(kill) => distribute::kill(kill).await.map_err(ErrorWrap::from),
         cli::Arguments::Pause(pause) => distribute::pause(pause).await.map_err(ErrorWrap::from),
         cli::Arguments::Add(add) => distribute::add(add).await.map_err(ErrorWrap::from),

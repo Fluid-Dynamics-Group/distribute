@@ -1,5 +1,5 @@
-use super::Machine;
 use super::prepare_build;
+use super::Machine;
 use crate::prelude::*;
 
 #[derive(thiserror::Error, Debug, From)]
@@ -25,7 +25,8 @@ impl Machine<Uninit, ClientUninitState> {
     /// once it has been made
     async fn connect_to_host(
         mut self,
-    ) -> Result<Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>, Error> {
+    ) -> Result<Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>, Error>
+    {
         // first message should be querying what our version is
         let msg = self.state.conn.receive_data().await?;
         if ServerMsg::RequestVersion != msg {
@@ -51,13 +52,26 @@ impl Machine<Uninit, ClientUninitState> {
         // TODO: set up the next state
         todo!()
     }
+
+    pub(crate) fn new(conn: tokio::net::TcpStream) -> Self {
+        let conn = transport::Connection::from_connection(conn);
+        let state = ClientUninitState {
+            conn
+        };
+
+        Self {
+            state,
+            _marker: Uninit,
+        }
+    }
 }
 
 impl Machine<Uninit, ServerUninitState> {
     /// on the master node, try to connect to the compute node
     async fn connect_to_node(
         mut self,
-    ) -> Result<Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>, Error> {
+    ) -> Result<Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>, Error>
+    {
         let our_version = transport::Version::current_version();
 
         let version_request = ServerMsg::RequestVersion;
@@ -107,14 +121,14 @@ impl Machine<Uninit, ServerUninitState> {
 pub(crate) struct Uninit;
 
 pub(crate) struct ClientUninitState {
-    conn: transport::FollowerConnection<ClientMsg>,
-    common: super::Common,
+    conn: transport::Connection<ClientMsg>,
 }
 
 pub(crate) struct ServerUninitState {
     client_ip: SocketAddr,
     client_name: String,
-    conn: transport::ServerConnection<ServerMsg>,
+    conn: transport::Connection<ServerMsg>,
+    common: super::Common,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

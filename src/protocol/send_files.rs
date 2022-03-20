@@ -6,13 +6,14 @@ use super::built::{Built, ClientBuiltState, ServerBuiltState};
 
 pub(crate) struct SendFiles;
 pub(crate) struct ClientSendFilesState {
-    conn: transport::FollowerConnection<ClientMsg>,
+    conn: transport::Connection<ClientMsg>,
     working_dir: PathBuf,
     job_name: String,
     folder_state: client::BindingFolderState,
 }
+
 pub(crate) struct ServerSendFilesState {
-    conn: transport::ServerConnection<ServerMsg>,
+    conn: transport::Connection<ServerMsg>,
     common: super::Common,
     namespace: String,
     batch_name: String,
@@ -52,10 +53,8 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
             match metadata.into_send_file() {
                 Ok(mut send_file) => {
-                    send_file.file_path = utils::remove_path_prefixes(
-                        send_file.file_path,
-                        &dist_save_path,
-                    );
+                    send_file.file_path =
+                        utils::remove_path_prefixes(send_file.file_path, &dist_save_path);
 
                     let msg = ClientMsg::SaveFile(send_file);
 
@@ -63,10 +62,12 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
                     // receive the server telling us its ok to send the next file
                     self.state.conn.receive_data().await?;
-
                 }
                 Err(e) => {
-                    error!("failed to convert file metadata to file bytes when transporting: {}", e);
+                    error!(
+                        "failed to convert file metadata to file bytes when transporting: {}",
+                        e
+                    );
                 }
             }
         }
@@ -91,25 +92,34 @@ impl Machine<SendFiles, ServerSendFilesState> {
                     let path = self.state.save_location.join(file.file_path);
 
                     if file.is_file {
-                        debug!("creating file {} on {} for {}", path.display(), self.state.common.node_name, self.state.job_name );
+                        debug!(
+                            "creating file {} on {} for {}",
+                            path.display(),
+                            self.state.common.node_name,
+                            self.state.job_name
+                        );
 
                         // save the file
-                        let res = tokio::fs::write(&path, file.bytes).await
+                        let res = tokio::fs::write(&path, file.bytes)
+                            .await
                             .map_err(|e| error::WriteFile::new(e, path));
 
                         // if there was an error writing the file then log it
                         if let Err(e) = res {
                             error!("{}", e)
                         }
-
                     } else {
-                        debug!("creating directory {} on {} for {}", path.display(), self.state.common.node_name, self.state.job_name);
+                        debug!(
+                            "creating directory {} on {} for {}",
+                            path.display(),
+                            self.state.common.node_name,
+                            self.state.job_name
+                        );
 
                         // create the directory for the file
                         server::ok_if_exists(tokio::fs::create_dir(&path).await)
                             .map_err(|e| error::CreateDir::new(e, path))?;
                     }
-
                 }
                 ClientMsg::FinishFiles => {
                     // we are now done receiving files
@@ -118,21 +128,23 @@ impl Machine<SendFiles, ServerSendFilesState> {
                 }
             }
 
-            self.state.conn.transport_data(&ServerMsg::ReceivedFile).await?;
+            self.state
+                .conn
+                .transport_data(&ServerMsg::ReceivedFile)
+                .await?;
         }
     }
 }
 
-
 #[derive(Serialize, Deserialize, Unwrap)]
 pub(crate) enum ServerMsg {
-    ReceivedFile
+    ReceivedFile,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) enum ClientMsg {
     SaveFile(transport::SendFile),
-    FinishFiles
+    FinishFiles,
 }
 
 impl transport::AssociatedMessage for ServerMsg {

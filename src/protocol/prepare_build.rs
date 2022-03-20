@@ -3,11 +3,11 @@ use crate::prelude::*;
 
 pub(crate) struct PrepareBuild;
 pub(crate) struct ClientPrepareBuildState {
-    conn: transport::FollowerConnection<ClientMsg>,
+    conn: transport::Connection<ClientMsg>,
 }
 
 pub(crate) struct ServerPrepareBuildState {
-    conn: transport::ServerConnection<ServerMsg>,
+    conn: transport::Connection<ServerMsg>,
     common: super::Common,
 }
 use super::compiling::{Building, ClientBuildingState, ServerBuildingState};
@@ -37,27 +37,27 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<Building, ServerBuildingState>, Error> {
-
         let job = server::node::fetch_new_job(
             scheduler_tx,
             server::JobIdentifier::none(),
             &self.state.common.node_name,
-            &self.state.conn.addr,
+            &self.state.common.main_transport_addr,
             &self.state.common.keepalive_addr,
             self.state.common.capabilities.clone(),
-            self.state.common.errored_jobs.clone()
-        ).await;
+            self.state.common.errored_jobs.clone(),
+        )
+        .await;
 
         // TODO: specify the query function that we only receive BuildTaskInfo
         //       and then we wont have the possibility of erroring here
-        let build_job : server::pool_data::BuildTaskInfo= match job {
+        let build_job: server::pool_data::BuildTaskInfo = match job {
             server::pool_data::FetchedJob::Build(build) => build,
             server::pool_data::FetchedJob::Run(_run) => {
-                error!("got execution job on {} / {} when we have not initialized anything. This is a bug", self.state.common.node_name, self.state.conn.addr );
-                panic!("got execution job on {} / {} when we have not initialized anything. This is a bug", self.state.common.node_name, self.state.conn.addr );
+                error!("got execution job on {} / {} when we have not initialized anything. This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
+                panic!("got execution job on {} / {} when we have not initialized anything. This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                 //
             }
-            server::pool_data::FetchedJob::MissedKeepalive => return Err(Error::MissedKeepalive)
+            server::pool_data::FetchedJob::MissedKeepalive => return Err(Error::MissedKeepalive),
         };
 
         let msg = ServerMsg::InitializeJob(build_job.task);

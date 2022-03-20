@@ -1,24 +1,24 @@
+use super::Either;
 use super::Machine;
 use crate::prelude::*;
-use super::Either;
 
-use super::send_files::{SendFiles, ServerSendFilesState, ClientSendFilesState};
+use super::send_files::{ClientSendFilesState, SendFiles, ServerSendFilesState};
 
 pub(crate) struct Executing;
 pub(crate) struct ClientExecutingState {
-    conn: transport::FollowerConnection<ClientMsg>,
+    conn: transport::Connection<ClientMsg>,
     working_dir: PathBuf,
-    job: server::JobOpt,
+    job: transport::JobOpt,
     folder_state: client::BindingFolderState,
 }
 
-pub(crate) struct ServerExecutingState  {
-    conn: transport::ServerConnection<ServerMsg>,
+pub(crate) struct ServerExecutingState {
+    conn: transport::Connection<ServerMsg>,
     common: super::Common,
     namespace: String,
     batch_name: String,
     // the job identifier we have scheduled to run
-    job_identifier: server::JobIdentifier
+    job_identifier: server::JobIdentifier,
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -28,7 +28,10 @@ pub(crate) enum Error {
 }
 
 impl Machine<Executing, ClientExecutingState> {
-    pub(crate) async fn execute_job(mut self) -> Result<super::ServerEitherPrepareBuild<Machine<SendFiles, ClientSendFilesState>>, Error> {
+    pub(crate) async fn execute_job(
+        mut self,
+    ) -> Result<super::ServerEitherPrepareBuild<Machine<SendFiles, ClientSendFilesState>>, Error>
+    {
         // TODO: this broadcast can be made a oneshot
         let (tx_cancel, mut rx_cancel) = broadcast::channel(1);
         let (tx_result, rx_result) = oneshot::channel();
@@ -38,18 +41,24 @@ impl Machine<Executing, ClientExecutingState> {
 
         tokio::spawn(async move {
             let msg = match self.state.job {
-                server::JobOpt::Python(python_job) => {
-                    let run_result = client::run_python_job(python_job, &working_dir, &mut rx_cancel).await;
+                transport::JobOpt::Python(python_job) => {
+                    let run_result =
+                        client::run_python_job(python_job, &working_dir, &mut rx_cancel).await;
                     ClientMsg::from_run_result(run_result)
                 }
-                server::JobOpt::Singularity(singularity_job) => {
-                    let run_result = client::run_singularity_job(singularity_job, &working_dir, &mut rx_cancel, &mut folder_state).await;
+                transport::JobOpt::Singularity(singularity_job) => {
+                    let run_result = client::run_singularity_job(
+                        singularity_job,
+                        &working_dir,
+                        &mut rx_cancel,
+                        &mut folder_state,
+                    )
+                    .await;
                     ClientMsg::from_run_result(run_result)
                 }
             };
 
             tx_result.send((folder_state, msg)).ok().unwrap();
-            
         });
 
         // TODO: handle cancellations as well here
@@ -66,22 +75,22 @@ impl Machine<Executing, ClientExecutingState> {
             }
         }
 
-
         todo!()
     }
 }
 
 impl Machine<Executing, ServerExecutingState> {
-    pub(crate) async fn wait_job_execution(mut self) -> Result<super::ServerEitherPrepareBuild<Machine<SendFiles,ServerSendFilesState>>, Error> {
+    pub(crate) async fn wait_job_execution(
+        mut self,
+    ) -> Result<super::ServerEitherPrepareBuild<Machine<SendFiles, ServerSendFilesState>>, Error>
+    {
         let msg = self.state.conn.receive_data().await?;
 
         match msg {
             ClientMsg::CancelledJob => {
                 // go to Machine<PrepareBuild, _>
             }
-            ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
-
-            }
+            ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {}
         }
 
         todo!()
@@ -89,7 +98,7 @@ impl Machine<Executing, ServerExecutingState> {
 }
 
 #[derive(Serialize, Deserialize, Unwrap)]
-pub(crate) enum ServerMsg { }
+pub(crate) enum ServerMsg {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ClientMsg {
@@ -103,9 +112,7 @@ impl ClientMsg {
         match execution_output {
             Ok(None) => Self::CancelledJob,
             Ok(Some(_)) => Self::SuccessfulJob,
-            Err(_e) => {
-                Self::FailedJob
-            }
+            Err(_e) => Self::FailedJob,
         }
     }
 }
