@@ -21,10 +21,12 @@ pub(crate) enum Error {
 }
 
 impl Machine<PrepareBuild, ClientPrepareBuildState> {
-    async fn receive_job(mut self) -> Result<Machine<Building, ClientBuildingState>, Error> {
+    pub(crate) async fn receive_job(
+        mut self,
+    ) -> Result<Machine<Building, ClientBuildingState>, Error> {
         let msg = self.state.conn.receive_data().await?;
 
-        let job: config::BuildOpts = msg.unwrap_initialize_job();
+        let job: transport::BuildOpts = msg.unwrap_initialize_job();
 
         // TODO: save the job in the next state
         todo!()
@@ -33,7 +35,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
 
 impl Machine<PrepareBuild, ServerPrepareBuildState> {
     /// fetch a new job from the scheduler and send that job to the child node
-    async fn receive_job(
+    pub(crate) async fn receive_job(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<Building, ServerBuildingState>, Error> {
@@ -70,7 +72,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
 #[derive(Serialize, Deserialize, Unwrap)]
 // TODO: also need to send full information to rebuild the next state if required
 pub(crate) enum ServerMsg {
-    InitializeJob(config::BuildOpts),
+    InitializeJob(transport::BuildOpts),
 }
 
 #[derive(Debug)]

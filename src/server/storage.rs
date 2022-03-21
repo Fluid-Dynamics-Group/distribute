@@ -1,7 +1,7 @@
 use crate::transport;
 
-use std::io;
 use crate::prelude::*;
+use std::io;
 
 use crate::config;
 use transport::JobOpt;
@@ -119,7 +119,6 @@ impl StoredJob {
         }
     }
 }
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct LazyPythonJob {
@@ -264,10 +263,10 @@ impl StoredJobInit {
         Ok(Self::Singularity(job))
     }
 
-    pub(crate) fn load_build(&self) -> Result<config::BuildOpts, io::Error> {
+    pub(crate) fn load_build(&self) -> Result<transport::BuildOpts, io::Error> {
         match self {
-            Self::Python(x) => Ok(config::BuildOpts::Python(x.load_build()?)),
-            Self::Singularity(x) => Ok(config::BuildOpts::Singularity(x.load_build()?)),
+            Self::Python(x) => Ok(transport::BuildOpts::Python(x.load_build()?)),
+            Self::Singularity(x) => Ok(transport::BuildOpts::Singularity(x.load_build()?)),
         }
     }
 
@@ -280,10 +279,13 @@ impl StoredJobInit {
         Ok(())
     }
 
-    pub(crate) fn from_opt(opt: config::BuildOpts, output_dir: &Path) -> Result<Self, io::Error> {
+    pub(crate) fn from_opt(
+        opt: transport::BuildOpts,
+        output_dir: &Path,
+    ) -> Result<Self, io::Error> {
         match opt {
-            config::BuildOpts::Singularity(s) => Self::from_singularity(s, output_dir),
-            config::BuildOpts::Python(s) => Self::from_python(s, output_dir),
+            transport::BuildOpts::Singularity(s) => Self::from_singularity(s, output_dir),
+            transport::BuildOpts::Python(s) => Self::from_python(s, output_dir),
         }
     }
 }
@@ -373,7 +375,7 @@ fn load_files(files: &[LazyFile], delete: bool) -> Result<Vec<transport::File>, 
 
 #[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
 pub struct OwnedJobSet {
-    pub(crate) build: config::BuildOpts,
+    pub(crate) build: transport::BuildOpts,
     pub(crate) requirements:
         config::requirements::Requirements<config::requirements::JobRequiredCaps>,
     pub(crate) remaining_jobs: config::JobOpts,

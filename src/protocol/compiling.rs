@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 pub(crate) struct Building;
 pub(crate) struct ClientBuildingState {
-    build_opt: config::BuildOpts,
+    build_opt: transport::BuildOpts,
     conn: transport::Connection<ClientMsg>,
     working_dir: PathBuf,
 }
@@ -60,14 +60,14 @@ impl Machine<Building, ClientBuildingState> {
             let mut cancel = rx_cancel;
 
             match self.state.build_opt {
-                config::BuildOpts::Python(python_job) => {
+                transport::BuildOpts::Python(python_job) => {
                     let build_result =
                         crate::client::initialize_python_job(python_job, &working_dir, &mut cancel)
                             .await;
                     let msg = ClientMsg::from_build_result(build_result);
                     tx_result.send((folder_state, msg)).ok().unwrap();
                 }
-                config::BuildOpts::Singularity(singularity_job) => {
+                transport::BuildOpts::Singularity(singularity_job) => {
                     let build_result = crate::client::initialize_singularity_job(
                         singularity_job,
                         &working_dir,

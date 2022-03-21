@@ -3,61 +3,68 @@ use super::Machine;
 use crate::prelude::*;
 
 #[derive(thiserror::Error, Debug, From)]
-enum Error {
+pub(crate) enum ServerError {
     #[error("node version did not match server version: `{0}`")]
     VersionMismatch(transport::Version),
     #[error("{0}")]
     TcpConnection(error::TcpConnection),
-    #[error("unexpected request: {actual:?}, expected {expected:?}")]
-    ClientUnexpected {
-        actual: ServerMsg,
-        expected: FlatServerMsg,
-    },
-    #[error("unexpected request: {actual:?}, expected {expected:?}")]
-    ServerUnexpected {
-        actual: ClientMsg,
-        expected: FlatClientMsg,
-    },
+    #[error("Unexpected Response: {0}")]
+    Response(ClientMsg),
+}
+
+#[derive(thiserror::Error, Debug, From)]
+pub(crate) enum ClientError {
+    #[error("node version did not match server version. Server has discontinued the connection")]
+    VersionMismatch,
+    #[error("{0}")]
+    TcpConnection(error::TcpConnection),
 }
 
 impl Machine<Uninit, ClientUninitState> {
     /// on the compute node, wait for a connection from the host and load the connected state
     /// once it has been made
-    async fn connect_to_host(
+    pub(crate) async fn connect_to_host(
         mut self,
-    ) -> Result<Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>, Error>
-    {
+    ) -> Result<
+        Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>,
+        (Self, ClientError),
+    > {
         // first message should be querying what our version is
-        let msg = self.state.conn.receive_data().await?;
-        if ServerMsg::RequestVersion != msg {
-            // we did not get the message we expected
-            return Err(Error::ClientUnexpected {
-                actual: msg,
-                expected: FlatServerMsg::RequestVersion,
-            });
-        }
+        let msg = self.state.conn.receive_data().await;
 
-        // second message _should_ be that we are moving forward.
-        // if the server cancelled the connection then this should result in a tcp connection
-        // error
-        let msg = self.state.conn.receive_data().await?;
-        if ServerMsg::RequestConfirm != msg {
-            // we did not get the message we expected
-            return Err(Error::ClientUnexpected {
-                actual: msg,
-                expected: FlatServerMsg::RequestConfirm,
-            });
-        }
+        let msg: ServerMsg = throw_error_with_self!(msg, self);
 
-        // TODO: set up the next state
-        todo!()
+        debug!(
+            "expecting version message, got: {:?} - sending version response",
+            msg
+        );
+        let response = ClientMsg::ResponseVersion(transport::Version::current_version());
+
+        throw_error_with_self!(self.state.conn.transport_data(&response).await, self);
+
+        // now the server will either tell us the versions are the same, or
+        // that they dont match and we cannot talk
+        let msg_result = self.state.conn.receive_data().await;
+
+        let msg = throw_error_with_self!(msg_result, self);
+
+        match msg {
+            ServerMsg::RequestVersion => {
+                error!("client asked for version information after we sent it. This is an unreachable state");
+                unreachable!()
+            }
+            ServerMsg::VersionMismatch => return Err((self, ClientError::VersionMismatch)),
+            ServerMsg::VersionsMatched => {
+                debug!("versions matched - continuing to next step");
+                // TODO: enter next state machine
+                todo!()
+            }
+        }
     }
 
     pub(crate) fn new(conn: tokio::net::TcpStream) -> Self {
         let conn = transport::Connection::from_connection(conn);
-        let state = ClientUninitState {
-            conn
-        };
+        let state = ClientUninitState { conn };
 
         Self {
             state,
@@ -68,10 +75,12 @@ impl Machine<Uninit, ClientUninitState> {
 
 impl Machine<Uninit, ServerUninitState> {
     /// on the master node, try to connect to the compute node
-    async fn connect_to_node(
+    pub(crate) async fn connect_to_node(
         mut self,
-    ) -> Result<Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>, Error>
-    {
+    ) -> Result<
+        Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>,
+        ServerError,
+    > {
         let our_version = transport::Version::current_version();
 
         let version_request = ServerMsg::RequestVersion;
@@ -81,10 +90,9 @@ impl Machine<Uninit, ServerUninitState> {
         let client_version = if let ClientMsg::ResponseVersion(version) = msg {
             version
         } else {
-            return Err(Error::ServerUnexpected {
-                actual: msg,
-                expected: FlatClientMsg::ResponseVersion,
-            });
+            // message was unexpected. When handling this error the server should kill the TCP
+            // connection which will prevent the client from reaching an invalid state
+            return Err(ServerError::Response(msg));
         };
 
         // check that the client is running the same verison of the program as us
@@ -93,25 +101,16 @@ impl Machine<Uninit, ServerUninitState> {
                 .conn
                 .transport_data(&ServerMsg::VersionMismatch)
                 .await?;
-            return Err(Error::VersionMismatch(client_version));
+            return Err(ServerError::VersionMismatch(client_version));
         }
 
         // tell the client that we are moving forward with the connection
         self.state
             .conn
-            .transport_data(&ServerMsg::RequestConfirm)
+            .transport_data(&ServerMsg::VersionsMatched)
             .await?;
         // recieve the client telling us that we are ready to move forward
         let msg = self.state.conn.receive_data().await?;
-
-        if let ClientMsg::RespondConfirm = msg {
-            //
-        } else {
-            return Err(Error::ServerUnexpected {
-                actual: msg,
-                expected: FlatClientMsg::RespondConfirm,
-            });
-        }
 
         // set to the new state
         todo!()
@@ -134,27 +133,14 @@ pub(crate) struct ServerUninitState {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ServerMsg {
     RequestVersion,
-    RequestConfirm,
+    VersionsMatched,
     VersionMismatch,
 }
 
-#[derive(Debug)]
-pub(crate) enum FlatServerMsg {
-    RequestVersion,
-    RequestConfirm,
-    VersionMismatch,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Display)]
 pub(crate) enum ClientMsg {
+    #[display(fmt = "version message: {}", _0)]
     ResponseVersion(transport::Version),
-    RespondConfirm,
-}
-
-#[derive(Debug)]
-pub(crate) enum FlatClientMsg {
-    ResponseVersion,
-    RespondConfirm,
 }
 
 impl transport::AssociatedMessage for ServerMsg {

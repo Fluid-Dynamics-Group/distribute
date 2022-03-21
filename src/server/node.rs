@@ -383,7 +383,8 @@ async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> 
 async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(), Error> {
     // TODO: this connection might be able to stall, im not sure
     let mut conn = transport::Connection::new(*address).await?;
-    conn.transport_data(&transport::ServerQuery::KeepaliveCheck).await?;
+    conn.transport_data(&transport::ServerQuery::KeepaliveCheck)
+        .await?;
 
     match tokio::time::timeout(Duration::from_secs(10), conn.receive_data()).await {
         Ok(inner) => {

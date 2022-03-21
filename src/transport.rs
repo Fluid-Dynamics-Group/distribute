@@ -16,15 +16,14 @@ use crate::error;
 use crate::error::Error;
 use crate::server;
 
-
 #[derive(Serialize, Deserialize)]
 pub(crate) enum ServerQuery {
-    KeepaliveCheck
+    KeepaliveCheck,
 }
 
 #[derive(Serialize, Deserialize)]
 pub(crate) enum ClientQueryAnswer {
-    KeepaliveResponse
+    KeepaliveResponse,
 }
 
 pub(crate) trait AssociatedMessage {
@@ -49,7 +48,6 @@ mod messages {
     impl AssociatedMessage for ClientQueryAnswer {
         type Receive = ServerQuery;
     }
-
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
@@ -239,8 +237,6 @@ pub enum ClientError {
 fn serialization_options() -> bincode::config::DefaultOptions {
     bincode::config::DefaultOptions::new()
 }
-
-
 
 #[derive(derive_more::From)]
 pub(crate) struct Connection<T> {

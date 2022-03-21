@@ -107,7 +107,7 @@ pub(crate) struct BuildTaskInfo {
     namespace: String,
     batch_name: String,
     pub(crate) identifier: JobIdentifier,
-    pub(crate) task: config::BuildOpts,
+    pub(crate) task: transport::BuildOpts,
 }
 
 impl BuildTaskInfo {
@@ -154,5 +154,5 @@ impl RunTaskInfo {
 #[derive(From, Clone, Debug, PartialEq)]
 pub(crate) enum JobOrInit {
     Job(transport::JobOpt),
-    JobInit(config::BuildOpts),
+    JobInit(transport::BuildOpts),
 }

@@ -369,7 +369,7 @@ impl JobSet {
         }
     }
 
-    fn init_file(&mut self) -> Result<config::BuildOpts, std::io::Error> {
+    fn init_file(&mut self) -> Result<transport::BuildOpts, std::io::Error> {
         self.build.load_build()
     }
 
@@ -507,7 +507,10 @@ mod tests {
     fn check_job(response: JobResponse, expected_job: transport::PythonJob) {
         match response {
             JobResponse::SetupOrRun(task) => {
-                assert_eq!(task.task.unwrap_job(), transport::JobOpt::from(expected_job));
+                assert_eq!(
+                    task.task.unwrap_job(),
+                    transport::JobOpt::from(expected_job)
+                );
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),
         }

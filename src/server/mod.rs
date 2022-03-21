@@ -91,18 +91,18 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
 
     // spawn off each node connection to its own task
     //for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
-        //info!("starting NodeConnection for {}", server_connection.addr);
-        //let common = Common::new(
-        //    server_connection,
-        //    request_job.clone(),
-        //    tx_cancel.subscribe(),
-        //    caps,
-        //    server.save_path.clone(),
-        //);
+    //info!("starting NodeConnection for {}", server_connection.addr);
+    //let common = Common::new(
+    //    server_connection,
+    //    request_job.clone(),
+    //    tx_cancel.subscribe(),
+    //    caps,
+    //    server.save_path.clone(),
+    //);
 
-        // let handle = InitializedNode::new(common, Default::default()).spawn();
+    // let handle = InitializedNode::new(common, Default::default()).spawn();
 
-        //handles.push(handle);
+    //handles.push(handle);
     //}
 
     //futures::future::join_all(handles).await;

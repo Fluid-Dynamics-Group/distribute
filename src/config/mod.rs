@@ -135,7 +135,7 @@ impl Jobs {
         }
     }
 
-    pub async fn load_build(&self) -> Result<BuildOpts, LoadJobsError> {
+    pub async fn load_build(&self) -> Result<transport::BuildOpts, LoadJobsError> {
         match &self {
             Self::Python { meta, python } => {
                 let py_build = python.load_build(meta.batch_name.clone()).await?;
@@ -218,23 +218,6 @@ impl NormalizePaths for Nodes {
 pub enum JobOpts {
     Python(Vec<transport::PythonJob>),
     Singularity(Vec<transport::SingularityJob>),
-}
-
-#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[cfg(feature = "cli")]
-pub enum BuildOpts {
-    Python(transport::PythonJobInit),
-    Singularity(transport::SingularityJobInit),
-}
-
-#[cfg(feature = "cli")]
-impl BuildOpts {
-    pub(crate) fn batch_name(&self) -> &str {
-        match &self {
-            Self::Singularity(s) => &s.batch_name,
-            Self::Python(p) => &p.batch_name,
-        }
-    }
 }
 
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(

@@ -69,8 +69,8 @@ async fn load_config(
 
     debug!("loading build information from files");
     let loaded_build = match jobs.load_build().await? {
-        config::BuildOpts::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
-        config::BuildOpts::Singularity(s) => s,
+        transport::BuildOpts::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
+        transport::BuildOpts::Singularity(s) => s,
     };
 
     Ok((loaded_build, loaded_jobs))

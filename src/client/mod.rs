@@ -6,14 +6,13 @@ pub(crate) use execute::{
     BindingFolderState,
 };
 
-use crate::protocol;
 use crate::prelude::*;
+use crate::protocol;
 
 use crate::{cli, error, error::Error, transport};
 
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
-
 
 pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let base_path = PathBuf::from(client.base_folder);
@@ -32,17 +31,43 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
             .map_err(error::TcpConnection::from)?;
 
         let uninit = protocol::Machine::new(tcp_conn);
-
     }
 
     #[allow(unreachable_code)]
     Ok(())
 }
 
+async fn run_job(conn: tokio::net::TcpStream) -> Result<(), protocol::Error> {
+    let uninit = run_job_inner(protocol::Machine::new(conn)).await;
+
+    Ok(())
+}
+
+type UninitClient =
+    protocol::Machine<protocol::uninit::Uninit, protocol::uninit::ClientUninitState>;
+
+async fn run_job_inner(uninit: UninitClient) -> Result<UninitClient, protocol::Error> {
+    //let prepare_build = match uninit.connect_to_host().await {
+    //    Ok(prep) => prep,
+    //    Err((uninit, protocol::uninit::ClientError::TcpConnection(err))) => {
+    //        // there was a TCP error
+    //        error!("TCP error when attempting to connect to host: {}", err);
+    //        return Ok(uninit);
+    //    }
+    //};
+
+    //let compiling = prepare_build.receive_job().await;
+    //let built_job_or_uninit = compiling.build_job().await;
+
+    todo!()
+}
+
 /// answer the server's message on the query port.
 ///
 /// The message is a short query about what we are doing, including a keepalive
-async fn answer_query_connection(client_conn: transport::Connection<transport::ClientQueryAnswer>) -> Result<(), error::TcpConnection> {
+async fn answer_query_connection(
+    client_conn: transport::Connection<transport::ClientQueryAnswer>,
+) -> Result<(), error::TcpConnection> {
     todo!()
 }
 
