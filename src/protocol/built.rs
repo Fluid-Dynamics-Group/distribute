@@ -38,10 +38,12 @@ impl Machine<Built, ClientBuiltState> {
     /// wait for the node to return information on the job we are to run
     pub(crate) async fn get_execute_instructions(
         mut self,
-    ) -> Result<super::ClientEitherPrepareBuild<Machine<Executing, ClientExecutingState>>, (Self, ClientError)>
-    {
+    ) -> Result<
+        super::ClientEitherPrepareBuild<Machine<Executing, ClientExecutingState>>,
+        (Self, ClientError),
+    > {
         let msg = self.state.conn.receive_data().await;
-        let msg : ServerMsg = throw_error_with_self!(msg, self);
+        let msg: ServerMsg = throw_error_with_self!(msg, self);
 
         match msg {
             ServerMsg::ExecuteJob(job) => {
@@ -66,8 +68,10 @@ impl Machine<Built, ServerBuiltState> {
     pub(crate) async fn send_job_execution_instructions(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
-    ) -> Result<super::ServerEitherPrepareBuild<Machine<Executing, ServerExecutingState>>, (Self, ServerError)>
-    {
+    ) -> Result<
+        super::ServerEitherPrepareBuild<Machine<Executing, ServerExecutingState>>,
+        (Self, ServerError),
+    > {
         let job = server::node::fetch_new_job(
             scheduler_tx,
             self.state.job_identifier,
@@ -88,11 +92,12 @@ impl Machine<Built, ServerBuiltState> {
                     panic!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                 } else {
                     // notify the compute machine that we are transitioning states
-                    let tmp = self.state
+                    let tmp = self
+                        .state
                         .conn
                         .transport_data(&ServerMsg::ReturnPrepareBuild)
                         .await;
-                    
+
                     throw_error_with_self!(tmp, self);
 
                     // TODO: return a Machine<PrepareBuild, _> since the scheudler wants us to
@@ -101,7 +106,8 @@ impl Machine<Built, ServerBuiltState> {
                 }
             }
             server::pool_data::FetchedJob::Run(run) => {
-                let tmp = self.state
+                let tmp = self
+                    .state
                     .conn
                     .transport_data(&ServerMsg::ExecuteJob(run.task))
                     .await;
@@ -112,7 +118,9 @@ impl Machine<Built, ServerBuiltState> {
                 todo!()
             }
             // missed the keepalive, we should error out and let the caller handle this
-            server::pool_data::FetchedJob::MissedKeepalive => return Err((self, ServerError::MissedKeepalive)),
+            server::pool_data::FetchedJob::MissedKeepalive => {
+                return Err((self, ServerError::MissedKeepalive))
+            }
         };
 
         todo!()

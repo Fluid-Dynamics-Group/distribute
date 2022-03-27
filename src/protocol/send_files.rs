@@ -45,7 +45,9 @@ impl Machine<SendFiles, ClientSendFilesState> {
     ///
     /// if there is an error reading a file, that file will be logged but not sent. The
     /// only possible error from this function is if the TCP connection is cut.
-    pub(crate) async fn send_files(mut self) -> Result<Machine<Built, ClientBuiltState>, (Self, ClientError)> {
+    pub(crate) async fn send_files(
+        mut self,
+    ) -> Result<Machine<Built, ClientBuiltState>, (Self, ClientError)> {
         let files = utils::read_save_folder(&self.state.working_dir);
 
         let dist_save_path = self.state.working_dir.join("distribute_save");
@@ -98,10 +100,12 @@ impl Machine<SendFiles, ClientSendFilesState> {
 impl Machine<SendFiles, ServerSendFilesState> {
     /// listen for the compute node to send us all the files that are in the ./distribute_save
     /// directory after the job has been completed
-    pub(crate) async fn send_files(mut self) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
+    pub(crate) async fn send_files(
+        mut self,
+    ) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
         loop {
             let msg = self.state.conn.receive_data().await;
-            let msg : ClientMsg = throw_error_with_self!(msg, self);
+            let msg: ClientMsg = throw_error_with_self!(msg, self);
 
             match msg {
                 ClientMsg::SaveFile(file) => {
@@ -145,7 +149,8 @@ impl Machine<SendFiles, ServerSendFilesState> {
                 }
             }
 
-            let tmp = self.state
+            let tmp = self
+                .state
                 .conn
                 .transport_data(&ServerMsg::ReceivedFile)
                 .await;

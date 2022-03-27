@@ -219,7 +219,7 @@ pub enum ClientInitError {
     #[error("`{0}`")]
     Io(std::io::Error),
     #[error("`{0}`")]
-    TcpConnection(TcpConnection)
+    TcpConnection(TcpConnection),
 }
 
 #[derive(Debug, Display, From, Constructor, thiserror::Error)]

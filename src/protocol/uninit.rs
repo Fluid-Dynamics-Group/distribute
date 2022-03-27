@@ -88,16 +88,28 @@ impl Machine<Uninit, ServerUninitState> {
 
         // grab the version information
         let msg = throw_error_with_self!(self.state.conn.receive_data().await, self);
-        let ClientMsg::ResponseVersion(client_version ) = msg;
+        let ClientMsg::ResponseVersion(client_version) = msg;
 
         // check that the client is running the same verison of the program as us
         if our_version != client_version {
-            throw_error_with_self!(self.state.conn.transport_data(&ServerMsg::VersionMismatch).await, self);
+            throw_error_with_self!(
+                self.state
+                    .conn
+                    .transport_data(&ServerMsg::VersionMismatch)
+                    .await,
+                self
+            );
             return Err((self, ServerError::VersionMismatch(client_version)));
         }
 
         // tell the client that we are moving forward with the connection
-        throw_error_with_self!(self.state.conn.transport_data(&ServerMsg::VersionsMatched).await, self);
+        throw_error_with_self!(
+            self.state
+                .conn
+                .transport_data(&ServerMsg::VersionsMatched)
+                .await,
+            self
+        );
 
         // set to the new state
         todo!()

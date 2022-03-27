@@ -11,14 +11,14 @@ pub(crate) struct ServerPrepareBuildState {
     common: super::Common,
 }
 use super::compiling::{Building, ClientBuildingState, ServerBuildingState};
-use super::uninit::{Uninit, ServerUninitState, ClientUninitState};
+use super::uninit::{ClientUninitState, ServerUninitState, Uninit};
 
 #[derive(thiserror::Error, Debug, From)]
-// TODO: the server can error for a different reason than the client. If the server senses 
+// TODO: the server can error for a different reason than the client. If the server senses
 // a keepalive connection has failed, then it kills the connection. However, the client sees
-// this as a tcp error. Tcp errors have a special case handling in the client impl (they expect the 
+// this as a tcp error. Tcp errors have a special case handling in the client impl (they expect the
 // server to recreate the connection), however - the client will await a new connection from the
-// server instead of operating on the old TCP connection. The server should then sense that the 
+// server instead of operating on the old TCP connection. The server should then sense that the
 // TCP connection has closed, but the result of this behavior is not clear at the moment
 pub(crate) enum ClientError {
     #[error("{0}")]
@@ -38,7 +38,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         mut self,
     ) -> Result<Machine<Building, ClientBuildingState>, (Self, ClientError)> {
         let msg = self.state.conn.receive_data().await;
-        let msg : ServerMsg = throw_error_with_self!(msg, self);
+        let msg: ServerMsg = throw_error_with_self!(msg, self);
 
         let job: transport::BuildOpts = msg.unwrap_initialize_job();
 
@@ -77,7 +77,9 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
                 panic!("got execution job on {} / {} when we have not initialized anything. This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                 //
             }
-            server::pool_data::FetchedJob::MissedKeepalive => return Err((self, ServerError::MissedKeepalive))
+            server::pool_data::FetchedJob::MissedKeepalive => {
+                return Err((self, ServerError::MissedKeepalive))
+            }
         };
 
         let msg = ServerMsg::InitializeJob(build_job.task);

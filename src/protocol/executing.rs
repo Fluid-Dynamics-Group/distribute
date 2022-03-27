@@ -36,8 +36,10 @@ pub(crate) enum ServerError {
 impl Machine<Executing, ClientExecutingState> {
     pub(crate) async fn execute_job(
         mut self,
-    ) -> Result<super::ClientEitherPrepareBuild<Machine<SendFiles, ClientSendFilesState>>, (Self, ClientError)>
-    {
+    ) -> Result<
+        super::ClientEitherPrepareBuild<Machine<SendFiles, ClientSendFilesState>>,
+        (Self, ClientError),
+    > {
         // TODO: this broadcast can be made a oneshot
         let (tx_cancel, mut rx_cancel) = broadcast::channel(1);
         let (tx_result, rx_result) = oneshot::channel();
@@ -69,7 +71,7 @@ impl Machine<Executing, ClientExecutingState> {
         });
 
         // TODO: handle cancellations as well here
-        
+
         // TODO: this gets more complex if the job is cancelled since we dont get
         // our folder state back for free - BUT: i think this might get automatically
         // handled from the job execution perspective
@@ -99,8 +101,10 @@ impl Machine<Executing, ClientExecutingState> {
 impl Machine<Executing, ServerExecutingState> {
     pub(crate) async fn wait_job_execution(
         mut self,
-    ) -> Result<super::ServerEitherPrepareBuild<Machine<SendFiles, ServerSendFilesState>>, (Self, ServerError)>
-    {
+    ) -> Result<
+        super::ServerEitherPrepareBuild<Machine<SendFiles, ServerSendFilesState>>,
+        (Self, ServerError),
+    > {
         let msg = self.state.conn.receive_data().await;
         let msg = throw_error_with_self!(msg, self);
 

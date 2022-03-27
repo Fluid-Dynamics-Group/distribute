@@ -21,18 +21,13 @@ pub(crate) mod prepare_build;
 pub(crate) mod send_files;
 pub(crate) mod uninit;
 
-pub(crate) type UninitClient =
-    Machine<uninit::Uninit, uninit::ClientUninitState>;
-pub(crate) type UninitServer =
-    Machine<uninit::Uninit, uninit::ServerUninitState>;
+pub(crate) type UninitClient = Machine<uninit::Uninit, uninit::ClientUninitState>;
+pub(crate) type UninitServer = Machine<uninit::Uninit, uninit::ServerUninitState>;
 pub(crate) type PrepareBuildClient =
     Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>;
-pub(crate) type BuiltClient=
-    Machine<built::Built, built::ClientBuiltState>;
-pub(crate) type ExecuteClient=
-    Machine<executing::Executing, executing::ClientExecutingState>;
-pub(crate) type SendFilesClient=
-    Machine<executing::Executing, executing::ClientExecutingState>;
+pub(crate) type BuiltClient = Machine<built::Built, built::ClientBuiltState>;
+pub(crate) type ExecuteClient = Machine<executing::Executing, executing::ClientExecutingState>;
+pub(crate) type SendFilesClient = Machine<executing::Executing, executing::ClientExecutingState>;
 
 pub(crate) struct Machine<StateMarker, State> {
     _marker: StateMarker,
@@ -43,7 +38,6 @@ pub(crate) enum Either<T, V> {
     Left(T),
     Right(V),
 }
-
 
 #[derive(From)]
 pub(crate) enum ClientError {
