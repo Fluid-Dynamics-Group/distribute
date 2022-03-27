@@ -22,7 +22,13 @@ use super::built::{Built, ClientBuiltState, ServerBuiltState};
 use super::prepare_build::{ClientPrepareBuildState, PrepareBuild, ServerPrepareBuildState};
 
 #[derive(thiserror::Error, Debug, From)]
-pub(crate) enum Error {
+pub(crate) enum ClientError {
+    #[error("{0}")]
+    TcpConnection(error::TcpConnection),
+}
+
+#[derive(thiserror::Error, Debug, From)]
+pub(crate) enum ServerError {
     #[error("{0}")]
     TcpConnection(error::TcpConnection),
     #[error("Node failed the keepalive check")]
@@ -39,11 +45,11 @@ impl Machine<Building, ClientBuildingState> {
     /// Cancelled compilations or Failed compilations return `Machine<PrepareBuild, _>`
     ///
     /// this routine is also responsible for listening for cancellation requests from the server
-    async fn build_job(
+    pub(crate) async fn build_job(
         mut self,
     ) -> Result<
         Either<Machine<Built, ClientBuiltState>, Machine<PrepareBuild, ClientPrepareBuildState>>,
-        Error,
+        (Self, ClientError),
     > {
         // TODO: should probably wipe the folder and instantiate the folders here
 
@@ -53,13 +59,16 @@ impl Machine<Building, ClientBuildingState> {
 
         let mut folder_state = crate::client::execute::BindingFolderState::new();
         let working_dir = self.state.working_dir.clone();
+        // TODO: we can probably avoid this clone if we are clever with transporting the data
+        // back from the proc after it finishes
+        let build_opt = self.state.build_opt.clone();
 
         // spawn off a worker to perform the compilation so that we can monitor
         // for cancellation signals from the master node
         tokio::spawn(async move {
             let mut cancel = rx_cancel;
 
-            match self.state.build_opt {
+            match build_opt {
                 transport::BuildOpts::Python(python_job) => {
                     let build_result =
                         crate::client::initialize_python_job(python_job, &working_dir, &mut cancel)
@@ -84,7 +93,7 @@ impl Machine<Building, ClientBuildingState> {
         let (folder_state, msg) = rx_result.await.unwrap();
 
         // tell the node about what the result was
-        self.state.conn.transport_data(&msg).await?;
+        throw_error_with_self!(self.state.conn.transport_data(&msg).await, self);
 
         match msg {
             ClientMsg::SuccessfullCompilation => {
@@ -99,6 +108,10 @@ impl Machine<Building, ClientBuildingState> {
 
         todo!()
     }
+
+    pub(crate) fn to_uninit(self) -> super::UninitClient {
+        todo!()
+    }
 }
 
 impl Machine<Building, ServerBuildingState> {
@@ -109,11 +122,11 @@ impl Machine<Building, ServerBuildingState> {
     /// Cancelled compilations or Failed compilations return `Machine<PrepareBuild, _>`
     ///
     /// this routine is also responsible for listening for cancellation requests from the server
-    async fn prepare_for_execution(
+    pub(crate) async fn prepare_for_execution(
         mut self,
     ) -> Result<
         Either<Machine<Built, ServerBuiltState>, Machine<PrepareBuild, ServerPrepareBuildState>>,
-        Error,
+        ServerError,
     > {
         let msg = self.state.conn.receive_data().await?;
 
@@ -140,6 +153,10 @@ impl Machine<Building, ServerBuildingState> {
         };
 
         Ok(out)
+    }
+
+    pub(crate) fn to_uninit(self) -> super::UninitServer {
+        todo!()
     }
 }
 

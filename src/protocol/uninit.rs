@@ -79,38 +79,25 @@ impl Machine<Uninit, ServerUninitState> {
         mut self,
     ) -> Result<
         Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>,
-        ServerError,
+        (Self, ServerError),
     > {
         let our_version = transport::Version::current_version();
 
         let version_request = ServerMsg::RequestVersion;
-        self.state.conn.transport_data(&version_request).await?;
+        throw_error_with_self!(self.state.conn.transport_data(&version_request).await, self);
 
-        let msg = self.state.conn.receive_data().await?;
-        let client_version = if let ClientMsg::ResponseVersion(version) = msg {
-            version
-        } else {
-            // message was unexpected. When handling this error the server should kill the TCP
-            // connection which will prevent the client from reaching an invalid state
-            return Err(ServerError::Response(msg));
-        };
+        // grab the version information
+        let msg = throw_error_with_self!(self.state.conn.receive_data().await, self);
+        let ClientMsg::ResponseVersion(client_version ) = msg;
 
         // check that the client is running the same verison of the program as us
         if our_version != client_version {
-            self.state
-                .conn
-                .transport_data(&ServerMsg::VersionMismatch)
-                .await?;
-            return Err(ServerError::VersionMismatch(client_version));
+            throw_error_with_self!(self.state.conn.transport_data(&ServerMsg::VersionMismatch).await, self);
+            return Err((self, ServerError::VersionMismatch(client_version)));
         }
 
         // tell the client that we are moving forward with the connection
-        self.state
-            .conn
-            .transport_data(&ServerMsg::VersionsMatched)
-            .await?;
-        // recieve the client telling us that we are ready to move forward
-        let msg = self.state.conn.receive_data().await?;
+        throw_error_with_self!(self.state.conn.transport_data(&ServerMsg::VersionsMatched).await, self);
 
         // set to the new state
         todo!()

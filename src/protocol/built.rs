@@ -5,7 +5,13 @@ use crate::prelude::*;
 use super::executing::{ClientExecutingState, Executing, ServerExecutingState};
 
 #[derive(thiserror::Error, Debug, From)]
-pub(crate) enum Error {
+pub(crate) enum ClientError {
+    #[error("{0}")]
+    TcpConnection(error::TcpConnection),
+}
+
+#[derive(thiserror::Error, Debug, From)]
+pub(crate) enum ServerError {
     #[error("{0}")]
     TcpConnection(error::TcpConnection),
     #[error("Node failed the keepalive check")]
@@ -32,9 +38,10 @@ impl Machine<Built, ClientBuiltState> {
     /// wait for the node to return information on the job we are to run
     pub(crate) async fn get_execute_instructions(
         mut self,
-    ) -> Result<super::ClientEitherPrepareBuild<Machine<Executing, ClientExecutingState>>, Error>
+    ) -> Result<super::ClientEitherPrepareBuild<Machine<Executing, ClientExecutingState>>, (Self, ClientError)>
     {
-        let msg = self.state.conn.receive_data().await?;
+        let msg = self.state.conn.receive_data().await;
+        let msg : ServerMsg = throw_error_with_self!(msg, self);
 
         match msg {
             ServerMsg::ExecuteJob(job) => {
@@ -47,6 +54,10 @@ impl Machine<Built, ClientBuiltState> {
 
         todo!()
     }
+
+    pub(crate) fn to_uninit(self) -> super::UninitClient {
+        todo!()
+    }
 }
 
 impl Machine<Built, ServerBuiltState> {
@@ -55,7 +66,7 @@ impl Machine<Built, ServerBuiltState> {
     pub(crate) async fn send_job_execution_instructions(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
-    ) -> Result<super::ServerEitherPrepareBuild<Machine<Executing, ServerExecutingState>>, Error>
+    ) -> Result<super::ServerEitherPrepareBuild<Machine<Executing, ServerExecutingState>>, (Self, ServerError)>
     {
         let job = server::node::fetch_new_job(
             scheduler_tx,
@@ -77,10 +88,12 @@ impl Machine<Built, ServerBuiltState> {
                     panic!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                 } else {
                     // notify the compute machine that we are transitioning states
-                    self.state
+                    let tmp = self.state
                         .conn
                         .transport_data(&ServerMsg::ReturnPrepareBuild)
-                        .await?;
+                        .await;
+                    
+                    throw_error_with_self!(tmp, self);
 
                     // TODO: return a Machine<PrepareBuild, _> since the scheudler wants us to
                     // prepare and run a different job
@@ -88,17 +101,24 @@ impl Machine<Built, ServerBuiltState> {
                 }
             }
             server::pool_data::FetchedJob::Run(run) => {
-                self.state
+                let tmp = self.state
                     .conn
                     .transport_data(&ServerMsg::ExecuteJob(run.task))
-                    .await?;
+                    .await;
+
+                throw_error_with_self!(tmp, self);
+
                 // TODO: return a Machine<Executing, _>
                 todo!()
             }
             // missed the keepalive, we should error out and let the caller handle this
-            server::pool_data::FetchedJob::MissedKeepalive => return Err(Error::MissedKeepalive),
+            server::pool_data::FetchedJob::MissedKeepalive => return Err((self, ServerError::MissedKeepalive)),
         };
 
+        todo!()
+    }
+
+    pub(crate) fn to_uninit(self) -> super::UninitClient {
         todo!()
     }
 }

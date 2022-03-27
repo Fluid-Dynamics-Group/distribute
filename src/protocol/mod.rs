@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use tokio::sync::broadcast;
 
 #[macro_export]
-#[doc = "hidden"]
+#[doc(hidden)]
 macro_rules! throw_error_with_self {
     ($result:expr, $_self:expr) => {
         match $result {
@@ -21,6 +21,19 @@ pub(crate) mod prepare_build;
 pub(crate) mod send_files;
 pub(crate) mod uninit;
 
+pub(crate) type UninitClient =
+    Machine<uninit::Uninit, uninit::ClientUninitState>;
+pub(crate) type UninitServer =
+    Machine<uninit::Uninit, uninit::ServerUninitState>;
+pub(crate) type PrepareBuildClient =
+    Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>;
+pub(crate) type BuiltClient=
+    Machine<built::Built, built::ClientBuiltState>;
+pub(crate) type ExecuteClient=
+    Machine<executing::Executing, executing::ClientExecutingState>;
+pub(crate) type SendFilesClient=
+    Machine<executing::Executing, executing::ClientExecutingState>;
+
 pub(crate) struct Machine<StateMarker, State> {
     _marker: StateMarker,
     state: State,
@@ -31,22 +44,16 @@ pub(crate) enum Either<T, V> {
     Right(V),
 }
 
-pub(crate) enum Error {}
 
-//#[derive(Constructor)]
-//pub(crate) struct TcpErrorWrap {
-//    error: error::TcpConnection,
-//    module: Module,
-//}
-//
-//enum Module {
-//    Built,
-//    Compiling,
-//    Executing,
-//    PrepareBuild,
-//    SendFiles,
-//    Uninit,
-//}
+#[derive(From)]
+pub(crate) enum ClientError {
+    Uninit(uninit::ClientError),
+    PrepareBuild(prepare_build::ClientError),
+    Building(compiling::ClientError),
+    Built(built::ClientError),
+    Executing(executing::ClientError),
+    SendFiles(send_files::ClientError),
+}
 
 type ClientEitherPrepareBuild<T> =
     Either<Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>, T>;

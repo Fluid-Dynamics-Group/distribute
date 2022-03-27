@@ -25,7 +25,15 @@ pub(crate) struct ServerSendFilesState {
 }
 
 #[derive(thiserror::Error, Debug, From)]
-pub(crate) enum Error {
+pub(crate) enum ClientError {
+    #[error("{0}")]
+    TcpConnection(error::TcpConnection),
+    //#[error("{0}")]
+    //CreateDir(error::CreateDir),
+}
+
+#[derive(thiserror::Error, Debug, From)]
+pub(crate) enum ServerError {
     #[error("{0}")]
     TcpConnection(error::TcpConnection),
     #[error("{0}")]
@@ -37,7 +45,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
     ///
     /// if there is an error reading a file, that file will be logged but not sent. The
     /// only possible error from this function is if the TCP connection is cut.
-    pub(crate) async fn send_files(mut self) -> Result<Machine<Built, ClientBuiltState>, Error> {
+    pub(crate) async fn send_files(mut self) -> Result<Machine<Built, ClientBuiltState>, (Self, ClientError)> {
         let files = utils::read_save_folder(&self.state.working_dir);
 
         let dist_save_path = self.state.working_dir.join("distribute_save");
@@ -58,10 +66,12 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
                     let msg = ClientMsg::SaveFile(send_file);
 
-                    self.state.conn.transport_data(&msg).await?;
+                    let tmp = self.state.conn.transport_data(&msg).await;
+                    throw_error_with_self!(tmp, self);
 
                     // receive the server telling us its ok to send the next file
-                    self.state.conn.receive_data().await?;
+                    let msg = self.state.conn.receive_data().await;
+                    throw_error_with_self!(msg, self);
                 }
                 Err(e) => {
                     error!(
@@ -74,8 +84,13 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
         // tell the server we are done sending files and we should transition to the next state
         let msg = ClientMsg::FinishFiles;
-        self.state.conn.transport_data(&msg).await?;
+        let tmp = self.state.conn.transport_data(&msg).await;
+        throw_error_with_self!(tmp, self);
 
+        todo!()
+    }
+
+    pub(crate) fn to_uninit(self) -> super::UninitClient {
         todo!()
     }
 }
@@ -83,9 +98,10 @@ impl Machine<SendFiles, ClientSendFilesState> {
 impl Machine<SendFiles, ServerSendFilesState> {
     /// listen for the compute node to send us all the files that are in the ./distribute_save
     /// directory after the job has been completed
-    pub(crate) async fn send_files(mut self) -> Result<Machine<Built, ServerBuiltState>, Error> {
+    pub(crate) async fn send_files(mut self) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
         loop {
-            let msg = self.state.conn.receive_data().await?;
+            let msg = self.state.conn.receive_data().await;
+            let msg : ClientMsg = throw_error_with_self!(msg, self);
 
             match msg {
                 ClientMsg::SaveFile(file) => {
@@ -117,8 +133,9 @@ impl Machine<SendFiles, ServerSendFilesState> {
                         );
 
                         // create the directory for the file
-                        server::ok_if_exists(tokio::fs::create_dir(&path).await)
-                            .map_err(|e| error::CreateDir::new(e, path))?;
+                        let res = server::ok_if_exists(tokio::fs::create_dir(&path).await)
+                            .map_err(|e| error::CreateDir::new(e, path));
+                        throw_error_with_self!(res, self);
                     }
                 }
                 ClientMsg::FinishFiles => {
@@ -128,11 +145,16 @@ impl Machine<SendFiles, ServerSendFilesState> {
                 }
             }
 
-            self.state
+            let tmp = self.state
                 .conn
                 .transport_data(&ServerMsg::ReceivedFile)
-                .await?;
+                .await;
+            throw_error_with_self!(tmp, self);
         }
+    }
+
+    pub(crate) fn to_uninit(self) -> super::UninitClient {
+        todo!()
     }
 }
 
