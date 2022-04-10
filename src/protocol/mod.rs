@@ -5,6 +5,12 @@ use tokio::sync::broadcast;
 
 #[macro_export]
 #[doc(hidden)]
+/// match on the given $result, and if the $result is Err(e), 
+/// return Err((self, x))
+///
+/// this is because the current borrow checker does not like 
+/// us using .map_err() to combine with `self`, even though
+/// we are using `?` immediately after
 macro_rules! throw_error_with_self {
     ($result:expr, $_self:expr) => {
         match $result {
@@ -38,6 +44,15 @@ pub(crate) type SendFilesServer = Machine<send_files::SendFiles, send_files::Ser
 pub(crate) struct Machine<StateMarker, State> {
     _marker: StateMarker,
     state: State,
+}
+
+impl <StateMarker, State> Machine<StateMarker, State> where StateMarker: Default {
+    fn from_state(state: State) -> Self {
+        Self {
+            state,
+            _marker: StateMarker::default()
+        }
+    }
 }
 
 pub(crate) enum Either<T, V> {

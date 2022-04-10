@@ -18,20 +18,22 @@ pub(crate) enum ServerError {
     MissedKeepalive,
 }
 
+#[derive(Default)]
 pub(crate) struct Built;
+
 pub(crate) struct ClientBuiltState {
-    conn: transport::Connection<ClientMsg>,
-    working_dir: PathBuf,
-    folder_state: client::BindingFolderState,
+    pub(in super) conn: transport::Connection<ClientMsg>,
+    pub(in super) working_dir: PathBuf,
+    pub(in super) folder_state: client::BindingFolderState,
 }
 
 pub(crate) struct ServerBuiltState {
-    conn: transport::Connection<ServerMsg>,
-    common: super::Common,
-    namespace: String,
-    batch_name: String,
+    pub(in super) conn: transport::Connection<ServerMsg>,
+    pub(in super) common: super::Common,
+    pub(in super) namespace: String,
+    pub(in super) batch_name: String,
     // the job identifier we have scheduled to run
-    job_identifier: server::JobIdentifier,
+    pub(in super) job_identifier: server::JobIdentifier,
 }
 
 impl Machine<Built, ClientBuiltState> {

@@ -286,7 +286,16 @@ where
 
         Ok(())
     }
+
+    pub(crate) fn update_state<TxNew>(self) -> Connection<TxNew> {
+        let conn = self.conn;
+        Connection {
+            conn,
+            _marker: std::marker::PhantomData
+        }
+    }
 }
+
 
 async fn transport<T: Serialize>(
     tcp_connection: &mut TcpStream,
