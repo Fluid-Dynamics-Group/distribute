@@ -68,7 +68,9 @@ impl Machine<Built, ClientBuiltState> {
     }
 
     fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
-        let ClientBuiltState { conn, working_dir, .. } = self.state;
+        let ClientBuiltState {
+            conn, working_dir, ..
+        } = self.state;
         let conn = conn.update_state();
         super::prepare_build::ClientPrepareBuildState { conn, working_dir }
     }

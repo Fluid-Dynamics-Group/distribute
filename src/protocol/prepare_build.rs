@@ -55,10 +55,17 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         todo!()
     }
 
-    pub(crate) fn into_compiling_state(self, build_opt: transport::BuildOpts) -> super::compiling::ClientBuildingState {
+    pub(crate) fn into_compiling_state(
+        self,
+        build_opt: transport::BuildOpts,
+    ) -> super::compiling::ClientBuildingState {
         let ClientPrepareBuildState { conn, working_dir } = self.state;
         let conn = conn.update_state();
-        super::compiling::ClientBuildingState { build_opt, conn, working_dir }
+        super::compiling::ClientBuildingState {
+            build_opt,
+            conn,
+            working_dir,
+        }
     }
 }
 
@@ -115,10 +122,21 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         todo!()
     }
 
-    pub(crate) fn into_compiling_state(self, namespace: String, batch_name: String, job_identifier: server::JobIdentifier) -> super::compiling::ServerBuildingState {
+    pub(crate) fn into_compiling_state(
+        self,
+        namespace: String,
+        batch_name: String,
+        job_identifier: server::JobIdentifier,
+    ) -> super::compiling::ServerBuildingState {
         let ServerPrepareBuildState { conn, common } = self.state;
         let conn = conn.update_state();
-        super::compiling::ServerBuildingState { conn, common, batch_name, namespace, job_identifier }
+        super::compiling::ServerBuildingState {
+            conn,
+            common,
+            batch_name,
+            namespace,
+            job_identifier,
+        }
     }
 }
 

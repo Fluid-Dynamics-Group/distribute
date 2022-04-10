@@ -162,7 +162,6 @@ impl Machine<Uninit, ServerUninitState> {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ServerMsg {
     RequestVersion,

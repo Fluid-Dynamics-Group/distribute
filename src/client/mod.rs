@@ -44,7 +44,10 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
 ///
 /// Only return from this function if there is a TcpConnection error
 async fn run_job(conn: tokio::net::TcpStream, working_dir: &Path) -> Result<(), ()> {
-    let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(conn, working_dir.to_owned());
+    let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(
+        conn,
+        working_dir.to_owned(),
+    );
 
     loop {
         match run_job_inner(machine).await {
