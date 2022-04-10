@@ -32,7 +32,7 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
             .await
             .map_err(error::TcpConnection::from)?;
 
-        run_job(tcp_conn).await.ok();
+        run_job(tcp_conn, &base_path).await.ok();
     }
 
     #[allow(unreachable_code)]
@@ -43,8 +43,8 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
 /// through that connection as possible.
 ///
 /// Only return from this function if there is a TcpConnection error
-async fn run_job(conn: tokio::net::TcpStream) -> Result<(), ()> {
-    let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(conn);
+async fn run_job(conn: tokio::net::TcpStream, working_dir: &Path) -> Result<(), ()> {
+    let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(conn, working_dir.to_owned());
 
     loop {
         match run_job_inner(machine).await {

@@ -2,6 +2,18 @@ use super::prepare_build;
 use super::Machine;
 use crate::prelude::*;
 
+pub(crate) struct Uninit;
+
+pub(crate) struct ClientUninitState {
+    conn: transport::Connection<ClientMsg>,
+    pub(super) working_dir: PathBuf,
+}
+
+pub(crate) struct ServerUninitState {
+    conn: transport::Connection<ServerMsg>,
+    common: super::Common,
+}
+
 #[derive(thiserror::Error, Debug, From)]
 pub(crate) enum ServerError {
     #[error("node version did not match server version: `{0}`")]
@@ -62,14 +74,20 @@ impl Machine<Uninit, ClientUninitState> {
         }
     }
 
-    pub(crate) fn new(conn: tokio::net::TcpStream) -> Self {
+    pub(crate) fn new(conn: tokio::net::TcpStream, working_dir: PathBuf) -> Self {
         let conn = transport::Connection::from_connection(conn);
-        let state = ClientUninitState { conn };
+        let state = ClientUninitState { conn, working_dir };
 
         Self {
             state,
             _marker: Uninit,
         }
+    }
+
+    fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
+        let ClientUninitState { conn, working_dir } = self.state;
+        let conn = conn.update_state();
+        super::prepare_build::ClientPrepareBuildState { conn, working_dir }
     }
 }
 
@@ -126,6 +144,12 @@ impl Machine<Uninit, ServerUninitState> {
         }
     }
 
+    fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
+        let ServerUninitState { conn, common } = self.state;
+        let conn = conn.update_state();
+        super::prepare_build::ServerPrepareBuildState { conn, common }
+    }
+
     /// update the underlying TCP connection that the state machine will use
     ///
     /// This method *must* be called if there was an error with the previous TCP
@@ -138,16 +162,6 @@ impl Machine<Uninit, ServerUninitState> {
     }
 }
 
-pub(crate) struct Uninit;
-
-pub(crate) struct ClientUninitState {
-    conn: transport::Connection<ClientMsg>,
-}
-
-pub(crate) struct ServerUninitState {
-    conn: transport::Connection<ServerMsg>,
-    common: super::Common,
-}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ServerMsg {
