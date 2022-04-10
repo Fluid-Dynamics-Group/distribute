@@ -8,22 +8,22 @@ use super::built::{Built, ClientBuiltState, ServerBuiltState};
 pub(crate) struct SendFiles;
 
 pub(crate) struct ClientSendFilesState {
-    pub(in super) conn: transport::Connection<ClientMsg>,
-    pub(in super) working_dir: PathBuf,
-    pub(in super) job_name: String,
-    pub(in super) folder_state: client::BindingFolderState,
+    pub(super) conn: transport::Connection<ClientMsg>,
+    pub(super) working_dir: PathBuf,
+    pub(super) job_name: String,
+    pub(super) folder_state: client::BindingFolderState,
 }
 
 pub(crate) struct ServerSendFilesState {
-    pub(in super)conn: transport::Connection<ServerMsg>,
-    pub(in super) common: super::Common,
-    pub(in super)namespace: String,
-    pub(in super)batch_name: String,
+    pub(super) conn: transport::Connection<ServerMsg>,
+    pub(super) common: super::Common,
+    pub(super) namespace: String,
+    pub(super) batch_name: String,
     // the job identifier we have scheduled to run
-    pub(in super)job_identifier: server::JobIdentifier,
-    pub(in super)job_name: String,
+    pub(super) job_identifier: server::JobIdentifier,
+    pub(super) job_name: String,
     /// where the results of the job should be stored
-    pub(in super)save_location: PathBuf,
+    pub(super) save_location: PathBuf,
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -100,9 +100,18 @@ impl Machine<SendFiles, ClientSendFilesState> {
     }
 
     pub(crate) fn into_built_state(self) -> super::built::ClientBuiltState {
-        let ClientSendFilesState {conn, working_dir, folder_state, ..} = self.state;
+        let ClientSendFilesState {
+            conn,
+            working_dir,
+            folder_state,
+            ..
+        } = self.state;
         let conn = conn.update_state();
-        super::built::ClientBuiltState{conn, working_dir, folder_state}
+        super::built::ClientBuiltState {
+            conn,
+            working_dir,
+            folder_state,
+        }
     }
 }
 
@@ -152,14 +161,13 @@ impl Machine<SendFiles, ServerSendFilesState> {
                         if let Err(e) = res {
                             error!("failed to create the required directory to store the results of the job. This is very bad and should not happen: {}", e);
                         }
-
                     }
                 }
                 ClientMsg::FinishFiles => {
                     // we are now done receiving files
                     let built_state = self.into_built_state();
                     let machine = Machine::from_state(built_state);
-                    return Ok(machine)
+                    return Ok(machine);
                 }
             }
 
@@ -173,9 +181,22 @@ impl Machine<SendFiles, ServerSendFilesState> {
     }
 
     pub(crate) fn into_built_state(self) -> super::built::ServerBuiltState {
-        let ServerSendFilesState {conn, common, namespace, batch_name, job_identifier, .. } = self.state;
+        let ServerSendFilesState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+            ..
+        } = self.state;
         let conn = conn.update_state();
-        super::built::ServerBuiltState { conn, common, namespace, batch_name, job_identifier}
+        super::built::ServerBuiltState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+        }
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitServer {

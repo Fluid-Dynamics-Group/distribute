@@ -2,7 +2,9 @@ use super::Either;
 use super::Machine;
 use crate::prelude::*;
 
+#[derive(Default)]
 pub(crate) struct Building;
+
 pub(crate) struct ClientBuildingState {
     build_opt: transport::BuildOpts,
     conn: transport::Connection<ClientMsg>,
@@ -98,19 +100,42 @@ impl Machine<Building, ClientBuildingState> {
         match msg {
             ClientMsg::SuccessfullCompilation => {
                 // go to Machine<Built, _>
+                let built_state = self.into_built_state(folder_state);
+                let machine = Machine::from_state(built_state);
+                Ok(Either::Left(machine))
             }
             ClientMsg::FailedCompilation | ClientMsg::CancelledCompilation => {
                 // go to Machine<PrepareBuild, _>
+                let prepare_build = self.into_prepare_build();
+                let machine = Machine::from_state(prepare_build);
+                Ok(Either::Right(machine))
             }
         }
-
-        // TODO: pass on folder state to the next state
-
-        todo!()
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
         todo!()
+    }
+
+    pub(crate) fn into_built_state(
+        self,
+        folder_state: client::BindingFolderState,
+    ) -> super::built::ClientBuiltState {
+        let ClientBuildingState {
+            conn, working_dir, ..
+        } = self.state;
+        let conn = conn.update_state();
+        super::built::ClientBuiltState {
+            conn,
+            working_dir,
+            folder_state,
+        }
+    }
+
+    pub(crate) fn into_prepare_build(self) -> super::prepare_build::ClientPrepareBuildState {
+        let ClientBuildingState { conn, .. } = self.state;
+        let conn = conn.update_state();
+        super::prepare_build::ClientPrepareBuildState { conn }
     }
 }
 
@@ -133,23 +158,30 @@ impl Machine<Building, ServerBuildingState> {
 
         let out = match msg {
             ClientMsg::SuccessfullCompilation => {
-                // TODO: go to Built state
-                todo!()
+                // go to Built state
+                let built_state = self.into_built_state();
+                let machine = Machine::from_state(built_state);
+                Either::Left(machine)
             }
             ClientMsg::FailedCompilation => {
+                // mark the job as unbuildable and then
+                // Return to Machine<PrepareBuild, _>
                 self.state
                     .common
                     .errored_jobs
                     .insert(self.state.job_identifier);
-                // TODO: Return to Machine<PrepareBuild, _> here
-                todo!()
+                let prepare_build = self.into_prepare_build();
+                let machine = Machine::from_state(prepare_build);
+                Either::Right(machine)
             }
             ClientMsg::CancelledCompilation => {
                 // we dont need to mark the job as cancelled since the job
                 // should no longer exist in the system (it was cancelled everywhere)
 
-                // TODO: return to Machine<PrepareBuild, _> here
-                todo!()
+                // return to Machine<PrepareBuild, _> here
+                let prepare_build = self.into_prepare_build();
+                let machine = Machine::from_state(prepare_build);
+                Either::Right(machine)
             }
         };
 
@@ -158,6 +190,30 @@ impl Machine<Building, ServerBuildingState> {
 
     pub(crate) fn to_uninit(self) -> super::UninitServer {
         todo!()
+    }
+
+    pub(crate) fn into_built_state(self) -> super::built::ServerBuiltState {
+        let ServerBuildingState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+        } = self.state;
+        let conn = conn.update_state();
+        super::built::ServerBuiltState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+        }
+    }
+
+    pub(crate) fn into_prepare_build(self) -> super::prepare_build::ServerPrepareBuildState {
+        let ServerBuildingState { conn, common, .. } = self.state;
+        let conn = conn.update_state();
+        super::prepare_build::ServerPrepareBuildState { conn, common }
     }
 }
 
