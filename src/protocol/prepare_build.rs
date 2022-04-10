@@ -1,15 +1,18 @@
 use super::Machine;
 use crate::prelude::*;
 
+#[derive(Default)]
 pub(crate) struct PrepareBuild;
+
 pub(crate) struct ClientPrepareBuildState {
-    conn: transport::Connection<ClientMsg>,
+    pub(in super) conn: transport::Connection<ClientMsg>,
 }
 
 pub(crate) struct ServerPrepareBuildState {
-    conn: transport::Connection<ServerMsg>,
-    common: super::Common,
+    pub(in super) conn: transport::Connection<ServerMsg>,
+    pub(in super) common: super::Common,
 }
+
 use super::compiling::{Building, ClientBuildingState, ServerBuildingState};
 use super::uninit::{ClientUninitState, ServerUninitState, Uninit};
 

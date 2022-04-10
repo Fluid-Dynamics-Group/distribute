@@ -129,6 +129,8 @@ type ServerEitherPrepareBuild<T> =
 pub(crate) struct Common {
     receive_cancellation: broadcast::Receiver<JobIdentifier>,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
+    /// the root directory on the HDD that we should save results of the runs,
+    /// not including namespace and batch name information
     save_path: PathBuf,
     pub(crate) node_name: String,
     keepalive_addr: SocketAddr,

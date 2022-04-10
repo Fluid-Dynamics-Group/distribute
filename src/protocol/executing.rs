@@ -4,7 +4,9 @@ use crate::prelude::*;
 
 use super::send_files::{ClientSendFilesState, SendFiles, ServerSendFilesState};
 
+#[derive(Default)]
 pub(crate) struct Executing;
+
 pub(crate) struct ClientExecutingState {
     conn: transport::Connection<ClientMsg>,
     working_dir: PathBuf,
@@ -19,6 +21,8 @@ pub(crate) struct ServerExecutingState {
     batch_name: String,
     // the job identifier we have scheduled to run
     job_identifier: server::JobIdentifier,
+    job_name: String,
+    save_location: PathBuf
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -84,17 +88,36 @@ impl Machine<Executing, ClientExecutingState> {
         match msg_result {
             ClientMsg::CancelledJob => {
                 // go to Machine<PrepareBuild, _>
+                let prepare_build = self.into_prepare_build_state();
+                let machine = Machine::from_state(prepare_build);
+                let either = Either::Left(machine);
+                Ok(either)
             }
             ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
                 // go to Machine<SendFiles, _>
+                let send_files = self.into_send_files_state();
+                let machine = Machine::from_state(send_files);
+                let either = Either::Right(machine);
+                Ok(either)
             }
         }
-
-        todo!()
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
         todo!()
+    }
+
+    fn into_send_files_state(self) -> super::send_files::ClientSendFilesState {
+        let ClientExecutingState { conn, working_dir, job, folder_state } = self.state;
+        let conn = conn.update_state();
+        let job_name = job.name().to_string();
+        super::send_files::ClientSendFilesState { conn, working_dir, job_name, folder_state}
+    }
+
+    fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
+        let ClientExecutingState { conn, ..} = self.state;
+        let conn = conn.update_state();
+        super::prepare_build::ClientPrepareBuildState { conn }
     }
 }
 
@@ -111,15 +134,35 @@ impl Machine<Executing, ServerExecutingState> {
         match msg {
             ClientMsg::CancelledJob => {
                 // go to Machine<PrepareBuild, _>
+                let prepare_build = self.into_prepare_build_state();
+                let machine = Machine::from_state(prepare_build);
+                let either = Either::Left(machine);
+                Ok(either)
             }
-            ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {}
+            ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
+                // go to Machine<SendFiles, _>
+                let send_files = self.into_send_files_state();
+                let machine = Machine::from_state(send_files);
+                let either = Either::Right(machine);
+                Ok(either)
+            }
         }
-
-        todo!()
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitServer {
         todo!()
+    }
+
+    fn into_send_files_state(self) -> super::send_files::ServerSendFilesState {
+        let ServerExecutingState {  conn, common, namespace, batch_name, job_identifier, job_name, save_location } = self.state;
+        let conn = conn.update_state();
+        super::send_files::ServerSendFilesState { conn, common, namespace, batch_name, job_identifier, job_name, save_location }
+    }
+
+    fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
+        let ServerExecutingState { conn, common, ..} = self.state;
+        let conn = conn.update_state();
+        super::prepare_build::ServerPrepareBuildState { conn, common }
     }
 }
 

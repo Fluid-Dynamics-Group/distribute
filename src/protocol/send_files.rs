@@ -8,10 +8,10 @@ use super::built::{Built, ClientBuiltState, ServerBuiltState};
 pub(crate) struct SendFiles;
 
 pub(crate) struct ClientSendFilesState {
-    conn: transport::Connection<ClientMsg>,
-    working_dir: PathBuf,
-    job_name: String,
-    folder_state: client::BindingFolderState,
+    pub(in super) conn: transport::Connection<ClientMsg>,
+    pub(in super) working_dir: PathBuf,
+    pub(in super) job_name: String,
+    pub(in super) folder_state: client::BindingFolderState,
 }
 
 pub(crate) struct ServerSendFilesState {
