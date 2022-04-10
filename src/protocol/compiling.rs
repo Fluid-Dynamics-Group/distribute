@@ -6,17 +6,17 @@ use crate::prelude::*;
 pub(crate) struct Building;
 
 pub(crate) struct ClientBuildingState {
-    build_opt: transport::BuildOpts,
-    conn: transport::Connection<ClientMsg>,
-    working_dir: PathBuf,
+    pub(in super) build_opt: transport::BuildOpts,
+    pub(in super) conn: transport::Connection<ClientMsg>,
+    pub(in super) working_dir: PathBuf,
 }
 
 pub(crate) struct ServerBuildingState {
-    conn: transport::Connection<ServerMsg>,
-    common: super::Common,
-    namespace: String,
-    batch_name: String,
-    job_identifier: server::JobIdentifier,
+    pub(in super) conn: transport::Connection<ServerMsg>,
+    pub(in super) common: super::Common,
+    pub(in super) namespace: String,
+    pub(in super) batch_name: String,
+    pub(in super) job_identifier: server::JobIdentifier,
 }
 
 // information on the next build state that we transition to
@@ -133,9 +133,9 @@ impl Machine<Building, ClientBuildingState> {
     }
 
     pub(crate) fn into_prepare_build(self) -> super::prepare_build::ClientPrepareBuildState {
-        let ClientBuildingState { conn, .. } = self.state;
+        let ClientBuildingState { conn, working_dir, .. } = self.state;
         let conn = conn.update_state();
-        super::prepare_build::ClientPrepareBuildState { conn }
+        super::prepare_build::ClientPrepareBuildState { conn, working_dir }
     }
 }
 

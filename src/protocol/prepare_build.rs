@@ -6,6 +6,7 @@ pub(crate) struct PrepareBuild;
 
 pub(crate) struct ClientPrepareBuildState {
     pub(super) conn: transport::Connection<ClientMsg>,
+    pub(super) working_dir: PathBuf,
 }
 
 pub(crate) struct ServerPrepareBuildState {
@@ -45,12 +46,19 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
 
         let job: transport::BuildOpts = msg.unwrap_initialize_job();
 
-        // TODO: save the job in the next state
-        todo!()
+        let compiling_state = self.into_compiling_state(job);
+        let machine = Machine::from_state(compiling_state);
+        Ok(machine)
     }
 
     pub(crate) fn to_uninit(self) -> Machine<Uninit, ClientUninitState> {
         todo!()
+    }
+
+    pub(crate) fn into_compiling_state(self, build_opt: transport::BuildOpts) -> super::compiling::ClientBuildingState {
+        let ClientPrepareBuildState { conn, working_dir } = self.state;
+        let conn = conn.update_state();
+        super::compiling::ClientBuildingState { build_opt, conn, working_dir }
     }
 }
 
@@ -85,16 +93,32 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
             }
         };
 
+        // pull some variables from the task info so we can store them
+        // here
+        let namespace = build_job.namespace.clone();
+        let batch_name = build_job.batch_name.clone();
+        let job_identifier = build_job.identifier;
+
+        // tell the node about the compiling job
         let msg = ServerMsg::InitializeJob(build_job.task);
         let tmp_msg = self.state.conn.transport_data(&msg).await;
         throw_error_with_self!(tmp_msg, self);
 
-        todo!()
+        // return Machine<BuildingState, _>
+        let compiling_state = self.into_compiling_state(namespace, batch_name, job_identifier);
+        let machine = Machine::from_state(compiling_state);
+        Ok(machine)
     }
 
     /// convert back to the uninitialized state
     pub(crate) fn to_uninit(self) -> Machine<Uninit, ServerUninitState> {
         todo!()
+    }
+
+    pub(crate) fn into_compiling_state(self, namespace: String, batch_name: String, job_identifier: server::JobIdentifier) -> super::compiling::ServerBuildingState {
+        let ServerPrepareBuildState { conn, common } = self.state;
+        let conn = conn.update_state();
+        super::compiling::ServerBuildingState { conn, common, batch_name, namespace, job_identifier }
     }
 }
 

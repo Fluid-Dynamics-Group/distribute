@@ -104,8 +104,8 @@ pub(crate) enum FetchedJob {
 
 #[derive(From, Clone, Constructor)]
 pub(crate) struct BuildTaskInfo {
-    namespace: String,
-    batch_name: String,
+    pub(crate) namespace: String,
+    pub(crate) batch_name: String,
     pub(crate) identifier: JobIdentifier,
     pub(crate) task: transport::BuildOpts,
 }
