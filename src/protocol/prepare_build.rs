@@ -53,7 +53,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
 
 impl Machine<PrepareBuild, ServerPrepareBuildState> {
     /// fetch a new job from the scheduler and send that job to the child node
-    pub(crate) async fn receive_job(
+    pub(crate) async fn send_job(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<Building, ServerBuildingState>, (Self, ServerError)> {
@@ -90,7 +90,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
     }
 
     /// convert back to the uninitialized state
-    pub(crate) fn to_uninit(self) -> Machine<Uninit, ClientUninitState> {
+    pub(crate) fn to_uninit(self) -> Machine<Uninit, ServerUninitState> {
         todo!()
     }
 }

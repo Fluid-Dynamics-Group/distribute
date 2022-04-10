@@ -100,7 +100,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
 impl Machine<SendFiles, ServerSendFilesState> {
     /// listen for the compute node to send us all the files that are in the ./distribute_save
     /// directory after the job has been completed
-    pub(crate) async fn send_files(
+    pub(crate) async fn receive_files(
         mut self,
     ) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
         loop {
@@ -158,7 +158,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitClient {
+    pub(crate) fn to_uninit(self) -> super::UninitServer {
         todo!()
     }
 }

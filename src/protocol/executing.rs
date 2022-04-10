@@ -118,7 +118,7 @@ impl Machine<Executing, ServerExecutingState> {
         todo!()
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitClient {
+    pub(crate) fn to_uninit(self) -> super::UninitServer {
         todo!()
     }
 }

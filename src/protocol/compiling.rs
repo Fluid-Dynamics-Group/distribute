@@ -126,9 +126,10 @@ impl Machine<Building, ServerBuildingState> {
         mut self,
     ) -> Result<
         Either<Machine<Built, ServerBuiltState>, Machine<PrepareBuild, ServerPrepareBuildState>>,
-        ServerError,
+        (Self, ServerError),
     > {
-        let msg = self.state.conn.receive_data().await?;
+        let tmp = self.state.conn.receive_data().await;
+        let msg = throw_error_with_self!(tmp, self);
 
         let out = match msg {
             ClientMsg::SuccessfullCompilation => {

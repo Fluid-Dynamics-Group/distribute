@@ -32,7 +32,7 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
             .await
             .map_err(error::TcpConnection::from)?;
 
-        let uninit = protocol::Machine::new(tcp_conn);
+        run_job(tcp_conn).await.ok();
     }
 
     #[allow(unreachable_code)]
@@ -43,20 +43,22 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
 /// through that connection as possible.
 ///
 /// Only return from this function if there is a TcpConnection error
-async fn run_job(conn: tokio::net::TcpStream) -> Result<(), error::TcpConnection> {
-    loop {
-        let res = run_job_inner(protocol::Machine::new(conn)).await;
+async fn run_job(conn: tokio::net::TcpStream) -> Result<(), ()> {
+    let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(conn);
 
-        match res {
+    loop {
+        match run_job_inner(machine).await {
             Ok(_) => unreachable!(),
-            Err((
-                _,
-                protocol::ClientError::Uninit(protocol::uninit::ClientError::TcpConnection(conn)),
-            )) => {
-                error!("TCP connection error from uninit detected, returning to main loop to accept new connection");
-                return Err(conn);
+            // error state if there was an issue with the TCP connection
+            Err((_uninit, e)) if e.is_tcp_error() => {
+                error!("TCP connection error from uninit detected, returning to main loop to accept new connection: {}", e);
+                //return Err(conn);
+                return Err(());
             }
-            _ => todo!(),
+            Err((_uninit, e)) => {
+                error!("non TCP error when executing: {}", e);
+                machine = _uninit;
+            }
         }
     }
 }

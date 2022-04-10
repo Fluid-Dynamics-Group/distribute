@@ -114,6 +114,28 @@ impl Machine<Uninit, ServerUninitState> {
         // set to the new state
         todo!()
     }
+
+    pub(crate) fn new(conn: tokio::net::TcpStream, common: super::Common) -> Self {
+        let conn = transport::Connection::from_connection(conn);
+
+        let state = ServerUninitState { common, conn };
+
+        Self {
+            state,
+            _marker: Uninit,
+        }
+    }
+
+    /// update the underlying TCP connection that the state machine will use
+    ///
+    /// This method *must* be called if there was an error with the previous TCP
+    /// connection, since the previous TCP connection will continue to indefinitely
+    /// error if it is not set to a new value (it will be closed).
+    pub(crate) fn update_tcp_connection(&mut self, conn: tokio::net::TcpStream) {
+        let conn = transport::Connection::from_connection(conn);
+
+        self.state.conn = conn;
+    }
 }
 
 pub(crate) struct Uninit;
@@ -123,8 +145,6 @@ pub(crate) struct ClientUninitState {
 }
 
 pub(crate) struct ServerUninitState {
-    client_ip: SocketAddr,
-    client_name: String,
     conn: transport::Connection<ServerMsg>,
     common: super::Common,
 }
