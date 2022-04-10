@@ -8,21 +8,21 @@ use super::send_files::{ClientSendFilesState, SendFiles, ServerSendFilesState};
 pub(crate) struct Executing;
 
 pub(crate) struct ClientExecutingState {
-    conn: transport::Connection<ClientMsg>,
-    working_dir: PathBuf,
-    job: transport::JobOpt,
-    folder_state: client::BindingFolderState,
+    pub(super) conn: transport::Connection<ClientMsg>,
+    pub(super) working_dir: PathBuf,
+    pub(super) job: transport::JobOpt,
+    pub(super) folder_state: client::BindingFolderState,
 }
 
 pub(crate) struct ServerExecutingState {
-    conn: transport::Connection<ServerMsg>,
-    common: super::Common,
-    namespace: String,
-    batch_name: String,
+    pub(super) conn: transport::Connection<ServerMsg>,
+    pub(super) common: super::Common,
+    pub(super) namespace: String,
+    pub(super) batch_name: String,
     // the job identifier we have scheduled to run
-    job_identifier: server::JobIdentifier,
-    job_name: String,
-    save_location: PathBuf
+    pub(super) job_identifier: server::JobIdentifier,
+    pub(super) job_name: String,
+    pub(super) save_location: PathBuf,
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -108,14 +108,24 @@ impl Machine<Executing, ClientExecutingState> {
     }
 
     fn into_send_files_state(self) -> super::send_files::ClientSendFilesState {
-        let ClientExecutingState { conn, working_dir, job, folder_state } = self.state;
+        let ClientExecutingState {
+            conn,
+            working_dir,
+            job,
+            folder_state,
+        } = self.state;
         let conn = conn.update_state();
         let job_name = job.name().to_string();
-        super::send_files::ClientSendFilesState { conn, working_dir, job_name, folder_state}
+        super::send_files::ClientSendFilesState {
+            conn,
+            working_dir,
+            job_name,
+            folder_state,
+        }
     }
 
     fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
-        let ClientExecutingState { conn, ..} = self.state;
+        let ClientExecutingState { conn, .. } = self.state;
         let conn = conn.update_state();
         super::prepare_build::ClientPrepareBuildState { conn }
     }
@@ -154,13 +164,29 @@ impl Machine<Executing, ServerExecutingState> {
     }
 
     fn into_send_files_state(self) -> super::send_files::ServerSendFilesState {
-        let ServerExecutingState {  conn, common, namespace, batch_name, job_identifier, job_name, save_location } = self.state;
+        let ServerExecutingState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+            job_name,
+            save_location,
+        } = self.state;
         let conn = conn.update_state();
-        super::send_files::ServerSendFilesState { conn, common, namespace, batch_name, job_identifier, job_name, save_location }
+        super::send_files::ServerSendFilesState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+            job_name,
+            save_location,
+        }
     }
 
     fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
-        let ServerExecutingState { conn, common, ..} = self.state;
+        let ServerExecutingState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }

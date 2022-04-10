@@ -22,18 +22,18 @@ pub(crate) enum ServerError {
 pub(crate) struct Built;
 
 pub(crate) struct ClientBuiltState {
-    pub(in super) conn: transport::Connection<ClientMsg>,
-    pub(in super) working_dir: PathBuf,
-    pub(in super) folder_state: client::BindingFolderState,
+    pub(super) conn: transport::Connection<ClientMsg>,
+    pub(super) working_dir: PathBuf,
+    pub(super) folder_state: client::BindingFolderState,
 }
 
 pub(crate) struct ServerBuiltState {
-    pub(in super) conn: transport::Connection<ServerMsg>,
-    pub(in super) common: super::Common,
-    pub(in super) namespace: String,
-    pub(in super) batch_name: String,
+    pub(super) conn: transport::Connection<ServerMsg>,
+    pub(super) common: super::Common,
+    pub(super) namespace: String,
+    pub(super) batch_name: String,
     // the job identifier we have scheduled to run
-    pub(in super) job_identifier: server::JobIdentifier,
+    pub(super) job_identifier: server::JobIdentifier,
 }
 
 impl Machine<Built, ClientBuiltState> {
@@ -49,18 +49,46 @@ impl Machine<Built, ClientBuiltState> {
 
         match msg {
             ServerMsg::ExecuteJob(job) => {
-                // TODO: return Machine<Executing, _>
+                // return Machine<Executing, _>
+                let executing_state = self.into_executing_state(job);
+                let machine = Machine::from_state(executing_state);
+                Ok(Either::Right(machine))
             }
             ServerMsg::ReturnPrepareBuild => {
-                // TODO: return Machine<PrepareBuild, _>
+                // return Machine<PrepareBuild, _>
+                let prepare_build_state = self.into_prepare_build_state();
+                let machine = Machine::from_state(prepare_build_state);
+                Ok(Either::Left(machine))
             }
-        };
-
-        todo!()
+        }
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
         todo!()
+    }
+
+    fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
+        let ClientBuiltState { conn, .. } = self.state;
+        let conn = conn.update_state();
+        super::prepare_build::ClientPrepareBuildState { conn }
+    }
+
+    fn into_executing_state(
+        self,
+        job: transport::JobOpt,
+    ) -> super::executing::ClientExecutingState {
+        let ClientBuiltState {
+            conn,
+            working_dir,
+            folder_state,
+        } = self.state;
+        let conn = conn.update_state();
+        super::executing::ClientExecutingState {
+            conn,
+            working_dir,
+            job,
+            folder_state,
+        }
     }
 }
 
@@ -87,8 +115,12 @@ impl Machine<Built, ServerBuiltState> {
 
         // TODO: specify the query function that we only receive BuildTaskInfo
         //       and then we wont have the possibility of erroring here
-        let build_job: server::pool_data::BuildTaskInfo = match job {
+        //let build_job: server::pool_data::BuildTaskInfo =
+        match job {
             server::pool_data::FetchedJob::Build(build) => {
+                //
+                // we need to compile a different job and transition to the PrepareBuild state
+                //
                 if build.identifier == self.state.job_identifier {
                     error!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                     panic!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
@@ -102,12 +134,22 @@ impl Machine<Built, ServerBuiltState> {
 
                     throw_error_with_self!(tmp, self);
 
-                    // TODO: return a Machine<PrepareBuild, _> since the scheudler wants us to
+                    // return a Machine<PrepareBuild, _> since the scheudler wants us to
                     // prepare and run a different job
-                    todo!()
+                    let prepare_build_state = self.into_prepare_build_state();
+                    let machine = Machine::from_state(prepare_build_state);
+                    Ok(Either::Left(machine))
                 }
             }
             server::pool_data::FetchedJob::Run(run) => {
+                //
+                // We have been assigned to run a job that we have already compiled
+                //
+
+                // TODO: add some logs about what job we have been assigned to run
+
+                let job_name = run.task.name().to_string();
+
                 let tmp = self
                     .state
                     .conn
@@ -116,20 +158,51 @@ impl Machine<Built, ServerBuiltState> {
 
                 throw_error_with_self!(tmp, self);
 
-                // TODO: return a Machine<Executing, _>
-                todo!()
+                // return a Machine<Executing, _>
+                let executing_state = self.into_executing_state(job_name);
+                let machine = Machine::from_state(executing_state);
+                Ok(Either::Right(machine))
             }
             // missed the keepalive, we should error out and let the caller handle this
+            //
+            // this can happen because we always check the node keepalive address before
+            // we fetch new jobss in `fetch_new_job()`
             server::pool_data::FetchedJob::MissedKeepalive => {
-                return Err((self, ServerError::MissedKeepalive))
+                Err((self, ServerError::MissedKeepalive))
             }
-        };
-
-        todo!()
+        }
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitServer {
         todo!()
+    }
+
+    fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
+        let ServerBuiltState { conn, common, .. } = self.state;
+        let conn = conn.update_state();
+        super::prepare_build::ServerPrepareBuildState { conn, common }
+    }
+
+    fn into_executing_state(self, job_name: String) -> super::executing::ServerExecutingState {
+        let ServerBuiltState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+        } = self.state;
+        let conn = conn.update_state();
+        let save_location = common.save_path.join(&namespace).join(&job_name);
+
+        super::executing::ServerExecutingState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+            job_name,
+            save_location,
+        }
     }
 }
 

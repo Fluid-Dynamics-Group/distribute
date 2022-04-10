@@ -5,12 +5,12 @@ use crate::prelude::*;
 pub(crate) struct PrepareBuild;
 
 pub(crate) struct ClientPrepareBuildState {
-    pub(in super) conn: transport::Connection<ClientMsg>,
+    pub(super) conn: transport::Connection<ClientMsg>,
 }
 
 pub(crate) struct ServerPrepareBuildState {
-    pub(in super) conn: transport::Connection<ServerMsg>,
-    pub(in super) common: super::Common,
+    pub(super) conn: transport::Connection<ServerMsg>,
+    pub(super) common: super::Common,
 }
 
 use super::compiling::{Building, ClientBuildingState, ServerBuildingState};

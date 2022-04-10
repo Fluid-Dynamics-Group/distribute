@@ -60,10 +60,9 @@ async fn run_all_jobs(
     uninit: protocol::UninitServer,
     scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
 ) -> Result<(), (protocol::UninitServer, protocol::ServerError)> {
-
     let prepare_build = match uninit.connect_to_node().await {
         Ok(prep) => prep,
-        Err((uninit, err)) => return Err((uninit, err.into()))
+        Err((uninit, err)) => return Err((uninit, err.into())),
     };
 
     let mut built = prepare_build_to_built(prepare_build, scheduler_tx).await?;
@@ -77,7 +76,7 @@ async fn run_all_jobs(
                 built = prepare_build_to_built(prepare_build, scheduler_tx).await?;
                 continue;
             }
-            Err((built, err)) => return Err((built.to_uninit(), err.into()))
+            Err((built, err)) => return Err((built.to_uninit(), err.into())),
         };
 
         // fully execute the job and return back to the built state
@@ -132,7 +131,6 @@ async fn prepare_build_to_built(
     let mut building_state_or_prepare =
         inner_prepare_build_to_compile_result(prepare_build, scheduler_tx).await?;
 
-
     let built: protocol::BuiltServer;
 
     loop {
@@ -166,15 +164,13 @@ async fn inner_prepare_build_to_compile_result(
 > {
     let building_state = match prepare_build.send_job(scheduler_tx).await {
         Ok(building) => building,
-        Err((prepare_build, err)) => return Err((prepare_build.to_uninit(), err.into()))
+        Err((prepare_build, err)) => return Err((prepare_build.to_uninit(), err.into())),
     };
-
 
     let building_state_or_prepare = match building_state.prepare_for_execution().await {
         Ok(built) => built,
-        Err((prepare_build, err)) => return Err((prepare_build.to_uninit(), err.into()))
+        Err((prepare_build, err)) => return Err((prepare_build.to_uninit(), err.into())),
     };
-
 
     Ok(building_state_or_prepare)
 }
@@ -193,7 +189,6 @@ async fn make_connection(addr: SocketAddr, name: &str) -> tokio::net::TcpStream 
         };
     }
 }
-
 
 pub(crate) async fn fetch_new_job(
     scheduler_tx: &mut mpsc::Sender<JobRequest>,

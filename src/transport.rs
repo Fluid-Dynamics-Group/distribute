@@ -291,11 +291,10 @@ where
         let conn = self.conn;
         Connection {
             conn,
-            _marker: std::marker::PhantomData
+            _marker: std::marker::PhantomData,
         }
     }
 }
-
 
 async fn transport<T: Serialize>(
     tcp_connection: &mut TcpStream,

@@ -5,10 +5,10 @@ use tokio::sync::broadcast;
 
 #[macro_export]
 #[doc(hidden)]
-/// match on the given $result, and if the $result is Err(e), 
+/// match on the given $result, and if the $result is Err(e),
 /// return Err((self, x))
 ///
-/// this is because the current borrow checker does not like 
+/// this is because the current borrow checker does not like
 /// us using .map_err() to combine with `self`, even though
 /// we are using `?` immediately after
 macro_rules! throw_error_with_self {
@@ -35,7 +35,7 @@ pub(crate) type ExecuteClient = Machine<executing::Executing, executing::ClientE
 pub(crate) type SendFilesClient = Machine<send_files::SendFiles, send_files::ClientSendFilesState>;
 
 pub(crate) type UninitServer = Machine<uninit::Uninit, uninit::ServerUninitState>;
-pub(crate) type PrepareBuildServer=
+pub(crate) type PrepareBuildServer =
     Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>;
 pub(crate) type BuiltServer = Machine<built::Built, built::ServerBuiltState>;
 pub(crate) type ExecuteServer = Machine<executing::Executing, executing::ServerExecutingState>;
@@ -46,11 +46,14 @@ pub(crate) struct Machine<StateMarker, State> {
     state: State,
 }
 
-impl <StateMarker, State> Machine<StateMarker, State> where StateMarker: Default {
+impl<StateMarker, State> Machine<StateMarker, State>
+where
+    StateMarker: Default,
+{
     fn from_state(state: State) -> Self {
         Self {
             state,
-            _marker: StateMarker::default()
+            _marker: StateMarker::default(),
         }
     }
 }
