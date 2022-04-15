@@ -16,6 +16,7 @@ pub(crate) use schedule::{JobIdentifier, RemainingJobs};
 pub(crate) use storage::OwnedJobSet;
 
 use crate::{cli, config, error, error::Error};
+use crate::prelude::*;
 
 #[cfg(feature = "cli")]
 use tokio::sync::{broadcast, mpsc};
@@ -24,7 +25,7 @@ use tokio::sync::{broadcast, mpsc};
 pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     debug!("starting server");
 
-    let nodes = config::load_config::<config::Nodes>(&server.nodes_file)?;
+    let nodes_config = config::load_config::<config::Nodes>(&server.nodes_file)?;
     debug!("finished loading nodes config");
 
     if server.save_path.exists() && server.clean_output {
@@ -49,18 +50,13 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         ))),
     }?;
 
-    // start by checking the status of each node - if one of the nodes is not ready
-    // then something is wrong
-
-    log::info!("checking connection status of each node");
-    //let connections = status::status_check_nodes(&nodes.nodes).await?;
-
-    let node_caps = nodes
+    let node_caps = nodes_config
         .nodes
-        .into_iter()
-        .map(|node| std::sync::Arc::new(node.capabilities))
+        .iter()
+        .map(|node| std::sync::Arc::new(node.capabilities.clone()))
         .collect::<Vec<_>>();
 
+    // communication pipes with the scheduler
     let (request_job, job_pool_holder) = mpsc::channel(100);
 
     // spawn off a connection to listen to user requests
@@ -79,7 +75,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
 
     info!("starting job pool task");
     let (tx_cancel, _) = broadcast::channel(20);
-    let handle = JobPool::new(
+    let job_pool_handle = JobPool::new(
         scheduler,
         job_pool_holder,
         tx_cancel.clone(),
@@ -87,25 +83,34 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     )
     .spawn();
 
-    //let mut handles = vec![handle];
+    let mut handles = vec![job_pool_handle];
 
     // spawn off each node connection to its own task
-    //for (server_connection, caps) in connections.into_iter().zip(node_caps.into_iter()) {
-    //info!("starting NodeConnection for {}", server_connection.addr);
-    //let common = Common::new(
-    //    server_connection,
-    //    request_job.clone(),
-    //    tx_cancel.subscribe(),
-    //    caps,
-    //    server.save_path.clone(),
-    //);
+    for node in nodes_config.nodes {
+        let keepalive_addr = node.keepalive_addr();
+        let transport_addr = node.transport_addr();
+        let common = Common::new(
+            tx_cancel.subscribe(),
+            Arc::new(node.capabilities),
+            server.save_path.clone(),
+            node.node_name,
+            keepalive_addr,
+            transport_addr,
+            // btreeset is just empty
+            Default::default()
+        );
 
-    // let handle = InitializedNode::new(common, Default::default()).spawn();
+        let request_job_tx = request_job.clone();
 
-    //handles.push(handle);
-    //}
+        let fut = tokio::spawn(async move {
+            node::run_node(common, request_job_tx).await;
+        });
 
-    //futures::future::join_all(handles).await;
+        handles.push(fut);
+    }
+
+    // join the futures here so that the process will not end early
+    futures::future::join_all(handles).await;
 
     Ok(())
 }

@@ -388,7 +388,7 @@ mod tests {
 
     #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
     struct Arbitrary {
-        bytes: Vec<u8>
+        bytes: Vec<u8>,
     }
 
     impl AssociatedMessage for Arbitrary {
@@ -408,7 +408,8 @@ mod tests {
         let client_listener = TcpListener::bind(add_port(9994)).await.unwrap();
         let mut raw_server_connection = TcpStream::connect(add_port(9994)).await.unwrap();
         // connection from the client
-        let mut client_connection = Connection::from_connection(client_listener.accept().await.unwrap().0);
+        let mut client_connection =
+            Connection::from_connection(client_listener.accept().await.unwrap().0);
 
         let bytes = (0..255).into_iter().collect::<Vec<u8>>();
         let payload = Arbitrary { bytes };
@@ -462,7 +463,8 @@ mod tests {
         let addr = add_port(9995);
         let server_connection = Connection::new(addr).await;
 
-        let mut client_connection = Connection::from_connection(client_listener.accept().await.unwrap().0);
+        let mut client_connection =
+            Connection::from_connection(client_listener.accept().await.unwrap().0);
 
         std::mem::drop(server_connection);
 
@@ -485,7 +487,8 @@ mod tests {
         let addr = add_port(9996);
         let mut server_connection = Connection::new(addr).await.unwrap();
 
-        let _client_connection = Connection::from_connection(client_listener.accept().await.unwrap().0);
+        let _client_connection =
+            Connection::from_connection(client_listener.accept().await.unwrap().0);
 
         let timeout = Duration::from_secs(3);
         let fut = server_connection.receive_data();

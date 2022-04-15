@@ -586,6 +586,7 @@ checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
 [[package]]
 name = "matrix-notify"
 version = "0.1.0"
+source = "git+https://github.com/fluid-Dynamics-Group/matrix-notify?rev=cfc4988e60515bd99d2000c48d58eb56ae336a71#cfc4988e60515bd99d2000c48d58eb56ae336a71"
 dependencies = [
  "argh",
  "dotenv",
@@ -593,7 +594,6 @@ dependencies = [
  "hyper-tls",
  "mime_guess",
  "ruma",
- "ruma-identifiers",
  "serde",
  "serde_json",
  "thiserror",

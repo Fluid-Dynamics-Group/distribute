@@ -13,7 +13,7 @@ use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn check_deallocate_jobs() {
-    if false {
+    if true {
         distribute::logger();
     }
     let server_port = 9981;
@@ -82,7 +82,7 @@ async fn check_deallocate_jobs() {
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
     assert!(jobs.len() == 1);
 
-    thread::sleep(Duration::from_secs(40));
+    thread::sleep(Duration::from_secs(30));
 
     let status = Status::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();

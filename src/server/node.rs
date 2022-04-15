@@ -21,7 +21,9 @@ use crate::prelude::*;
 use crate::protocol;
 use crate::protocol::UninitServer;
 
-async fn run_node(common: protocol::Common, scheduler_tx: &mut mpsc::Sender<server::JobRequest>) {
+pub(crate) async fn run_node(common: protocol::Common, mut scheduler_tx: mpsc::Sender<server::JobRequest>) {
+    info!("initializing connection to {} / {}", common.node_name, common.main_transport_addr);
+
     let conn = make_connection(common.main_transport_addr, &common.node_name).await;
 
     let ip = common.main_transport_addr;
@@ -30,7 +32,7 @@ async fn run_node(common: protocol::Common, scheduler_tx: &mut mpsc::Sender<serv
     let mut uninit = protocol::Machine::<_, protocol::uninit::ServerUninitState>::new(conn, common);
 
     loop {
-        match run_all_jobs(uninit, scheduler_tx).await {
+        match run_all_jobs(uninit, &mut scheduler_tx).await {
             Ok(_) => unreachable!(),
             Err((_uninit, error)) => {
                 uninit = _uninit;
@@ -80,7 +82,7 @@ async fn run_all_jobs(
         };
 
         // fully execute the job and return back to the built state
-        match execute_and_send_files(execute).await? {
+        match execute_and_send_files(execute, scheduler_tx).await? {
             // we were probably cancelled while executing the job
             protocol::Either::Left(prepare_build) => {
                 built = prepare_build_to_built(prepare_build, scheduler_tx).await?;
@@ -97,6 +99,7 @@ async fn run_all_jobs(
 /// execute the job on the client and receive all the files they send to us
 async fn execute_and_send_files(
     execute: protocol::ExecuteServer,
+    scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
 ) -> Result<
     protocol::Either<protocol::PrepareBuildServer, protocol::BuiltServer>,
     (UninitServer, protocol::ServerError),
@@ -112,7 +115,7 @@ async fn execute_and_send_files(
         }
     };
 
-    let built = match send_files.receive_files().await {
+    let built = match send_files.receive_files(scheduler_tx).await {
         Ok(built) => built,
         Err((send_files, err)) => {
             error!("error sending result files from the job: {}", err);

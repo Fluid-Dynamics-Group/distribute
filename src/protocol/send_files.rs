@@ -120,6 +120,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
     /// directory after the job has been completed
     pub(crate) async fn receive_files(
         mut self,
+        scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
         loop {
             let msg = self.state.conn.receive_data().await;
@@ -164,6 +165,18 @@ impl Machine<SendFiles, ServerSendFilesState> {
                     }
                 }
                 ClientMsg::FinishFiles => {
+                    // first, tell the scheduler that this job has finished
+                    if let Err(e) = scheduler_tx.send(server::pool_data::JobRequest::FinishJob(self.state.job_identifier)).await {
+                        error!("scheduler is down - cannot transmit that job {} has finished on {}", 
+                            self.state.job_name, 
+                            self.state.common.node_name
+                        );
+                        panic!("scheduler is down - cannot transmit that job {} has finished on {}", 
+                            self.state.job_name, 
+                            self.state.common.node_name
+                        );
+                    }
+
                     // we are now done receiving files
                     let built_state = self.into_built_state();
                     let machine = Machine::from_state(built_state);

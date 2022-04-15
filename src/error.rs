@@ -41,7 +41,7 @@ pub enum Error {
     Timeout(#[from] TimeoutError),
 }
 
-#[derive(Debug, From, thiserror::Error, Unwrap)]
+#[derive(thiserror::Error, Debug, From)]
 pub enum TcpConnection {
     #[error("A general io error occured when reading from a TCP connection: `{0}`")]
     General(std::io::Error),
@@ -49,7 +49,7 @@ pub enum TcpConnection {
     ConnectionClosed,
     #[error("{0}")]
     ParseAddress(AddressParseError),
-    #[error("TCP deserialization error {0}")]
+    #[error("TCP deserialization error: {0}")]
     Deser(Deserialization),
     #[error("TCP serialization error {0}")]
     Ser(Serialization),
