@@ -5,6 +5,8 @@ mod config;
 #[cfg(feature = "cli")]
 mod add;
 #[cfg(feature = "cli")]
+mod status;
+#[cfg(feature = "cli")]
 pub mod cli;
 #[cfg(feature = "cli")]
 mod client;
@@ -43,7 +45,7 @@ pub use serde_yaml;
 #[cfg(feature = "cli")]
 pub use {
     add::add, client::client_command, kill::kill, pause::pause, pull::pull, run_local::run_local,
-    server::server_command, template::template,
+    server::server_command, template::template, status::get_current_jobs
 };
 
 #[cfg(test)]

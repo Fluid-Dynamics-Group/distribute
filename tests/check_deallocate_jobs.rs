@@ -1,3 +1,5 @@
+/// Verify that jobs are removed from the job queue after they are completed
+/// and will therefore notify the end user about the completion
 use distribute::cli::Add;
 use distribute::cli::Client;
 use distribute::cli::Server;

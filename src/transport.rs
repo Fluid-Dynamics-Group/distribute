@@ -386,6 +386,17 @@ mod tests {
     use std::time::{Duration, Instant};
     use tokio::net::TcpListener;
 
+    #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+    struct Arbitrary {
+        bytes: Vec<u8>
+    }
+
+    impl AssociatedMessage for Arbitrary {
+        type Receive = Arbitrary;
+    }
+
+    type Connection = super::Connection<Arbitrary>;
+
     fn add_port(port: u16) -> SocketAddr {
         SocketAddr::from(([0, 0, 0, 0], port))
     }
@@ -396,19 +407,15 @@ mod tests {
     async fn ensure_not_eof() {
         let client_listener = TcpListener::bind(add_port(9994)).await.unwrap();
         let mut raw_server_connection = TcpStream::connect(add_port(9994)).await.unwrap();
-        let mut client_connection =
-            ClientConnection::new(client_listener.accept().await.unwrap().0);
+        // connection from the client
+        let mut client_connection = Connection::from_connection(client_listener.accept().await.unwrap().0);
 
-        let file_bytes = (0..255).into_iter().collect::<Vec<u8>>();
-        let server_req = RequestFromServer::RunPythonJob(PythonJob {
-            python_file: file_bytes,
-            job_name: "ensure_not_eof".into(),
-            job_files: vec![],
-        });
+        let bytes = (0..255).into_iter().collect::<Vec<u8>>();
+        let payload = Arbitrary { bytes };
 
         // serialize the data manually
         let serializer = serialization_options();
-        let server_req_bytes: Vec<u8> = serializer.serialize(&server_req).unwrap();
+        let server_req_bytes: Vec<u8> = serializer.serialize(&payload).unwrap();
 
         let bytes_len = server_req_bytes.len();
         let first_section = server_req_bytes[0..bytes_len / 2].to_vec();
@@ -445,7 +452,7 @@ mod tests {
         dbg!(elapsed.as_secs_f64());
 
         assert!(elapsed.as_secs_f64() > 2.);
-        assert_eq!(client_version_of_request.unwrap(), server_req);
+        assert_eq!(client_version_of_request.unwrap(), payload);
     }
 
     /// make sure that if we close the connection an EOF is reached
@@ -453,11 +460,9 @@ mod tests {
     async fn ensure_eof_on_close() {
         let client_listener = TcpListener::bind(add_port(9995)).await.unwrap();
         let addr = add_port(9995);
-        let server_connection =
-            ServerConnection::from((TcpStream::connect(addr).await.unwrap(), addr));
+        let server_connection = Connection::new(addr).await;
 
-        let mut client_connection =
-            ClientConnection::new(client_listener.accept().await.unwrap().0);
+        let mut client_connection = Connection::from_connection(client_listener.accept().await.unwrap().0);
 
         std::mem::drop(server_connection);
 
@@ -465,9 +470,8 @@ mod tests {
 
         // ensure its `error::TcpConnection::ConnectionClosed`
         match rx.unwrap_err() {
-            error::Error::TcpConnection(tcp) => {
-                // make sure its a connection closed error
-                tcp.unwrap_connection_closed();
+            error::TcpConnection::ConnectionClosed => {
+                // we are good
             }
             x => {
                 panic!("Error {:?} was not TcpConnection::ConnectionClosed", x);
@@ -479,10 +483,9 @@ mod tests {
     async fn no_send_result() {
         let client_listener = TcpListener::bind(add_port(9996)).await.unwrap();
         let addr = add_port(9996);
-        let mut server_connection =
-            ServerConnection::from((TcpStream::connect(addr).await.unwrap(), addr));
+        let mut server_connection = Connection::new(addr).await.unwrap();
 
-        let _client_connection = ClientConnection::new(client_listener.accept().await.unwrap().0);
+        let _client_connection = Connection::from_connection(client_listener.accept().await.unwrap().0);
 
         let timeout = Duration::from_secs(3);
         let fut = server_connection.receive_data();
