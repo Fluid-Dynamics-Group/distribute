@@ -1,6 +1,6 @@
 [package]
 name = "distribute"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -25,7 +25,9 @@ signal-hook = { version = "0.3.9", default_features = false, optional = true }
 regex = { version = "1.5.4", optional = true }
 structopt = { version = "0.3.25", optional = true }
 
-matrix-notify = { path = "../matrix-notify", features=["userid"], default-features = false }
+[dependencies.matrix-notify]
+git = "https://github.com/fluid-Dynamics-Group/matrix-notify"
+rev = "cfc4988e60515bd99d2000c48d58eb56ae336a71"
 
 [features]
 default = ["cli"]

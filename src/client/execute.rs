@@ -24,13 +24,13 @@ impl BindingFolderState {
     // TODO: decide if these should be hard errors and return Result< , >
     async fn update_binded_paths(&mut self, container_paths: Vec<PathBuf>, base_path: &Path) {
         // first, clear out all the older folder bindings
-        self.clear_folders().await;
+        self.clear_folders();
 
         for container_path in container_paths.into_iter() {
             let host_path = base_path.join(format!("_bind_path_{}", self.counter));
 
             if host_path.exists() {
-                Self::remove_dir_with_logging(&host_path).await;
+                Self::remove_dir_with_logging(&host_path);
             }
 
             if let Err(e) = tokio::fs::create_dir(&host_path).await {
@@ -46,15 +46,16 @@ impl BindingFolderState {
         }
     }
 
-    /// removes full directory of files
-    async fn clear_folders(&mut self) {
+    /// removes full directory of files that are being used for bindings
+    fn clear_folders(&mut self) {
         for folder in self.folders.drain(..) {
-            Self::remove_dir_with_logging(&folder.host_path).await;
+            Self::remove_dir_with_logging(&folder.host_path)
         }
     }
 
-    async fn remove_dir_with_logging(path: &Path) {
-        if let Err(e) = tokio::fs::remove_dir_all(path).await {
+    // this function cannot be async because we also use it in the Drop impl
+    fn remove_dir_with_logging(path: &Path) {
+        if let Err(e) = std::fs::remove_dir_all(path) {
             error!(
                 "failed to remove old container path binding at host path {} - error: {}",
                 path.display(),
@@ -64,102 +65,17 @@ impl BindingFolderState {
     }
 }
 
+impl std::ops::Drop for BindingFolderState {
+    fn drop(&mut self) {
+        trace!("executing Drop for BindingFolderState - removing all folderes");
+        self.clear_folders();
+    }
+}
+
 /// describes the mapping from a host FS to a container FS
 pub(crate) struct BindedFolder {
     pub(crate) host_path: PathBuf,
     pub(crate) container_path: PathBuf,
-}
-
-/// handle all branches of a request from the server
-pub(super) async fn general_request(
-    request: transport::RequestFromServer,
-    base_path: &Path,
-    cancel: &mut broadcast::Receiver<()>,
-    folder_state: &mut BindingFolderState,
-) -> Result<PrerequisiteOperations, Error> {
-    let output = match request {
-        transport::RequestFromServer::StatusCheck => {
-            info!("running status check request");
-            // if we have been spawned off into this thread it means we are not doing anything
-            // right now which means that `ready` is true
-            let response =
-                transport::StatusResponse::new(transport::Version::current_version(), true);
-            PrerequisiteOperations::None(transport::ClientResponse::StatusCheck(response))
-        }
-        transport::RequestFromServer::InitPythonJob(init) => {
-            info!("running init python job request");
-
-            utils::clean_output_dir(base_path)
-                .await
-                .map_err(|e| error::RemovePreviousDir::new(e, base_path.to_owned()))
-                .map_err(error::InitJobError::from)?;
-
-            initialize_python_job(init, base_path, cancel).await?;
-
-            let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-
-            let paths = utils::read_save_folder(&base_path).await;
-
-            PrerequisiteOperations::SendFiles { paths, after }
-        }
-        transport::RequestFromServer::RunPythonJob(job) => {
-            info!("running python job");
-
-            if let Some(_) = run_python_job(job, base_path, cancel).await? {
-                let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths = utils::read_save_folder(base_path).await;
-                PrerequisiteOperations::SendFiles { paths, after }
-            } else {
-                // we cancelled this job early - dont send any files
-                PrerequisiteOperations::DoNothing
-            }
-        }
-        transport::RequestFromServer::InitSingularityJob(init_job) => {
-            info!("initializing a singularity job");
-
-            utils::clean_output_dir(base_path)
-                .await
-                .map_err(|e| error::RemovePreviousDir::new(e, base_path.to_owned()))
-                .map_err(error::InitJobError::from)?;
-
-            initialize_singularity_job(init_job, base_path, cancel, folder_state).await?;
-
-            let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-
-            let paths = utils::read_save_folder(&base_path).await;
-
-            PrerequisiteOperations::SendFiles { paths, after }
-        }
-        transport::RequestFromServer::RunSingularityJob(job) => {
-            info!("running singularity job");
-
-            if let Some(_) = run_singularity_job(job, base_path, cancel, folder_state).await? {
-                let after = transport::ClientResponse::RequestNewJob(transport::NewJobRequest);
-                let paths = utils::read_save_folder(&base_path).await;
-
-                PrerequisiteOperations::SendFiles { paths, after }
-            } else {
-                // we cancelled this job early - dont send any files
-                PrerequisiteOperations::DoNothing
-            }
-        }
-        transport::RequestFromServer::FileReceived => {
-            warn!("got a file recieved message from the server but we didnt send any files");
-            PrerequisiteOperations::DoNothing
-        }
-        transport::RequestFromServer::KillJob => {
-            warn!("got request to kill the job from the server but we dont have an actively running job");
-            PrerequisiteOperations::DoNothing
-        }
-        transport::RequestFromServer::CheckAlive => {
-            debug!("got keepalive check from the server - responding with true");
-
-            // we have gotten a check for keepalive
-            PrerequisiteOperations::None(transport::ClientResponse::RespondAlive)
-        }
-    };
-
-    Ok(output)
 }
 
 pub(crate) struct FileMetadata {
@@ -168,15 +84,12 @@ pub(crate) struct FileMetadata {
 }
 
 impl FileMetadata {
-    pub(super) fn into_send_file(self) -> Result<transport::SendFile, Error> {
+    pub(crate) fn into_send_file(self) -> Result<transport::SendFile, error::ReadBytes> {
         let Self { file_path, is_file } = self;
 
         // if its a file read the bytes, otherwise skip it
         let bytes = if is_file {
-            std::fs::read(&file_path).map_err(|e| error::RunJobError::ReadBytes {
-                path: file_path.to_owned(),
-                full_error: e,
-            })?
+            std::fs::read(&file_path).map_err(|e| error::ReadBytes::new(e, file_path.to_owned()))?
         } else {
             vec![]
         };
@@ -192,7 +105,7 @@ impl FileMetadata {
 /// execute a job after the build file has already been built
 ///
 /// returns None if the job was cancelled
-async fn run_python_job(
+pub(crate) async fn run_python_job(
     job: transport::PythonJob,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
@@ -221,7 +134,7 @@ async fn run_python_job(
     // reset the input files directory
     utils::clear_input_files(base_path)
         .await
-        .map_err(|e| error::CreateDirError::new(e, base_path.to_owned()))
+        .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
         .map_err(|e| error::RunJobError::CreateDir(e))?;
 
     // write all of _our_ job files to the output directory
@@ -270,7 +183,7 @@ async fn write_init_file<T: AsRef<Path>>(
 /// run the build file for a job
 ///
 /// returns None if the process was cancelled
-async fn initialize_python_job(
+pub(crate) async fn initialize_python_job(
     init: transport::PythonJobInit,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
@@ -347,7 +260,7 @@ pub(crate) async fn run_singularity_job(
     // reset the input files directory
     utils::clear_input_files(base_path)
         .await
-        .map_err(|e| error::CreateDirError::new(e, base_path.to_owned()))
+        .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
         .map_err(|e| error::RunJobError::CreateDir(e))?;
 
     // copy all the files for this job to the directory
@@ -484,15 +397,6 @@ async fn command_with_cancellation(
            Ok(None)
        }
     )
-}
-
-pub(super) enum PrerequisiteOperations {
-    None(transport::ClientResponse),
-    SendFiles {
-        paths: Vec<FileMetadata>,
-        after: transport::ClientResponse,
-    },
-    DoNothing,
 }
 
 async fn command_output_to_file(output: std::process::Output, path: PathBuf) {

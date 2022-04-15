@@ -38,12 +38,10 @@ pub enum Error {
     #[error("{0}")]
     PullErrorLocal(#[from] PullErrorLocal),
     #[error("{0}")]
-    UnexpectedResponse(#[from] UnexpectedResponse),
-    #[error("{0}")]
     Timeout(#[from] TimeoutError),
 }
 
-#[derive(Debug, From, thiserror::Error, Unwrap)]
+#[derive(thiserror::Error, Debug, From)]
 pub enum TcpConnection {
     #[error("A general io error occured when reading from a TCP connection: `{0}`")]
     General(std::io::Error),
@@ -51,6 +49,10 @@ pub enum TcpConnection {
     ConnectionClosed,
     #[error("{0}")]
     ParseAddress(AddressParseError),
+    #[error("TCP deserialization error: {0}")]
+    Deser(Deserialization),
+    #[error("TCP serialization error {0}")]
+    Ser(Serialization),
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]
@@ -90,17 +92,14 @@ pub enum RunJobError {
         full_error: std::io::Error,
     },
     #[error("{0}")]
-    CreateDir(CreateDirError),
+    CreateDir(CreateDir),
     #[error("could not open file `{path}`, full error: {full_error}")]
     OpenFile {
         path: std::path::PathBuf,
         full_error: std::io::Error,
     },
-    #[error("could not read bytes`{path}`, full error: {full_error}")]
-    ReadBytes {
-        path: std::path::PathBuf,
-        full_error: std::io::Error,
-    },
+    #[error("{0}")]
+    ReadBytes(ReadBytes),
     #[error("could not write bytes`{path}`, full error: {full_error}")]
     WriteBytes {
         path: std::path::PathBuf,
@@ -141,7 +140,7 @@ pub enum ServerError {
     #[error("{0}")]
     WriteFile(WriteFile),
     #[error("{0}")]
-    CreateDir(CreateDirError),
+    CreateDir(CreateDir),
     #[error("{0}")]
     RemoveDir(RemoveDirError),
 }
@@ -182,9 +181,20 @@ pub struct WriteFile {
     path: PathBuf,
 }
 
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
+    fmt = "Failed to read the bytes for file {} - error: {}",
+    "path.display()",
+    error
+)]
+pub struct ReadBytes {
+    error: std::io::Error,
+    path: PathBuf,
+}
+
 #[derive(Debug, Display, From, Constructor, thiserror::Error)]
 #[display(fmt = "Could create directory {:?}, error: {}", path, error)]
-pub struct CreateDirError {
+pub struct CreateDir {
     error: std::io::Error,
     path: PathBuf,
 }
@@ -208,6 +218,10 @@ pub enum LogError {
 pub enum ClientInitError {
     #[error("`{0}`")]
     Io(std::io::Error),
+    #[error("`{0}`")]
+    TcpConnection(TcpConnection),
+    #[error("`{0}`")]
+    CreateDir(CreateDir),
 }
 
 #[derive(Debug, Display, From, Constructor, thiserror::Error)]
@@ -266,7 +280,7 @@ pub struct StoreSet {
 #[derive(Debug, From, thiserror::Error)]
 pub enum BuildJobError {
     #[error("{0}")]
-    CreateDirector(CreateDirError),
+    CreateDirector(CreateDir),
     #[error("{0}")]
     Other(Box<Error>),
     #[error("The scheduler returned a runnable job instead of an initialization job when we first requested a task.")]
@@ -276,7 +290,7 @@ pub enum BuildJobError {
 #[derive(Debug, From, thiserror::Error)]
 pub enum RunningNodeError {
     #[error("{0}")]
-    CreateDirector(CreateDirError),
+    CreateDirector(CreateDir),
     #[error("{0}")]
     Other(Box<Error>),
     #[error("The job returned to us has not been built before")]
@@ -316,7 +330,7 @@ pub enum PullErrorLocal {
     #[error("Unexpected resposne from the server")]
     UnexpectedResponse,
     #[error("{0}")]
-    CreateDir(CreateDirError),
+    CreateDir(CreateDir),
     #[error("{0}")]
     WriteFile(WriteFile),
 }
@@ -335,7 +349,7 @@ pub enum RunErrorLocal {
     #[error("Unexpected resposne from the server")]
     UnexpectedResponse,
     #[error("{0}")]
-    CreateDir(CreateDirError),
+    CreateDir(CreateDir),
     #[error("{0}")]
     WriteFile(WriteFile),
     #[error("the specified --save_dir folder exists and --clean-save was not specifed")]
@@ -350,25 +364,13 @@ pub enum RunErrorLocal {
     GeneralError(Error),
 }
 
-#[derive(Debug, From, thiserror::Error)]
-pub enum UnexpectedResponse {
-    #[error("{0}")]
-    ServerClient(UnexpectedServerClientResponse),
-}
-
 #[derive(Debug, Display, thiserror::Error, Constructor)]
 #[display(
-    fmt = "expected response {} from client - got {:?} instead",
-    "expected",
-    "response"
+    fmt = "Node at {} /  {} has timed out a keepalive connection",
+    "name",
+    "addr"
 )]
-pub struct UnexpectedServerClientResponse {
-    response: crate::transport::ClientResponse,
-    expected: crate::transport::FlatClientResponse,
-}
-
-#[derive(Debug, Display, thiserror::Error, Constructor)]
-#[display(fmt = "Node at {} has timed out a keepalive connection", "addr")]
 pub struct TimeoutError {
     addr: std::net::SocketAddr,
+    name: String,
 }

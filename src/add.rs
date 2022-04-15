@@ -28,7 +28,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
 
     let addr = SocketAddr::from((args.ip, args.port));
 
-    let mut conn = transport::UserConnectionToServer::new(addr).await?;
+    let mut conn = transport::Connection::new(addr).await?;
 
     conn.transport_data(&transport::UserMessageToServer::QueryCapabilities)
         .await?;

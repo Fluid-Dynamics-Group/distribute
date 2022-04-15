@@ -15,8 +15,12 @@ use std::path::PathBuf;
 #[allow(dead_code)]
 pub const SERVER_PORT: u16 = 8952;
 pub const SERVER_PORT_STR: &'static str = "8952";
+
 pub const CLIENT_PORT: u16 = 8953;
 pub const CLIENT_PORT_STR: &'static str = "8953";
+
+pub const CLIENT_KEEPALIVE_PORT: u16 = 8954;
+pub const CLIENT_KEEPALIVE_PORT_STR: &'static str= "8954";
 
 #[derive(Debug, Display, thiserror::Error, From)]
 #[display(
@@ -64,16 +68,23 @@ pub struct ReadBytesError {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+/// main entry point for server configuration file
 pub struct Nodes {
     pub nodes: Vec<Node>,
 }
 
 #[derive(Debug, Clone, Deserialize, Display)]
+#[serde(deny_unknown_fields)]
 #[display(fmt = "ip address: {}", ip)]
 pub struct Node {
     pub(crate) ip: std::net::IpAddr,
+    #[serde(rename="name")]
+    pub(crate) node_name: String,
     #[serde(default = "default_client_port")]
-    pub(crate) port: u16,
+    pub(crate) transport_port: u16,
+    #[serde(default = "default_keepalive_port")]
+    pub(crate) keepalive_port: u16,
     pub(crate) capabilities: requirements::Requirements<requirements::NodeProvidedCaps>,
 }
 
@@ -81,14 +92,25 @@ fn default_client_port() -> u16 {
     CLIENT_PORT
 }
 
+fn default_keepalive_port() -> u16 {
+    CLIENT_KEEPALIVE_PORT
+}
+
 impl Node {
-    pub(crate) fn addr(&self) -> std::net::SocketAddr {
-        std::net::SocketAddr::from((self.ip, self.port))
+    /// create the full address to the node's port at which they receive jobs
+    pub(crate) fn transport_addr(&self) -> std::net::SocketAddr {
+        std::net::SocketAddr::from((self.ip, self.transport_port))
+    }
+
+    /// create the full address to the node's port at which they check for keepalive connections
+    pub(crate) fn keepalive_addr(&self) -> std::net::SocketAddr {
+        std::net::SocketAddr::from((self.ip, self.keepalive_port))
     }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
+#[serde(deny_unknown_fields)]
 pub enum Jobs {
     Python {
         meta: Meta,
@@ -101,6 +123,7 @@ pub enum Jobs {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Meta {
     pub batch_name: String,
     pub namespace: String,
@@ -135,7 +158,7 @@ impl Jobs {
         }
     }
 
-    pub async fn load_build(&self) -> Result<BuildOpts, LoadJobsError> {
+    pub async fn load_build(&self) -> Result<transport::BuildOpts, LoadJobsError> {
         match &self {
             Self::Python { meta, python } => {
                 let py_build = python.load_build(meta.batch_name.clone()).await?;
@@ -214,27 +237,11 @@ impl NormalizePaths for Nodes {
 }
 
 #[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, Unwrap)]
+#[serde(deny_unknown_fields)]
 #[cfg(feature = "cli")]
 pub enum JobOpts {
     Python(Vec<transport::PythonJob>),
     Singularity(Vec<transport::SingularityJob>),
-}
-
-#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[cfg(feature = "cli")]
-pub enum BuildOpts {
-    Python(transport::PythonJobInit),
-    Singularity(transport::SingularityJobInit),
-}
-
-#[cfg(feature = "cli")]
-impl BuildOpts {
-    pub(crate) fn batch_name(&self) -> &str {
-        match &self {
-            Self::Singularity(s) => &s.batch_name,
-            Self::Python(p) => &p.batch_name,
-        }
-    }
 }
 
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(
@@ -274,12 +281,14 @@ mod tests {
     use super::*;
 
     #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct PythonConfiguration {
         meta: Meta,
         python: python::Description,
     }
 
     #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct SingularityConfiguration {
         meta: Meta,
         singularity: singularity::Description,

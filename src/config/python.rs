@@ -14,6 +14,7 @@ use super::common::load_from_file;
 use super::common::File;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[serde(deny_unknown_fields)]
 pub struct Description {
     initialize: Initialize,
     jobs: Vec<Job>,
@@ -93,6 +94,7 @@ impl NormalizePaths for Description {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[serde(deny_unknown_fields)]
 pub struct Initialize {
     #[serde(rename = "build_file")]
     pub python_build_file_path: PathBuf,
@@ -101,6 +103,7 @@ pub struct Initialize {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[serde(deny_unknown_fields)]
 pub struct Job {
     name: String,
     #[serde(rename = "file")]

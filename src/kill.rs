@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 pub async fn kill(args: cli::Kill) -> Result<(), Error> {
     let addr = SocketAddr::from((args.ip, args.port));
 
-    let mut conn = transport::UserConnectionToServer::new(addr).await?;
+    let mut conn = transport::Connection::new(addr).await?;
 
     conn.transport_data(&transport::UserMessageToServer::KillJob(args.job_name))
         .await?;

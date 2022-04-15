@@ -15,6 +15,10 @@ mod kill;
 #[cfg(feature = "cli")]
 mod pause;
 #[cfg(feature = "cli")]
+mod prelude;
+#[cfg(feature = "cli")]
+mod protocol;
+#[cfg(feature = "cli")]
 mod pull;
 #[cfg(feature = "cli")]
 mod run_local;
@@ -41,7 +45,8 @@ pub use serde_yaml;
 #[cfg(feature = "cli")]
 pub use {
     add::add, client::client_command, kill::kill, pause::pause, pull::pull, run_local::run_local,
-    server::server_command, status::get_current_jobs, status::status_command, template::template,
+    server::server_command, status::get_current_jobs, template::template,
+    server::RemainingJobs
 };
 
 #[cfg(test)]
@@ -76,9 +81,10 @@ pub fn logger() {
             ))
         })
         // Add blanket level filter -
-        .level(log::LevelFilter::Debug)
+        .level(log::LevelFilter::Trace)
         // - and per-module overrides
         .level_for("hyper", log::LevelFilter::Info)
+        .level_for("mio", log::LevelFilter::Info)
         // Output to stdout, files, and other Dispatch configurations
         .chain(std::io::stdout())
         // Apply globally

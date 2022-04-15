@@ -1,3 +1,5 @@
+/// Verify that jobs are removed from the job queue after they are completed
+/// and will therefore notify the end user about the completion
 use distribute::cli::Add;
 use distribute::cli::Client;
 use distribute::cli::Server;
@@ -14,7 +16,11 @@ async fn check_deallocate_jobs() {
     if false {
         distribute::logger();
     }
+
     let server_port = 9981;
+    // this is the port in the corresponding distribute-nodes.yaml file for this job
+    let client_port = 9967;
+    let keepalive_port = 9968;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
     let dir: PathBuf = "./tests/check_deallocate_jobs/".into();
@@ -33,7 +39,7 @@ async fn check_deallocate_jobs() {
 
     // start up a client
     // the port comes from distribute-nodes.yaml
-    let client = Client::new(client_workdir.clone(), 9967, "./output.log".into());
+    let client = Client::new(client_workdir.clone(), client_port, keepalive_port, "./output.log".into());
     tokio::spawn(async move {
         println!("starting the client");
         distribute::client_command(client).await.unwrap();
@@ -80,12 +86,13 @@ async fn check_deallocate_jobs() {
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
     assert!(jobs.len() == 1);
 
-    thread::sleep(Duration::from_secs(40));
+    thread::sleep(Duration::from_secs(30));
 
     let status = Status::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
     dbg!(&jobs);
+    dbg!(&jobs.len());
 
     assert_eq!(jobs.len(), 0);
 

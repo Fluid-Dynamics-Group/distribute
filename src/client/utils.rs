@@ -1,16 +1,29 @@
 use super::execute::FileMetadata;
 use futures::StreamExt;
 use std::path::{Path, PathBuf};
+use crate::error;
 
-// clean out the tmp files from a build script from the output directory
-// and recreate the distributed_save folder
-pub(crate) async fn clean_output_dir(dir: &Path) -> Result<(), std::io::Error> {
+/// clean out the tmp files from a build script from the output directory
+/// and recreate the distributed_save folder
+pub(crate) async fn clean_output_dir(dir: &Path) -> Result<(), error::CreateDir> {
+    debug!("cleaning output folders and creating ./input ./initial_files ./distribute_save");
+
     tokio::fs::remove_dir_all(dir).await.ok();
 
-    tokio::fs::create_dir(dir).await?;
-    tokio::fs::create_dir(dir.join("distribute_save")).await?;
-    tokio::fs::create_dir(dir.join("input")).await?;
-    tokio::fs::create_dir(dir.join("initial_files")).await?;
+    tokio::fs::create_dir(dir).await
+        .map_err(|e| error::CreateDir::new(e, dir.to_owned()))?;
+
+    let dist_save = dir.join("distribute_save");
+    tokio::fs::create_dir(&dist_save).await
+        .map_err(|e| error::CreateDir::new(e, dist_save.to_owned()))?;
+
+    let input = dir.join("input");
+    tokio::fs::create_dir(&input).await
+        .map_err(|e| error::CreateDir::new(e, input.to_owned()))?;
+
+    let initial_files = dir.join("initial_files");
+    tokio::fs::create_dir(&initial_files).await
+        .map_err(|e| error::CreateDir::new(e, initial_files.to_owned()))?;
 
     Ok(())
 }
@@ -71,7 +84,7 @@ pub(crate) fn remove_path_prefixes(path: PathBuf, distribute_save_path: &Path) -
     path.strip_prefix(distribute_save_path).unwrap().to_owned()
 }
 
-pub(crate) async fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {
+pub(crate) fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {
     walkdir::WalkDir::new(base_path.join("distribute_save"))
         .into_iter()
         .flat_map(|x| x.ok())

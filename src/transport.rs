@@ -1,6 +1,6 @@
-use derive_more::{Constructor, Display};
+use crate::prelude::*;
+
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -11,56 +11,42 @@ use {
     tokio::net::TcpStream,
 };
 
-use crate::config::{self, requirements};
+use crate::config::requirements;
 use crate::error;
 use crate::error::Error;
 use crate::server;
 
-#[derive(
-    Deserialize, Serialize, Debug, Clone, PartialEq, derive_more::From, derive_more::Unwrap,
-)]
-pub enum RequestFromServer {
-    StatusCheck,
-    InitPythonJob(PythonJobInit),
-    RunPythonJob(PythonJob),
-    InitSingularityJob(SingularityJobInit),
-    RunSingularityJob(SingularityJob),
-    FileReceived,
-    KillJob,
-    CheckAlive,
+#[derive(Serialize, Deserialize)]
+pub(crate) enum ServerQuery {
+    KeepaliveCheck,
 }
 
-impl RequestFromServer {
-    /// check to see if the server request should be handled on a side-thread
-    ///
-    /// if this function returns false then the request should be handled on the
-    /// main thread (like a job to execute or build). Otherwise the job can be
-    /// executed on a side thread to make some race conditions less likely
-    fn is_low_priority(&self) -> bool {
-        match self {
-            Self::CheckAlive => true,
-            Self::KillJob => true,
-            Self::StatusCheck => false,
-            _ => false,
-        }
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) enum ClientQueryAnswer {
+    KeepaliveResponse,
+}
+
+pub(crate) trait AssociatedMessage {
+    type Receive;
+}
+
+mod messages {
+    use super::*;
+
+    impl AssociatedMessage for UserMessageToServer {
+        type Receive = ServerResponseToUser;
     }
-}
 
-impl From<crate::server::JobOpt> for RequestFromServer {
-    fn from(x: crate::server::JobOpt) -> Self {
-        match x {
-            crate::server::JobOpt::Python(p) => Self::RunPythonJob(p),
-            crate::server::JobOpt::Singularity(s) => Self::RunSingularityJob(s),
-        }
+    impl AssociatedMessage for ServerResponseToUser {
+        type Receive = UserMessageToServer;
     }
-}
 
-impl From<config::BuildOpts> for RequestFromServer {
-    fn from(x: config::BuildOpts) -> Self {
-        match x {
-            config::BuildOpts::Python(p) => Self::InitPythonJob(p),
-            config::BuildOpts::Singularity(s) => Self::InitSingularityJob(s),
-        }
+    impl AssociatedMessage for ServerQuery {
+        type Receive = ClientQueryAnswer;
+    }
+
+    impl AssociatedMessage for ClientQueryAnswer {
+        type Receive = ServerQuery;
     }
 }
 
@@ -165,61 +151,35 @@ pub struct SingularityJob {
     pub job_files: Vec<File>,
 }
 
-#[derive(Deserialize, Serialize, Display, Debug)]
-pub enum ClientResponse {
-    #[display(fmt = "status check: _0.display()")]
-    StatusCheck(StatusResponse),
-    #[display(fmt = "send file: _0.display()")]
-    SendFile(SendFile),
-    #[display(fmt = "request new job: _0.display()")]
-    RequestNewJob(NewJobRequest),
-    #[display(fmt = "failed to execute request")]
-    FailedExecution,
-    #[display(fmt = "client error: _0.display()")]
-    Error(ClientError),
-    #[display(fmt = "client is currently alive")]
-    RespondAlive,
+#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[cfg(feature = "cli")]
+pub enum BuildOpts {
+    Python(PythonJobInit),
+    Singularity(SingularityJobInit),
 }
 
-impl ClientResponse {
-    fn flatten(&self) -> FlatClientResponse {
-        match self {
-            Self::StatusCheck(_) => FlatClientResponse::StatusCheck,
-            Self::SendFile(_) => FlatClientResponse::SendFile,
-            Self::RequestNewJob(_) => FlatClientResponse::RequestNewJob,
-            Self::FailedExecution => FlatClientResponse::FailedExecution,
-            Self::Error(_) => FlatClientResponse::Error,
-            Self::RespondAlive => FlatClientResponse::RespondAlive,
+#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize)]
+pub(crate) enum JobOpt {
+    Singularity(SingularityJob),
+    Python(PythonJob),
+}
+
+impl JobOpt {
+    pub(crate) fn name(&self) -> &str {
+        match &self {
+            Self::Singularity(x) => &x.job_name,
+            Self::Python(x) => &x.job_name,
         }
     }
 }
 
-#[derive(Deserialize, Serialize, Display, Debug)]
-pub enum FlatClientResponse {
-    #[display(fmt = "StatusCheck")]
-    StatusCheck,
-    #[display(fmt = "SendFile")]
-    SendFile,
-    #[display(fmt = "RequestNewJob")]
-    RequestNewJob,
-    #[display(fmt = "FailedExecution")]
-    FailedExecution,
-    #[display(fmt = "Error")]
-    Error,
-    #[display(fmt = "RespondAlive")]
-    RespondAlive,
-}
-
-#[derive(Deserialize, Serialize, Display, Constructor, Debug)]
-#[display(fmt = "version: {} ready: {}", version, ready)]
-pub struct StatusResponse {
-    pub version: Version,
-    pub ready: bool,
-}
-
-impl PartialEq<Version> for StatusResponse {
-    fn eq(&self, other: &Version) -> bool {
-        self.version == *other
+#[cfg(feature = "cli")]
+impl BuildOpts {
+    pub(crate) fn batch_name(&self) -> &str {
+        match &self {
+            Self::Singularity(s) => &s.batch_name,
+            Self::Python(p) => &p.batch_name,
+        }
     }
 }
 
@@ -239,7 +199,6 @@ impl Version {
         let minor = iter.next().unwrap().parse().unwrap();
         let patch = iter.next().unwrap().parse().unwrap();
 
-        // TODO: pull this from cargo.toml
         Self {
             major,
             minor,
@@ -279,101 +238,67 @@ fn serialization_options() -> bincode::config::DefaultOptions {
 }
 
 #[derive(derive_more::From)]
-pub struct ServerConnection {
+pub(crate) struct Connection<T> {
     conn: TcpStream,
-    pub addr: std::net::SocketAddr,
+    _marker: std::marker::PhantomData<T>,
 }
 
-impl ServerConnection {
+impl<TX, RX> Connection<TX>
+where
+    TX: Serialize + AssociatedMessage<Receive = RX>,
+    RX: DeserializeOwned,
+{
     pub(crate) async fn new(addr: SocketAddr) -> Result<Self, error::TcpConnection> {
         let conn = TcpStream::connect(addr)
             .await
             .map_err(error::TcpConnection::from)?;
 
-        Ok(Self { conn, addr })
+        Ok(Self {
+            conn,
+            _marker: std::marker::PhantomData,
+        })
+    }
+
+    pub(crate) fn from_connection(conn: TcpStream) -> Self {
+        Self {
+            conn,
+            _marker: std::marker::PhantomData,
+        }
     }
 
     pub(crate) async fn transport_data(
         &mut self,
-        request: &RequestFromServer,
-    ) -> Result<(), Error> {
+        request: &TX,
+    ) -> Result<(), error::TcpConnection> {
         transport(&mut self.conn, request).await
     }
 
-    pub(crate) async fn receive_data(&mut self) -> Result<ClientResponse, Error> {
+    pub(crate) async fn receive_data(&mut self) -> Result<RX, error::TcpConnection> {
         receive(&mut self.conn).await
     }
 
-    pub(crate) async fn reconnect(&mut self) -> Result<(), Error> {
-        let conn = TcpStream::connect(self.addr)
+    pub(crate) async fn reconnect(&mut self, addr: &SocketAddr) -> Result<(), Error> {
+        let conn = TcpStream::connect(&addr)
             .await
             .map_err(error::TcpConnection::from)?;
         self.conn = conn;
 
         Ok(())
     }
-}
 
-pub struct UserConnectionToServer {
-    conn: TcpStream,
-    pub addr: std::net::SocketAddr,
-}
-
-impl UserConnectionToServer {
-    pub(crate) async fn new(addr: SocketAddr) -> Result<Self, error::TcpConnection> {
-        let conn = TcpStream::connect(addr)
-            .await
-            .map_err(error::TcpConnection::from)?;
-
-        Ok(Self { conn, addr })
-    }
-
-    pub(crate) async fn transport_data(
-        &mut self,
-        request: &UserMessageToServer,
-    ) -> Result<(), Error> {
-        transport(&mut self.conn, request).await
-    }
-
-    pub(crate) async fn receive_data(&mut self) -> Result<ServerResponseToUser, Error> {
-        receive(&mut self.conn).await
+    pub(crate) fn update_state<TxNew>(self) -> Connection<TxNew> {
+        let conn = self.conn;
+        Connection {
+            conn,
+            _marker: std::marker::PhantomData,
+        }
     }
 }
 
-#[derive(derive_more::From, derive_more::Constructor)]
-pub struct ServerConnectionToUser {
-    conn: TcpStream,
-}
-
-impl ServerConnectionToUser {
-    pub(crate) async fn transport_data(
-        &mut self,
-        request: &ServerResponseToUser,
-    ) -> Result<(), Error> {
-        transport(&mut self.conn, request).await
-    }
-
-    pub(crate) async fn receive_data(&mut self) -> Result<UserMessageToServer, Error> {
-        receive(&mut self.conn).await
-    }
-}
-
-#[derive(derive_more::Constructor)]
-pub struct ClientConnection {
-    conn: TcpStream,
-}
-
-impl ClientConnection {
-    pub(crate) async fn transport_data(&mut self, response: &ClientResponse) -> Result<(), Error> {
-        transport(&mut self.conn, response).await
-    }
-
-    pub(crate) async fn receive_data(&mut self) -> Result<RequestFromServer, Error> {
-        receive(&mut self.conn).await
-    }
-}
-
-async fn transport<T: Serialize>(tcp_connection: &mut TcpStream, data: &T) -> Result<(), Error> {
+async fn transport<T: Serialize>(
+    tcp_connection: &mut TcpStream,
+    data: &T,
+) -> Result<(), error::TcpConnection> {
     let serializer = serialization_options();
     let bytes = serializer
         .serialize(&data)
@@ -384,22 +309,18 @@ async fn transport<T: Serialize>(tcp_connection: &mut TcpStream, data: &T) -> Re
     let bytes_len: u64 = bytes.len() as u64;
 
     // write the length of the data that we are first sending
-    tcp_connection
-        .write_all(&bytes_len.to_le_bytes())
-        .await
-        .map_err(error::TcpConnection::from)?;
+    tcp_connection.write_all(&bytes_len.to_le_bytes()).await?;
 
     // write the contents of the actual data now that the length of the data is
     // actually known
-    tcp_connection
-        .write_all(&bytes)
-        .await
-        .map_err(error::TcpConnection::from)?;
+    tcp_connection.write_all(&bytes).await?;
 
     Ok(())
 }
 
-async fn receive<T: DeserializeOwned>(tcp_connection: &mut TcpStream) -> Result<T, Error> {
+async fn receive<T: DeserializeOwned>(
+    tcp_connection: &mut TcpStream,
+) -> Result<T, error::TcpConnection> {
     let deserializer = serialization_options();
 
     let mut buf: [u8; 8] = [0; 8];
@@ -421,15 +342,18 @@ async fn receive<T: DeserializeOwned>(tcp_connection: &mut TcpStream) -> Result<
     Ok(output)
 }
 
-async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<(), Error> {
+async fn read_buffer_bytes(
+    buffer: &mut [u8],
+    conn: &mut TcpStream,
+) -> Result<(), error::TcpConnection> {
     let mut starting_idx = 0;
 
     loop {
-        trace!(
-            "reading buffer bytes w/ index {} and buffer len {}",
-            starting_idx,
-            buffer.len()
-        );
+        //trace!(
+        //    "reading buffer bytes w/ index {} and buffer len {}",
+        //    starting_idx,
+        //    buffer.len()
+        //);
 
         let bytes_read = conn
             .read(&mut buffer[starting_idx..])
@@ -438,7 +362,7 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
 
         // this should mean that the other party has closed the connection
         if bytes_read == 0 {
-            return Err(Error::TcpConnection(error::TcpConnection::ConnectionClosed));
+            return Err(error::TcpConnection::ConnectionClosed);
         }
 
         starting_idx += bytes_read;
@@ -448,7 +372,7 @@ async fn read_buffer_bytes(buffer: &mut [u8], conn: &mut TcpStream) -> Result<()
         }
     }
 
-    debug!("finished reading bytes from buffer");
+    //trace!("finished reading bytes from buffer");
 
     Ok(())
 }
@@ -461,6 +385,17 @@ mod tests {
     use std::time::{Duration, Instant};
     use tokio::net::TcpListener;
 
+    #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+    struct Arbitrary {
+        bytes: Vec<u8>,
+    }
+
+    impl AssociatedMessage for Arbitrary {
+        type Receive = Arbitrary;
+    }
+
+    type Connection = super::Connection<Arbitrary>;
+
     fn add_port(port: u16) -> SocketAddr {
         SocketAddr::from(([0, 0, 0, 0], port))
     }
@@ -471,19 +406,16 @@ mod tests {
     async fn ensure_not_eof() {
         let client_listener = TcpListener::bind(add_port(9994)).await.unwrap();
         let mut raw_server_connection = TcpStream::connect(add_port(9994)).await.unwrap();
+        // connection from the client
         let mut client_connection =
-            ClientConnection::new(client_listener.accept().await.unwrap().0);
+            Connection::from_connection(client_listener.accept().await.unwrap().0);
 
-        let file_bytes = (0..255).into_iter().collect::<Vec<u8>>();
-        let server_req = RequestFromServer::RunPythonJob(PythonJob {
-            python_file: file_bytes,
-            job_name: "ensure_not_eof".into(),
-            job_files: vec![],
-        });
+        let bytes = (0..255).into_iter().collect::<Vec<u8>>();
+        let payload = Arbitrary { bytes };
 
         // serialize the data manually
         let serializer = serialization_options();
-        let server_req_bytes: Vec<u8> = serializer.serialize(&server_req).unwrap();
+        let server_req_bytes: Vec<u8> = serializer.serialize(&payload).unwrap();
 
         let bytes_len = server_req_bytes.len();
         let first_section = server_req_bytes[0..bytes_len / 2].to_vec();
@@ -520,7 +452,7 @@ mod tests {
         dbg!(elapsed.as_secs_f64());
 
         assert!(elapsed.as_secs_f64() > 2.);
-        assert_eq!(client_version_of_request.unwrap(), server_req);
+        assert_eq!(client_version_of_request.unwrap(), payload);
     }
 
     /// make sure that if we close the connection an EOF is reached
@@ -528,11 +460,10 @@ mod tests {
     async fn ensure_eof_on_close() {
         let client_listener = TcpListener::bind(add_port(9995)).await.unwrap();
         let addr = add_port(9995);
-        let server_connection =
-            ServerConnection::from((TcpStream::connect(addr).await.unwrap(), addr));
+        let server_connection = Connection::new(addr).await;
 
         let mut client_connection =
-            ClientConnection::new(client_listener.accept().await.unwrap().0);
+            Connection::from_connection(client_listener.accept().await.unwrap().0);
 
         std::mem::drop(server_connection);
 
@@ -540,9 +471,8 @@ mod tests {
 
         // ensure its `error::TcpConnection::ConnectionClosed`
         match rx.unwrap_err() {
-            error::Error::TcpConnection(tcp) => {
-                // make sure its a connection closed error
-                tcp.unwrap_connection_closed();
+            error::TcpConnection::ConnectionClosed => {
+                // we are good
             }
             x => {
                 panic!("Error {:?} was not TcpConnection::ConnectionClosed", x);
@@ -554,10 +484,10 @@ mod tests {
     async fn no_send_result() {
         let client_listener = TcpListener::bind(add_port(9996)).await.unwrap();
         let addr = add_port(9996);
-        let mut server_connection =
-            ServerConnection::from((TcpStream::connect(addr).await.unwrap(), addr));
+        let mut server_connection = Connection::new(addr).await.unwrap();
 
-        let _client_connection = ClientConnection::new(client_listener.accept().await.unwrap().0);
+        let _client_connection =
+            Connection::from_connection(client_listener.accept().await.unwrap().0);
 
         let timeout = Duration::from_secs(3);
         let fut = server_connection.receive_data();

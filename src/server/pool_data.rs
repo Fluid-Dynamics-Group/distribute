@@ -1,20 +1,9 @@
 use super::ok_if_exists;
 use super::schedule::JobIdentifier;
 use super::storage;
-use crate::config;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
-use std::collections::BTreeSet;
-
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
-
-use tokio::sync::oneshot;
-
-use derive_more::{Constructor, Display, From};
-
-use serde::{Deserialize, Serialize};
+use crate::prelude::*;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum JobResponse {
@@ -80,7 +69,7 @@ pub(crate) struct TaskInfo {
 }
 
 impl TaskInfo {
-    pub(crate) fn flatten(self) -> BuildTaskRunTask {
+    pub(crate) fn flatten(self) -> FetchedJob {
         let TaskInfo {
             namespace,
             batch_name,
@@ -107,18 +96,20 @@ impl TaskInfo {
 }
 
 #[derive(From)]
-pub(crate) enum BuildTaskRunTask {
+pub(crate) enum FetchedJob {
     Build(BuildTaskInfo),
     Run(RunTaskInfo),
+    MissedKeepalive,
 }
 
 #[derive(From, Clone, Constructor)]
 pub(crate) struct BuildTaskInfo {
-    namespace: String,
-    batch_name: String,
+    pub(crate) namespace: String,
+    pub(crate) batch_name: String,
     pub(crate) identifier: JobIdentifier,
-    pub(crate) task: config::BuildOpts,
+    pub(crate) task: transport::BuildOpts,
 }
+
 impl BuildTaskInfo {
     pub(crate) async fn batch_save_path(
         &self,
@@ -138,30 +129,12 @@ pub(crate) struct RunTaskInfo {
     namespace: String,
     batch_name: String,
     pub(crate) identifier: JobIdentifier,
-    pub(crate) task: storage::JobOpt,
-}
-
-impl RunTaskInfo {
-    pub(crate) async fn batch_save_path(
-        &self,
-        base_path: &Path,
-    ) -> Result<PathBuf, (std::io::Error, PathBuf)> {
-        let path = base_path
-            .join(&self.namespace)
-            .join(&self.batch_name)
-            .join(self.task.name());
-
-        debug!("creating path {} for job", path.display());
-        // TODO: clear the contents of the folder if it already exists
-        ok_if_exists(tokio::fs::create_dir_all(&path).await).map_err(|e| (e, path.clone()))?;
-
-        Ok(path)
-    }
+    pub(crate) task: transport::JobOpt,
 }
 
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone, Debug, PartialEq)]
 pub(crate) enum JobOrInit {
-    Job(storage::JobOpt),
-    JobInit(config::BuildOpts),
+    Job(transport::JobOpt),
+    JobInit(transport::BuildOpts),
 }

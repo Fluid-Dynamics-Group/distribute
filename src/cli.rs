@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use crate::config::{CLIENT_PORT_STR, SERVER_PORT_STR};
+use crate::config::{CLIENT_PORT_STR, SERVER_PORT_STR, CLIENT_KEEPALIVE_PORT_STR};
 
 #[derive(StructOpt, PartialEq, Debug)]
 #[structopt(
@@ -26,7 +26,6 @@ pub struct ArgsWrapper {
 pub enum Arguments {
     Client(Client),
     Server(Server),
-    Status(Status),
     Kill(Kill),
     Pause(Pause),
     Add(Add),
@@ -51,9 +50,13 @@ pub struct Client {
     /// job init stuff will be done here
     pub base_folder: PathBuf,
 
-    #[structopt(long, default_value = CLIENT_PORT_STR, short)]
+    #[structopt(long, default_value = CLIENT_PORT_STR, short="p")]
     /// the port to bind the client to (default 8953)
-    pub port: u16,
+    pub transport_port: u16,
+
+    #[structopt(long, default_value = CLIENT_KEEPALIVE_PORT_STR, short)]
+    /// the port for client to bind for keepalive checks (default 8954)
+    pub keepalive_port: u16,
 
     #[structopt(long, default_value = "./output.log", short)]
     /// the port to bind the client to (default 8953)
