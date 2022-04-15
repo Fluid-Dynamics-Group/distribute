@@ -182,3 +182,26 @@ impl transport::AssociatedMessage for ServerMsg {
 impl transport::AssociatedMessage for ClientMsg {
     type Receive = ServerMsg;
 }
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    use tokio::net::{TcpStream, TcpListener};
+    use transport::Connection;
+
+    fn add_port(port: u16) -> SocketAddr {
+        SocketAddr::from(([0, 0, 0, 0], port))
+    }
+
+    #[tokio::test]
+    async fn uninit() {
+        let client_listener = TcpListener::bind(add_port(9997)).await.unwrap();
+        let mut raw_server_connection = TcpStream::connect(add_port(9994)).await.unwrap();
+
+        let mut client_connection: Connection<ClientMsg> =
+            Connection::from_connection(client_listener.accept().await.unwrap().0);
+
+        let server_connection = Connection::from_connection(raw_server_connection);
+        
+    }
+}

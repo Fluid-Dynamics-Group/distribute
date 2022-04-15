@@ -140,3 +140,10 @@ pub(crate) struct Common {
     pub(crate) main_transport_addr: SocketAddr,
     errored_jobs: BTreeSet<server::JobIdentifier>,
 }
+
+impl Common {
+    #[cfg(test)]
+    fn test_configuration(transport_addr: SocketAddr, keepalive_addr: SocketAddr) {
+        let tx, rx = 
+    }
+}
