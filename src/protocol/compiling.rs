@@ -38,7 +38,7 @@ pub(crate) enum ServerError {
     #[error("Failed compilation")]
     FailedCompilation,
     #[error("Unknown Client Error")]
-    ClientError
+    ClientError,
 }
 
 impl Machine<Building, ClientBuildingState> {
@@ -55,7 +55,6 @@ impl Machine<Building, ClientBuildingState> {
         Either<Machine<Built, ClientBuiltState>, Machine<PrepareBuild, ClientPrepareBuildState>>,
         (Self, ClientError),
     > {
-
         // TODO: should probably wipe the folder and instantiate the folders here
         if self.state.working_dir.exists() {
             let tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
@@ -120,11 +119,11 @@ impl Machine<Building, ClientBuildingState> {
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
-        let ClientBuildingState { conn, working_dir, .. } = self.state;
+        let ClientBuildingState {
+            conn, working_dir, ..
+        } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ClientUninitState { 
-            conn, working_dir
-        };
+        let state = super::uninit::ClientUninitState { conn, working_dir };
         Machine::from_state(state)
     }
 
@@ -204,9 +203,7 @@ impl Machine<Building, ServerBuildingState> {
     pub(crate) fn to_uninit(self) -> super::UninitServer {
         let ServerBuildingState { conn, common, .. } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ServerUninitState { 
-            conn, common
-        };
+        let state = super::uninit::ServerUninitState { conn, common };
         Machine::from_state(state)
     }
 

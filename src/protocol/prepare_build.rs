@@ -52,11 +52,11 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
     }
 
     pub(crate) fn to_uninit(self) -> Machine<Uninit, ClientUninitState> {
-        let ClientPrepareBuildState { conn, working_dir, .. } = self.state;
+        let ClientPrepareBuildState {
+            conn, working_dir, ..
+        } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ClientUninitState { 
-            conn, working_dir
-        };
+        let state = super::uninit::ClientUninitState { conn, working_dir };
         Machine::from_state(state)
     }
 
@@ -114,7 +114,6 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         let batch_name = build_job.batch_name.clone();
         let job_identifier = build_job.identifier;
 
-
         // tell the node about the compiling job
         let msg = ServerMsg::InitializeJob(build_job.task);
         let tmp_msg = self.state.conn.transport_data(&msg).await;
@@ -128,11 +127,9 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
 
     /// convert back to the uninitialized state
     pub(crate) fn to_uninit(self) -> Machine<Uninit, ServerUninitState> {
-        let ServerPrepareBuildState{ conn, common, .. } = self.state;
+        let ServerPrepareBuildState { conn, common, .. } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ServerUninitState { 
-            conn, common
-        };
+        let state = super::uninit::ServerUninitState { conn, common };
         Machine::from_state(state)
     }
 

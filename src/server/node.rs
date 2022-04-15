@@ -21,8 +21,14 @@ use crate::prelude::*;
 use crate::protocol;
 use crate::protocol::UninitServer;
 
-pub(crate) async fn run_node(common: protocol::Common, mut scheduler_tx: mpsc::Sender<server::JobRequest>) {
-    info!("initializing connection to {} / {}", common.node_name, common.main_transport_addr);
+pub(crate) async fn run_node(
+    common: protocol::Common,
+    mut scheduler_tx: mpsc::Sender<server::JobRequest>,
+) {
+    info!(
+        "initializing connection to {} / {}",
+        common.node_name, common.main_transport_addr
+    );
 
     let conn = make_connection(common.main_transport_addr, &common.node_name).await;
 
@@ -415,20 +421,16 @@ async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(
         .await?;
 
     match tokio::time::timeout(Duration::from_secs(10), conn.receive_data()).await {
-        Ok(inner) => {
-            match inner {
-                Ok(x) => {
-                    trace!("keepalive was successful -> {:?}", x);
-                    Ok(())
-                }
-                Err(e) => {
-                    trace!("keepalive failed: {:?}", e);
-                    Err(e.into())
-                }
+        Ok(inner) => match inner {
+            Ok(x) => {
+                trace!("keepalive was successful -> {:?}", x);
+                Ok(())
             }
-        }
+            Err(e) => {
+                trace!("keepalive failed: {:?}", e);
+                Err(e.into())
+            }
+        },
         Err(_elapsed) => Err(error::TimeoutError::new(*address, name.to_string()).into()),
     }
-
 }
-

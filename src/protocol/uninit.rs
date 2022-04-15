@@ -206,12 +206,12 @@ impl transport::AssociatedMessage for ClientMsg {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
-    use tokio::net::{TcpStream, TcpListener};
-    use transport::Connection;
-    use crate::protocol::Common;
     use crate::prelude::*;
+    use crate::protocol::Common;
+    use tokio::net::{TcpListener, TcpStream};
+    use transport::Connection;
 
     fn add_port(port: u16) -> SocketAddr {
         SocketAddr::from(([0, 0, 0, 0], port))
@@ -233,14 +233,21 @@ mod tests{
 
         let server_connection = Connection::from_connection(raw_server_connection);
 
-        let (_tx_cancel, common) = Common::test_configuration(client_transport_addr, client_keepalive_addr);
+        let (_tx_cancel, common) =
+            Common::test_configuration(client_transport_addr, client_keepalive_addr);
 
-        let client_state = ClientUninitState { conn: client_connection, working_dir };
-        let server_state = ServerUninitState { conn: server_connection, common };
+        let client_state = ClientUninitState {
+            conn: client_connection,
+            working_dir,
+        };
+        let server_state = ServerUninitState {
+            conn: server_connection,
+            common,
+        };
 
         // create the machines from the states
-        let client : Machine<Uninit, _>  = Machine::from_state(client_state);
-        let server: Machine<Uninit, _>  = Machine::from_state(server_state);
+        let client: Machine<Uninit, _> = Machine::from_state(client_state);
+        let server: Machine<Uninit, _> = Machine::from_state(server_state);
 
         // create some oneshot channels for the spawned tasks
         // to return the information to the main process
@@ -249,11 +256,10 @@ mod tests{
 
         // run the server on its own process
         let server = tokio::spawn(async move {
-            if let Err((_,e)) = server.connect_to_node().await {
+            if let Err((_, e)) = server.connect_to_node().await {
                 eprintln!("server crashed: {:?}", e);
                 tx_server.send(false).unwrap();
-            }
-            else {
+            } else {
                 println!("server finished successfully");
                 tx_server.send(true).unwrap();
             }
@@ -274,13 +280,19 @@ mod tests{
 
         // check that the client returns something
         assert_eq!(
-            tokio::time::timeout(Duration::from_secs(5), rx_client).await.unwrap().unwrap(),
+            tokio::time::timeout(Duration::from_secs(5), rx_client)
+                .await
+                .unwrap()
+                .unwrap(),
             true
         );
 
         // check that the server returns something
         assert_eq!(
-            tokio::time::timeout(Duration::from_secs(5), rx_server).await.unwrap().unwrap(),
+            tokio::time::timeout(Duration::from_secs(5), rx_server)
+                .await
+                .unwrap()
+                .unwrap(),
             true
         );
     }

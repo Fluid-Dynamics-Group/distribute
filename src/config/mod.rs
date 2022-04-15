@@ -20,7 +20,7 @@ pub const CLIENT_PORT: u16 = 8953;
 pub const CLIENT_PORT_STR: &'static str = "8953";
 
 pub const CLIENT_KEEPALIVE_PORT: u16 = 8954;
-pub const CLIENT_KEEPALIVE_PORT_STR: &'static str= "8954";
+pub const CLIENT_KEEPALIVE_PORT_STR: &'static str = "8954";
 
 #[derive(Debug, Display, thiserror::Error, From)]
 #[display(
@@ -79,7 +79,7 @@ pub struct Nodes {
 #[display(fmt = "ip address: {}", ip)]
 pub struct Node {
     pub(crate) ip: std::net::IpAddr,
-    #[serde(rename="name")]
+    #[serde(rename = "name")]
     pub(crate) node_name: String,
     #[serde(default = "default_client_port")]
     pub(crate) transport_port: u16,

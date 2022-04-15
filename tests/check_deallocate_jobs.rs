@@ -39,7 +39,12 @@ async fn check_deallocate_jobs() {
 
     // start up a client
     // the port comes from distribute-nodes.yaml
-    let client = Client::new(client_workdir.clone(), client_port, keepalive_port, "./output.log".into());
+    let client = Client::new(
+        client_workdir.clone(),
+        client_port,
+        keepalive_port,
+        "./output.log".into(),
+    );
     tokio::spawn(async move {
         println!("starting the client");
         distribute::client_command(client).await.unwrap();

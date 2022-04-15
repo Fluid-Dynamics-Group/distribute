@@ -104,11 +104,11 @@ impl Machine<SendFiles, ClientSendFilesState> {
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
-        let ClientSendFilesState { conn, working_dir, .. } = self.state;
+        let ClientSendFilesState {
+            conn, working_dir, ..
+        } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ClientUninitState { 
-            conn, working_dir
-        };
+        let state = super::uninit::ClientUninitState { conn, working_dir };
         Machine::from_state(state)
     }
 
@@ -135,7 +135,6 @@ impl Machine<SendFiles, ServerSendFilesState> {
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
-
         // create the namesapce and batch name for this process
         let namespace_dir = self.state.common.save_path.join(&self.state.namespace);
         let batch_dir = namespace_dir.join(&self.state.batch_name);
@@ -177,7 +176,6 @@ impl Machine<SendFiles, ServerSendFilesState> {
                                 error!("{}", e);
                             }
                         }
-
                     } else {
                         debug!(
                             "creating directory {} on {} for {}",
@@ -197,14 +195,19 @@ impl Machine<SendFiles, ServerSendFilesState> {
                 }
                 ClientMsg::FinishFiles => {
                     // first, tell the scheduler that this job has finished
-                    if let Err(_e) = scheduler_tx.send(server::pool_data::JobRequest::FinishJob(self.state.job_identifier)).await {
-                        error!("scheduler is down - cannot transmit that job {} has finished on {}", 
-                            self.state.job_name, 
-                            self.state.common.node_name
+                    if let Err(_e) = scheduler_tx
+                        .send(server::pool_data::JobRequest::FinishJob(
+                            self.state.job_identifier,
+                        ))
+                        .await
+                    {
+                        error!(
+                            "scheduler is down - cannot transmit that job {} has finished on {}",
+                            self.state.job_name, self.state.common.node_name
                         );
-                        panic!("scheduler is down - cannot transmit that job {} has finished on {}", 
-                            self.state.job_name, 
-                            self.state.common.node_name
+                        panic!(
+                            "scheduler is down - cannot transmit that job {} has finished on {}",
+                            self.state.job_name, self.state.common.node_name
                         );
                     }
 
@@ -246,9 +249,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
     pub(crate) fn to_uninit(self) -> super::UninitServer {
         let ServerSendFilesState { conn, common, .. } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ServerUninitState { 
-            conn, common
-        };
+        let state = super::uninit::ServerUninitState { conn, common };
         Machine::from_state(state)
     }
 }

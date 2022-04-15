@@ -64,11 +64,11 @@ impl Machine<Built, ClientBuiltState> {
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
-        let ClientBuiltState { conn, working_dir, .. } = self.state;
+        let ClientBuiltState {
+            conn, working_dir, ..
+        } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ClientUninitState { 
-            conn, working_dir
-        };
+        let state = super::uninit::ClientUninitState { conn, working_dir };
         Machine::from_state(state)
     }
 
@@ -183,9 +183,7 @@ impl Machine<Built, ServerBuiltState> {
     pub(crate) fn to_uninit(self) -> super::UninitServer {
         let ServerBuiltState { conn, common, .. } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ServerUninitState { 
-            conn, common
-        };
+        let state = super::uninit::ServerUninitState { conn, common };
         Machine::from_state(state)
     }
 
@@ -204,7 +202,11 @@ impl Machine<Built, ServerBuiltState> {
             job_identifier,
         } = self.state;
         let conn = conn.update_state();
-        let save_location = common.save_path.join(&namespace).join(&batch_name).join(&job_name);
+        let save_location = common
+            .save_path
+            .join(&namespace)
+            .join(&batch_name)
+            .join(&job_name);
 
         super::executing::ServerExecutingState {
             conn,

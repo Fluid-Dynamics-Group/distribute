@@ -27,7 +27,7 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         .await
         .map_err(error::TcpConnection::from)?;
 
-    let keepalive_addr = SocketAddr::from(([0,0,0,0], client.keepalive_port));
+    let keepalive_addr = SocketAddr::from(([0, 0, 0, 0], client.keepalive_port));
     start_keepalive_checker(keepalive_addr).await?;
 
     info!("starting client listener on port {}", addr);
@@ -220,9 +220,7 @@ async fn start_keepalive_checker(keepalive_port: SocketAddr) -> Result<(), error
     // spawn a task to monitor the port for keepalives
     tokio::spawn(async move {
         loop {
-            let res = listener
-                .accept()
-                .await;
+            let res = listener.accept().await;
 
             match res {
                 Ok((conn, _addr)) => {
@@ -230,14 +228,16 @@ async fn start_keepalive_checker(keepalive_port: SocketAddr) -> Result<(), error
                     answer_query_connection(&mut connection).await.ok();
                 }
                 Err(e) => {
-                    error!("error with client keepalive monitor while accepting a connection: {}", e);
-                    continue
+                    error!(
+                        "error with client keepalive monitor while accepting a connection: {}",
+                        e
+                    );
+                    continue;
                 }
             }
         }
     });
 
-    
     Ok(())
 }
 
@@ -248,7 +248,9 @@ async fn answer_query_connection(
     client_conn: &mut transport::Connection<transport::ClientQueryAnswer>,
 ) -> Result<(), error::TcpConnection> {
     trace!("responded to keepalive connection");
-    client_conn.transport_data(&transport::ClientQueryAnswer::KeepaliveResponse).await
+    client_conn
+        .transport_data(&transport::ClientQueryAnswer::KeepaliveResponse)
+        .await
 }
 
 fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {

@@ -45,8 +45,7 @@ pub use serde_yaml;
 #[cfg(feature = "cli")]
 pub use {
     add::add, client::client_command, kill::kill, pause::pause, pull::pull, run_local::run_local,
-    server::server_command, status::get_current_jobs, template::template,
-    server::RemainingJobs
+    server::server_command, server::RemainingJobs, status::get_current_jobs, template::template,
 };
 
 #[cfg(test)]

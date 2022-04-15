@@ -12,13 +12,13 @@ use job_pool::JobPool;
 pub(crate) use pool_data::JobRequest;
 
 pub use pool_data::CancelResult;
-pub(crate) use schedule::{JobIdentifier};
+pub(crate) use schedule::JobIdentifier;
 pub(crate) use storage::OwnedJobSet;
 
 pub use schedule::RemainingJobs;
 
-use crate::{cli, config, error, error::Error};
 use crate::prelude::*;
+use crate::{cli, config, error, error::Error};
 
 #[cfg(feature = "cli")]
 use tokio::sync::{broadcast, mpsc};
@@ -99,7 +99,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
             keepalive_addr,
             transport_addr,
             // btreeset is just empty
-            Default::default()
+            Default::default(),
         );
 
         let request_job_tx = request_job.clone();
@@ -128,13 +128,14 @@ pub(crate) fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io:
     Ok(())
 }
 
-pub(crate) fn create_dir_helper<T>(path: &Path) -> Result<(), T> 
-where T: From<(PathBuf, std::io::Error)> {
+pub(crate) fn create_dir_helper<T>(path: &Path) -> Result<(), T>
+where
+    T: From<(PathBuf, std::io::Error)>,
+{
     debug!("creating directory at {}", path.display());
 
     match ok_if_exists(std::fs::create_dir(path)) {
         Ok(_) => Ok(()),
-        Err(e) => Err(T::from((path.to_owned(), e)))
+        Err(e) => Err(T::from((path.to_owned(), e))),
     }
-
 }
