@@ -24,13 +24,13 @@ impl BindingFolderState {
     // TODO: decide if these should be hard errors and return Result< , >
     async fn update_binded_paths(&mut self, container_paths: Vec<PathBuf>, base_path: &Path) {
         // first, clear out all the older folder bindings
-        self.clear_folders().await;
+        self.clear_folders();
 
         for container_path in container_paths.into_iter() {
             let host_path = base_path.join(format!("_bind_path_{}", self.counter));
 
             if host_path.exists() {
-                Self::remove_dir_with_logging(&host_path).await;
+                Self::remove_dir_with_logging(&host_path);
             }
 
             if let Err(e) = tokio::fs::create_dir(&host_path).await {
@@ -46,21 +46,29 @@ impl BindingFolderState {
         }
     }
 
-    /// removes full directory of files
-    async fn clear_folders(&mut self) {
+    /// removes full directory of files that are being used for bindings
+    fn clear_folders(&mut self) {
         for folder in self.folders.drain(..) {
-            Self::remove_dir_with_logging(&folder.host_path).await;
+            Self::remove_dir_with_logging(&folder.host_path)
         }
     }
 
-    async fn remove_dir_with_logging(path: &Path) {
-        if let Err(e) = tokio::fs::remove_dir_all(path).await {
+    // this function cannot be async because we also use it in the Drop impl
+    fn remove_dir_with_logging(path: &Path) {
+        if let Err(e) = std::fs::remove_dir_all(path) {
             error!(
                 "failed to remove old container path binding at host path {} - error: {}",
                 path.display(),
                 e
             );
         }
+    }
+}
+
+impl std::ops::Drop for BindingFolderState {
+    fn drop(&mut self) {
+        trace!("executing Drop for BindingFolderState - removing all folderes");
+        self.clear_folders();
     }
 }
 

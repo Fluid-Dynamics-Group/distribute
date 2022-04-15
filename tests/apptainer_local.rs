@@ -18,13 +18,13 @@ async fn verify_singularity_execution() {
 
     distribute::run_local(run).await.unwrap();
 
-    let p1 = dir.join("output").join("_bind_path_0").join("file1.txt");
-    let p2 = dir.join("output").join("_bind_path_1").join("file2.txt");
+    //let p1 = dir.join("output").join("_bind_path_0").join("file1.txt");
+    //let p2 = dir.join("output").join("_bind_path_1").join("file2.txt");
 
-    dbg!(&p1);
+    //dbg!(&p1);
 
-    assert_eq!(p1.exists(), true);
-    assert_eq!(p2.exists(), true);
+    //assert_eq!(p1.exists(), true);
+    //assert_eq!(p2.exists(), true);
 
     let output_1 = dir.join("output/archived_files/job_1/simulated_output.txt");
     let output_2 = dir.join("output/archived_files/job_2/simulated_output.txt");

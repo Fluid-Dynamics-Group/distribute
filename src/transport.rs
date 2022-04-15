@@ -199,7 +199,6 @@ impl Version {
         let minor = iter.next().unwrap().parse().unwrap();
         let patch = iter.next().unwrap().parse().unwrap();
 
-        // TODO: pull this from cargo.toml
         Self {
             major,
             minor,

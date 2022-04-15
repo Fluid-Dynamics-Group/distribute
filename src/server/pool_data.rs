@@ -132,24 +132,6 @@ pub(crate) struct RunTaskInfo {
     pub(crate) task: transport::JobOpt,
 }
 
-impl RunTaskInfo {
-    pub(crate) async fn batch_save_path(
-        &self,
-        base_path: &Path,
-    ) -> Result<PathBuf, (std::io::Error, PathBuf)> {
-        let path = base_path
-            .join(&self.namespace)
-            .join(&self.batch_name)
-            .join(self.task.name());
-
-        debug!("creating path {} for job", path.display());
-        // TODO: clear the contents of the folder if it already exists
-        ok_if_exists(tokio::fs::create_dir_all(&path).await).map_err(|e| (e, path.clone()))?;
-
-        Ok(path)
-    }
-}
-
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone, Debug, PartialEq)]
 pub(crate) enum JobOrInit {

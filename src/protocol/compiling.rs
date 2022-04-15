@@ -37,6 +37,8 @@ pub(crate) enum ServerError {
     MissedKeepalive,
     #[error("Failed compilation")]
     FailedCompilation,
+    #[error("Unknown Client Error")]
+    ClientError
 }
 
 impl Machine<Building, ClientBuildingState> {
@@ -53,7 +55,11 @@ impl Machine<Building, ClientBuildingState> {
         Either<Machine<Built, ClientBuiltState>, Machine<PrepareBuild, ClientPrepareBuildState>>,
         (Self, ClientError),
     > {
+
         // TODO: should probably wipe the folder and instantiate the folders here
+        if self.state.working_dir.exists() {
+            let tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
+        }
 
         // TODO: monitor for cancellation
         let (tx_cancel, rx_cancel) = broadcast::channel(10);

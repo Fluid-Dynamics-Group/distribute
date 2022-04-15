@@ -220,6 +220,8 @@ pub enum ClientInitError {
     Io(std::io::Error),
     #[error("`{0}`")]
     TcpConnection(TcpConnection),
+    #[error("`{0}`")]
+    CreateDir(CreateDir),
 }
 
 #[derive(Debug, Display, From, Constructor, thiserror::Error)]
