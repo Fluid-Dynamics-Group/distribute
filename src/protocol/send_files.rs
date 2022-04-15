@@ -1,6 +1,7 @@
 use super::Machine;
 use crate::prelude::*;
 use client::utils;
+use tokio::io::AsyncWriteExt;
 
 use super::built::{Built, ClientBuiltState, ServerBuiltState};
 
@@ -40,6 +41,13 @@ pub(crate) enum ServerError {
     TcpConnection(error::TcpConnection),
     #[error("{0}")]
     CreateDir(error::CreateDir),
+}
+
+impl From<(PathBuf, std::io::Error)> for ServerError {
+    fn from(x: (PathBuf, std::io::Error)) -> Self {
+        let err = error::CreateDir::new(x.1, x.0);
+        Self::from(err)
+    }
 }
 
 impl Machine<SendFiles, ClientSendFilesState> {
@@ -96,7 +104,12 @@ impl Machine<SendFiles, ClientSendFilesState> {
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
-        todo!()
+        let ClientSendFilesState { conn, working_dir, .. } = self.state;
+        let conn = conn.update_state();
+        let state = super::uninit::ClientUninitState { 
+            conn, working_dir
+        };
+        Machine::from_state(state)
     }
 
     pub(crate) fn into_built_state(self) -> super::built::ClientBuiltState {
@@ -122,6 +135,20 @@ impl Machine<SendFiles, ServerSendFilesState> {
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
+
+        // create the namesapce and batch name for this process
+        let namespace_dir = self.state.common.save_path.join(&self.state.namespace);
+        let batch_dir = namespace_dir.join(&self.state.batch_name);
+        let job_dir = batch_dir.join(&self.state.job_name);
+
+        // create directories, with error handling
+        let create_dir = server::create_dir_helper::<ServerError>(&namespace_dir);
+        throw_error_with_self!(create_dir, self);
+        let create_dir = server::create_dir_helper::<ServerError>(&batch_dir);
+        throw_error_with_self!(create_dir, self);
+        let create_dir = server::create_dir_helper::<ServerError>(&job_dir);
+        throw_error_with_self!(create_dir, self);
+
         loop {
             let msg = self.state.conn.receive_data().await;
             let msg: ClientMsg = throw_error_with_self!(msg, self);
@@ -139,14 +166,18 @@ impl Machine<SendFiles, ServerSendFilesState> {
                         );
 
                         // save the file
-                        let res = tokio::fs::write(&path, file.bytes)
-                            .await
-                            .map_err(|e| error::WriteFile::new(e, path));
-
-                        // if there was an error writing the file then log it
-                        if let Err(e) = res {
-                            error!("{}", e)
+                        let fs_file = tokio::fs::File::create(&path).await;
+                        match fs_file {
+                            Ok(mut f) => {
+                                if let Err(e) = f.write_all(&file.bytes).await {
+                                    error!("{}", e);
+                                }
+                            }
+                            Err(e) => {
+                                error!("{}", e);
+                            }
                         }
+
                     } else {
                         debug!(
                             "creating directory {} on {} for {}",
@@ -166,7 +197,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
                 }
                 ClientMsg::FinishFiles => {
                     // first, tell the scheduler that this job has finished
-                    if let Err(e) = scheduler_tx.send(server::pool_data::JobRequest::FinishJob(self.state.job_identifier)).await {
+                    if let Err(_e) = scheduler_tx.send(server::pool_data::JobRequest::FinishJob(self.state.job_identifier)).await {
                         error!("scheduler is down - cannot transmit that job {} has finished on {}", 
                             self.state.job_name, 
                             self.state.common.node_name
@@ -213,7 +244,12 @@ impl Machine<SendFiles, ServerSendFilesState> {
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitServer {
-        todo!()
+        let ServerSendFilesState { conn, common, .. } = self.state;
+        let conn = conn.update_state();
+        let state = super::uninit::ServerUninitState { 
+            conn, common
+        };
+        Machine::from_state(state)
     }
 }
 

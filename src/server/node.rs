@@ -180,6 +180,7 @@ async fn inner_prepare_build_to_compile_result(
 
 async fn make_connection(addr: SocketAddr, name: &str) -> tokio::net::TcpStream {
     loop {
+        info!("making server TCP connection to {}", addr);
         match tokio::net::TcpStream::connect(addr).await {
             Ok(conn) => return conn,
             Err(e) => {
@@ -197,7 +198,7 @@ pub(crate) async fn fetch_new_job(
     scheduler_tx: &mut mpsc::Sender<JobRequest>,
     initialized_job: JobIdentifier,
     node_name: &str,
-    info_addr: &SocketAddr,
+    _transport_addr: &SocketAddr,
     keepalive_addr: &SocketAddr,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
     errored_jobsets: BTreeSet<JobIdentifier>,
@@ -407,6 +408,7 @@ async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> 
 
 /// ping an address and
 async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(), Error> {
+    trace!("making keepalive check to {}", address);
     // TODO: this connection might be able to stall, im not sure
     let mut conn = transport::Connection::new(*address).await?;
     conn.transport_data(&transport::ServerQuery::KeepaliveCheck)
@@ -414,11 +416,19 @@ async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(
 
     match tokio::time::timeout(Duration::from_secs(10), conn.receive_data()).await {
         Ok(inner) => {
-            inner?;
-            ()
+            match inner {
+                Ok(x) => {
+                    trace!("keepalive was successful -> {:?}", x);
+                    Ok(())
+                }
+                Err(e) => {
+                    trace!("keepalive failed: {:?}", e);
+                    Err(e.into())
+                }
+            }
         }
-        Err(_elapsed) => return Err(error::TimeoutError::new(*address, name.to_string()).into()),
+        Err(_elapsed) => Err(error::TimeoutError::new(*address, name.to_string()).into()),
     }
 
-    Ok(())
 }
+

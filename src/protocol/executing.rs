@@ -104,7 +104,12 @@ impl Machine<Executing, ClientExecutingState> {
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
-        todo!()
+        let ClientExecutingState { conn, working_dir, .. } = self.state;
+        let conn = conn.update_state();
+        let state = super::uninit::ClientUninitState { 
+            conn, working_dir
+        };
+        Machine::from_state(state)
     }
 
     fn into_send_files_state(self) -> super::send_files::ClientSendFilesState {
@@ -162,7 +167,12 @@ impl Machine<Executing, ServerExecutingState> {
     }
 
     pub(crate) fn to_uninit(self) -> super::UninitServer {
-        todo!()
+        let ServerExecutingState { conn, common, .. } = self.state;
+        let conn = conn.update_state();
+        let state = super::uninit::ServerUninitState { 
+            conn, common
+        };
+        Machine::from_state(state)
     }
 
     fn into_send_files_state(self) -> super::send_files::ServerSendFilesState {

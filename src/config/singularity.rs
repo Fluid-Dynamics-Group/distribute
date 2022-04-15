@@ -14,6 +14,7 @@ use super::common::File;
 use crate::transport;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[serde(deny_unknown_fields)]
 pub struct Description {
     pub initialize: Initialize,
     pub jobs: Vec<Job>,
@@ -79,6 +80,7 @@ impl NormalizePaths for Description {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[serde(deny_unknown_fields)]
 pub struct Initialize {
     sif: PathBuf,
     #[serde(default)]
@@ -90,6 +92,7 @@ pub struct Initialize {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[serde(deny_unknown_fields)]
 pub struct Job {
     name: String,
     #[serde(default)]

@@ -68,7 +68,14 @@ async fn single_user_request(
                 req
             }
             Err(e) => {
-                error!("error reading user request: {}", e);
+                match e {
+                    error::TcpConnection::ConnectionClosed => {
+                        continue
+                    }
+                    x => {
+                        error!("error reading user request: {}", x);
+                    }
+                }
                 return;
             }
         };

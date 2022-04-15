@@ -68,12 +68,14 @@ pub struct ReadBytesError {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 /// main entry point for server configuration file
 pub struct Nodes {
     pub nodes: Vec<Node>,
 }
 
 #[derive(Debug, Clone, Deserialize, Display)]
+#[serde(deny_unknown_fields)]
 #[display(fmt = "ip address: {}", ip)]
 pub struct Node {
     pub(crate) ip: std::net::IpAddr,
@@ -108,6 +110,7 @@ impl Node {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
+#[serde(deny_unknown_fields)]
 pub enum Jobs {
     Python {
         meta: Meta,
@@ -120,6 +123,7 @@ pub enum Jobs {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Meta {
     pub batch_name: String,
     pub namespace: String,
@@ -233,6 +237,7 @@ impl NormalizePaths for Nodes {
 }
 
 #[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, Unwrap)]
+#[serde(deny_unknown_fields)]
 #[cfg(feature = "cli")]
 pub enum JobOpts {
     Python(Vec<transport::PythonJob>),
@@ -276,12 +281,14 @@ mod tests {
     use super::*;
 
     #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct PythonConfiguration {
         meta: Meta,
         python: python::Description,
     }
 
     #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct SingularityConfiguration {
         meta: Meta,
         singularity: singularity::Description,

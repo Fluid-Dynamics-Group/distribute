@@ -52,7 +52,12 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
     }
 
     pub(crate) fn to_uninit(self) -> Machine<Uninit, ClientUninitState> {
-        todo!()
+        let ClientPrepareBuildState { conn, working_dir, .. } = self.state;
+        let conn = conn.update_state();
+        let state = super::uninit::ClientUninitState { 
+            conn, working_dir
+        };
+        Machine::from_state(state)
     }
 
     pub(crate) fn into_compiling_state(
@@ -71,6 +76,9 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
 
 impl Machine<PrepareBuild, ServerPrepareBuildState> {
     /// fetch a new job from the scheduler and send that job to the child node
+    ///
+    /// This method is also responsible for creating direcories for the namespace and batch name
+    /// that this job will store its results in
     pub(crate) async fn send_job(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
@@ -106,6 +114,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         let batch_name = build_job.batch_name.clone();
         let job_identifier = build_job.identifier;
 
+
         // tell the node about the compiling job
         let msg = ServerMsg::InitializeJob(build_job.task);
         let tmp_msg = self.state.conn.transport_data(&msg).await;
@@ -119,7 +128,12 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
 
     /// convert back to the uninitialized state
     pub(crate) fn to_uninit(self) -> Machine<Uninit, ServerUninitState> {
-        todo!()
+        let ServerPrepareBuildState{ conn, common, .. } = self.state;
+        let conn = conn.update_state();
+        let state = super::uninit::ServerUninitState { 
+            conn, common
+        };
+        Machine::from_state(state)
     }
 
     pub(crate) fn into_compiling_state(

@@ -143,7 +143,19 @@ pub(crate) struct Common {
 
 impl Common {
     #[cfg(test)]
-    fn test_configuration(transport_addr: SocketAddr, keepalive_addr: SocketAddr) {
-        let tx, rx = 
+    fn test_configuration(transport_addr: SocketAddr, keepalive_addr: SocketAddr) -> (broadcast::Sender<JobIdentifier>, Self) {
+        let (tx, rx) = broadcast::channel(1); 
+
+        let capabilities = Arc::new(vec![].into_iter().collect());
+        let save_path = PathBuf::from("./tests/unittests");
+        let node_name = "Test Name".into();
+        let errored_jobs = Default::default();
+
+        // try to make the save path
+        std::fs::create_dir(&save_path).ok();
+
+        let common = Common::new(rx, capabilities, save_path, node_name, keepalive_addr, transport_addr, errored_jobs);
+
+        (tx, common)
     }
 }

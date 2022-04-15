@@ -15,6 +15,7 @@ pub(crate) use std::collections::BTreeSet;
 pub(crate) use std::marker::PhantomData;
 pub(crate) use std::net::SocketAddr;
 pub(crate) use std::sync::Arc;
+pub(crate) use std::time::Duration;
 
 pub(crate) use derive_more::{Constructor, Display, From, Unwrap};
 pub(crate) use serde::{Deserialize, Serialize};

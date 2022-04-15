@@ -2,16 +2,17 @@ use super::prepare_build;
 use super::Machine;
 use crate::prelude::*;
 
+#[derive(Default)]
 pub(crate) struct Uninit;
 
 pub(crate) struct ClientUninitState {
-    conn: transport::Connection<ClientMsg>,
+    pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
 }
 
 pub(crate) struct ServerUninitState {
-    conn: transport::Connection<ServerMsg>,
-    common: super::Common,
+    pub(super) conn: transport::Connection<ServerMsg>,
+    pub(super) common: super::Common,
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -41,8 +42,12 @@ impl Machine<Uninit, ClientUninitState> {
         Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>,
         (Self, ClientError),
     > {
+        trace!("created uninit client node");
+
         // first message should be querying what our version is
         let msg = self.state.conn.receive_data().await;
+
+        trace!("received version query on the client");
 
         let msg: ServerMsg = throw_error_with_self!(msg, self);
 
@@ -54,9 +59,13 @@ impl Machine<Uninit, ClientUninitState> {
 
         throw_error_with_self!(self.state.conn.transport_data(&response).await, self);
 
+        trace!("send version query response on the client");
+
         // now the server will either tell us the versions are the same, or
         // that they dont match and we cannot talk
         let msg_result = self.state.conn.receive_data().await;
+
+        trace!("received veresion query update (either pass / fail the connection) on the client");
 
         let msg = throw_error_with_self!(msg_result, self);
 
@@ -68,13 +77,17 @@ impl Machine<Uninit, ClientUninitState> {
             ServerMsg::VersionMismatch => return Err((self, ClientError::VersionMismatch)),
             ServerMsg::VersionsMatched => {
                 debug!("versions matched - continuing to next step");
-                // TODO: enter next state machine
-                todo!()
+
+                // transition to Machine<PrepareBuild, _>
+                let state = self.into_prepare_build_state();
+                let machine = Machine::from_state(state);
+                Ok(machine)
             }
         }
     }
 
     pub(crate) fn new(conn: tokio::net::TcpStream, working_dir: PathBuf) -> Self {
+        debug!("constructing uninitialized client");
         let conn = transport::Connection::from_connection(conn);
         let state = ClientUninitState { conn, working_dir };
 
@@ -101,12 +114,16 @@ impl Machine<Uninit, ServerUninitState> {
     > {
         let our_version = transport::Version::current_version();
 
+        trace!("sending version request query from the server");
+
         let version_request = ServerMsg::RequestVersion;
         throw_error_with_self!(self.state.conn.transport_data(&version_request).await, self);
 
         // grab the version information
         let msg = throw_error_with_self!(self.state.conn.receive_data().await, self);
         let ClientMsg::ResponseVersion(client_version) = msg;
+
+        trace!("received version number from the client");
 
         // check that the client is running the same verison of the program as us
         if our_version != client_version {
@@ -129,11 +146,15 @@ impl Machine<Uninit, ServerUninitState> {
             self
         );
 
-        // set to the new state
-        todo!()
+        // transition to Machine<PrepareBuild, _>
+        let prepare_build_state = self.into_prepare_build_state();
+        let machine = Machine::from_state(prepare_build_state);
+
+        Ok(machine)
     }
 
     pub(crate) fn new(conn: tokio::net::TcpStream, common: super::Common) -> Self {
+        debug!("constructing uninitialized server");
         let conn = transport::Connection::from_connection(conn);
 
         let state = ServerUninitState { common, conn };
@@ -156,6 +177,7 @@ impl Machine<Uninit, ServerUninitState> {
     /// connection, since the previous TCP connection will continue to indefinitely
     /// error if it is not set to a new value (it will be closed).
     pub(crate) fn update_tcp_connection(&mut self, conn: tokio::net::TcpStream) {
+        info!("Setting up new TCP connection to compute node on server");
         let conn = transport::Connection::from_connection(conn);
 
         self.state.conn = conn;
@@ -188,6 +210,8 @@ mod tests{
     use super::*;
     use tokio::net::{TcpStream, TcpListener};
     use transport::Connection;
+    use crate::protocol::Common;
+    use crate::prelude::*;
 
     fn add_port(port: u16) -> SocketAddr {
         SocketAddr::from(([0, 0, 0, 0], port))
@@ -195,13 +219,69 @@ mod tests{
 
     #[tokio::test]
     async fn uninit() {
-        let client_listener = TcpListener::bind(add_port(9997)).await.unwrap();
-        let mut raw_server_connection = TcpStream::connect(add_port(9994)).await.unwrap();
+        let transport_port = 9997;
+        let keepalive_port = 9998;
+        let client_transport_addr = add_port(transport_port);
+        let client_keepalive_addr = add_port(keepalive_port);
 
-        let mut client_connection: Connection<ClientMsg> =
+        let working_dir = PathBuf::from("./tests/unittests");
+        let client_listener = TcpListener::bind(client_transport_addr).await.unwrap();
+        let raw_server_connection = TcpStream::connect(client_transport_addr).await.unwrap();
+
+        let client_connection =
             Connection::from_connection(client_listener.accept().await.unwrap().0);
 
         let server_connection = Connection::from_connection(raw_server_connection);
-        
+
+        let (_tx_cancel, common) = Common::test_configuration(client_transport_addr, client_keepalive_addr);
+
+        let client_state = ClientUninitState { conn: client_connection, working_dir };
+        let server_state = ServerUninitState { conn: server_connection, common };
+
+        // create the machines from the states
+        let client : Machine<Uninit, _>  = Machine::from_state(client_state);
+        let server: Machine<Uninit, _>  = Machine::from_state(server_state);
+
+        // create some oneshot channels for the spawned tasks
+        // to return the information to the main process
+        let (tx_client, rx_client) = oneshot::channel::<bool>();
+        let (tx_server, rx_server) = oneshot::channel::<bool>();
+
+        // run the server on its own process
+        let server = tokio::spawn(async move {
+            if let Err((_,e)) = server.connect_to_node().await {
+                eprintln!("server crashed: {:?}", e);
+                tx_server.send(false).unwrap();
+            }
+            else {
+                println!("server finished successfully");
+                tx_server.send(true).unwrap();
+            }
+        });
+
+        let client = tokio::spawn(async move {
+            if let Err((_, e)) = client.connect_to_host().await {
+                eprintln!("server crashed: {:?}", e);
+                tx_client.send(false).unwrap();
+            } else {
+                println!("client finished successfully");
+                tx_client.send(true).unwrap();
+            }
+        });
+
+        // execute the tasks
+        futures::future::join_all([server, client]).await;
+
+        // check that the client returns something
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(5), rx_client).await.unwrap().unwrap(),
+            true
+        );
+
+        // check that the server returns something
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(5), rx_server).await.unwrap().unwrap(),
+            true
+        );
     }
 }

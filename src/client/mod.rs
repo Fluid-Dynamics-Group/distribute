@@ -22,15 +22,24 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         .await
         .map_err(error::ClientInitError::from)?;
 
-    let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], client.port)))
+    let addr = SocketAddr::from(([0, 0, 0, 0], client.transport_port));
+    let listener = TcpListener::bind(addr)
         .await
         .map_err(error::TcpConnection::from)?;
+
+    let keepalive_addr = SocketAddr::from(([0,0,0,0], client.keepalive_port));
+    start_keepalive_checker(keepalive_addr).await?;
+
+    info!("starting client listener on port {}", addr);
+    println!("starting client listener on port {}", addr);
 
     loop {
         let (tcp_conn, _address) = listener
             .accept()
             .await
             .map_err(error::TcpConnection::from)?;
+        println!("new TCP connection from the server - preparing setup / run structures - STDOUT");
+        info!("new TCP connection from the server - preparing setup / run structures");
 
         run_job(tcp_conn, &base_path).await.ok();
     }
@@ -49,13 +58,17 @@ async fn run_job(conn: tokio::net::TcpStream, working_dir: &Path) -> Result<(), 
         working_dir.to_owned(),
     );
 
+    debug!("created uninitialized state machine for running job on client");
+
     loop {
         match run_job_inner(machine).await {
-            Ok(_) => unreachable!(),
+            Ok(_) => {
+                error!("hitting unreachable state - panicking");
+                unreachable!("hitting unreachable state - panicking")
+            }
             // error state if there was an issue with the TCP connection
             Err((_uninit, e)) if e.is_tcp_error() => {
                 error!("TCP connection error from uninit detected, returning to main loop to accept new connection: {}", e);
-                //return Err(conn);
                 return Err(());
             }
             Err((_uninit, e)) => {
@@ -197,13 +210,45 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
     }
 }
 
+async fn start_keepalive_checker(keepalive_port: SocketAddr) -> Result<(), error::TcpConnection> {
+    info!("starting keepalive monitor on the client");
+    // first, bind to the port so we can report errors before spawning off the task
+    let listener = TcpListener::bind(keepalive_port)
+        .await
+        .map_err(error::TcpConnection::from)?;
+
+    // spawn a task to monitor the port for keepalives
+    tokio::spawn(async move {
+        loop {
+            let res = listener
+                .accept()
+                .await;
+
+            match res {
+                Ok((conn, _addr)) => {
+                    let mut connection = transport::Connection::from_connection(conn);
+                    answer_query_connection(&mut connection).await.ok();
+                }
+                Err(e) => {
+                    error!("error with client keepalive monitor while accepting a connection: {}", e);
+                    continue
+                }
+            }
+        }
+    });
+
+    
+    Ok(())
+}
+
 /// answer the server's message on the query port.
 ///
 /// The message is a short query about what we are doing, including a keepalive
 async fn answer_query_connection(
-    client_conn: transport::Connection<transport::ClientQueryAnswer>,
+    client_conn: &mut transport::Connection<transport::ClientQueryAnswer>,
 ) -> Result<(), error::TcpConnection> {
-    todo!()
+    trace!("responded to keepalive connection");
+    client_conn.transport_data(&transport::ClientQueryAnswer::KeepaliveResponse).await
 }
 
 fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {

@@ -21,7 +21,7 @@ pub(crate) enum ServerQuery {
     KeepaliveCheck,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub(crate) enum ClientQueryAnswer {
     KeepaliveResponse,
 }
@@ -373,7 +373,7 @@ async fn read_buffer_bytes(
         }
     }
 
-    debug!("finished reading bytes from buffer");
+    //trace!("finished reading bytes from buffer");
 
     Ok(())
 }

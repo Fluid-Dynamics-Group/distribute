@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use crate::transport;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct File {
     // the path to the file locally
     pub path: PathBuf,
