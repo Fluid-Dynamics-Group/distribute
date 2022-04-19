@@ -234,7 +234,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
     }
 
      async fn into_built_state(self) -> super::built::ServerBuiltState {
-        debug!("moving server send files -> built");
+        debug!("moving {} server send files -> built", self.state.common.node_name);
         let ServerSendFilesState {
             conn,
             common,
