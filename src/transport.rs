@@ -19,11 +19,13 @@ use crate::server;
 #[derive(Serialize, Deserialize)]
 pub(crate) enum ServerQuery {
     KeepaliveCheck,
+    VersionCheck
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) enum ClientQueryAnswer {
     KeepaliveResponse,
+    VersionResponse(Version)
 }
 
 pub(crate) trait AssociatedMessage {
@@ -292,6 +294,15 @@ where
             conn,
             _marker: std::marker::PhantomData,
         }
+    }
+
+    #[cfg(test)]
+    /// determine how many bytes are remaining in the connection
+    pub(crate) async fn bytes_left(&mut self) -> usize {
+        let mut buffer = Vec::new();
+        let fut = read_buffer_bytes(&mut buffer, &mut self.conn);
+        tokio::time::timeout(Duration::from_secs(1), fut).await.ok();
+        return buffer.len();
     }
 }
 

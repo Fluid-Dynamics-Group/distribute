@@ -46,7 +46,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
 
         let job: transport::BuildOpts = msg.unwrap_initialize_job();
 
-        let compiling_state = self.into_compiling_state(job);
+        let compiling_state = self.into_compiling_state(job).await;
         let machine = Machine::from_state(compiling_state);
         Ok(machine)
     }
@@ -57,15 +57,21 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ClientUninitState { conn, working_dir };
+        debug!("moving client prepare build -> uninit");
         Machine::from_state(state)
     }
 
-    pub(crate) fn into_compiling_state(
+    pub(crate) async fn into_compiling_state(
         self,
         build_opt: transport::BuildOpts,
     ) -> super::compiling::ClientBuildingState {
+        debug!("moving client prepare build -> compiling");
         let ClientPrepareBuildState { conn, working_dir } = self.state;
-        let conn = conn.update_state();
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
         super::compiling::ClientBuildingState {
             build_opt,
             conn,
@@ -120,7 +126,9 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         throw_error_with_self!(tmp_msg, self);
 
         // return Machine<BuildingState, _>
-        let compiling_state = self.into_compiling_state(namespace, batch_name, job_identifier);
+        let compiling_state = self
+            .into_compiling_state(namespace, batch_name, job_identifier)
+            .await;
         let machine = Machine::from_state(compiling_state);
         Ok(machine)
     }
@@ -130,17 +138,24 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         let ServerPrepareBuildState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
+        debug!("moving server prepare build -> uninit");
         Machine::from_state(state)
     }
 
-    pub(crate) fn into_compiling_state(
+    pub(crate) async fn into_compiling_state(
         self,
         namespace: String,
         batch_name: String,
         job_identifier: server::JobIdentifier,
     ) -> super::compiling::ServerBuildingState {
         let ServerPrepareBuildState { conn, common } = self.state;
-        let conn = conn.update_state();
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
+        debug!("moving server prepare build -> compiling");
         super::compiling::ServerBuildingState {
             conn,
             common,

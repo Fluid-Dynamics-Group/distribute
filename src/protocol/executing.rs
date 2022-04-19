@@ -88,14 +88,14 @@ impl Machine<Executing, ClientExecutingState> {
         match msg_result {
             ClientMsg::CancelledJob => {
                 // go to Machine<PrepareBuild, _>
-                let prepare_build = self.into_prepare_build_state();
+                let prepare_build = self.into_prepare_build_state().await;
                 let machine = Machine::from_state(prepare_build);
                 let either = Either::Left(machine);
                 Ok(either)
             }
             ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
                 // go to Machine<SendFiles, _>
-                let send_files = self.into_send_files_state();
+                let send_files = self.into_send_files_state().await;
                 let machine = Machine::from_state(send_files);
                 let either = Either::Right(machine);
                 Ok(either)
@@ -109,17 +109,25 @@ impl Machine<Executing, ClientExecutingState> {
         } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ClientUninitState { conn, working_dir };
+        debug!("moving client executing -> uninit");
         Machine::from_state(state)
     }
 
-    fn into_send_files_state(self) -> super::send_files::ClientSendFilesState {
+    async fn into_send_files_state(self) -> super::send_files::ClientSendFilesState {
+        debug!("moving client executing -> send files");
         let ClientExecutingState {
             conn,
             working_dir,
             job,
             folder_state,
         } = self.state;
-        let conn = conn.update_state();
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
         let job_name = job.name().to_string();
         super::send_files::ClientSendFilesState {
             conn,
@@ -129,11 +137,17 @@ impl Machine<Executing, ClientExecutingState> {
         }
     }
 
-    fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
+    async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
         let ClientExecutingState {
             conn, working_dir, ..
         } = self.state;
-        let conn = conn.update_state();
+        debug!("moving client executing -> prepare build");
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
         super::prepare_build::ClientPrepareBuildState { conn, working_dir }
     }
 }
@@ -151,14 +165,14 @@ impl Machine<Executing, ServerExecutingState> {
         match msg {
             ClientMsg::CancelledJob => {
                 // go to Machine<PrepareBuild, _>
-                let prepare_build = self.into_prepare_build_state();
+                let prepare_build = self.into_prepare_build_state().await;
                 let machine = Machine::from_state(prepare_build);
                 let either = Either::Left(machine);
                 Ok(either)
             }
             ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
                 // go to Machine<SendFiles, _>
-                let send_files = self.into_send_files_state();
+                let send_files = self.into_send_files_state().await;
                 let machine = Machine::from_state(send_files);
                 let either = Either::Right(machine);
                 Ok(either)
@@ -170,10 +184,12 @@ impl Machine<Executing, ServerExecutingState> {
         let ServerExecutingState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
+        debug!("moving client executing -> uninit");
         Machine::from_state(state)
     }
 
-    fn into_send_files_state(self) -> super::send_files::ServerSendFilesState {
+    async fn into_send_files_state(self) -> super::send_files::ServerSendFilesState {
+        debug!("moving client executing -> send files");
         let ServerExecutingState {
             conn,
             common,
@@ -183,7 +199,13 @@ impl Machine<Executing, ServerExecutingState> {
             job_name,
             save_location,
         } = self.state;
-        let conn = conn.update_state();
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
         super::send_files::ServerSendFilesState {
             conn,
             common,
@@ -195,9 +217,16 @@ impl Machine<Executing, ServerExecutingState> {
         }
     }
 
-    fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
+    async fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
+        debug!("moving server executing -> prepare build");
         let ServerExecutingState { conn, common, .. } = self.state;
-        let conn = conn.update_state();
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }
 }

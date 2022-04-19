@@ -25,7 +25,9 @@ mod run_local;
 #[cfg(feature = "cli")]
 mod server;
 #[cfg(feature = "cli")]
-mod status;
+mod server_status;
+#[cfg(feature = "cli")]
+mod node_status;
 #[cfg(feature = "cli")]
 mod template;
 #[cfg(feature = "cli")]
@@ -45,7 +47,9 @@ pub use serde_yaml;
 #[cfg(feature = "cli")]
 pub use {
     add::add, client::client_command, kill::kill, pause::pause, pull::pull, run_local::run_local,
-    server::server_command, server::RemainingJobs, status::get_current_jobs, template::template,
+    server::server_command, server::RemainingJobs, server_status::get_current_jobs,
+    server_status::server_status, template::template,
+    node_status::node_status
 };
 
 #[cfg(test)]

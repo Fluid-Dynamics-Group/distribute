@@ -32,6 +32,8 @@ pub enum Arguments {
     Template(Template),
     Pull(Pull),
     Run(Run),
+    ServerStatus(ServerStatus),
+    NodeStatus(NodeStatus),
 }
 
 impl Arguments {
@@ -89,7 +91,7 @@ pub struct Server {
 
 #[derive(StructOpt, PartialEq, Debug, Constructor)]
 /// check the status of all the nodes
-pub struct Status {
+pub struct ServerStatus {
     #[structopt(long, short, default_value = SERVER_PORT_STR)]
     /// the port that the server uses (default 8952)
     pub port: u16,
@@ -97,6 +99,14 @@ pub struct Status {
     #[structopt(long)]
     /// the ip address that the server is located at
     pub ip: IpAddr,
+}
+
+#[derive(StructOpt, PartialEq, Debug, Constructor)]
+/// check the status of all the nodes
+pub struct NodeStatus {
+    #[structopt(long, default_value = "distribute-nodes.yaml")]
+    /// the path to the yaml file describing all available nodes
+    pub nodes_file: PathBuf,
 }
 
 #[derive(StructOpt, PartialEq, Debug)]

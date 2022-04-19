@@ -105,13 +105,13 @@ impl Machine<Building, ClientBuildingState> {
         match msg {
             ClientMsg::SuccessfullCompilation => {
                 // go to Machine<Built, _>
-                let built_state = self.into_built_state(folder_state);
+                let built_state = self.into_built_state(folder_state).await;
                 let machine = Machine::from_state(built_state);
                 Ok(Either::Left(machine))
             }
             ClientMsg::FailedCompilation | ClientMsg::CancelledCompilation => {
                 // go to Machine<PrepareBuild, _>
-                let prepare_build = self.into_prepare_build();
+                let prepare_build = self.into_prepare_build().await;
                 let machine = Machine::from_state(prepare_build);
                 Ok(Either::Right(machine))
             }
@@ -124,17 +124,25 @@ impl Machine<Building, ClientBuildingState> {
         } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ClientUninitState { conn, working_dir };
+        debug!("moving client compiling -> uninit");
         Machine::from_state(state)
     }
 
-    pub(crate) fn into_built_state(
+    pub(crate) async fn into_built_state(
         self,
         folder_state: client::BindingFolderState,
     ) -> super::built::ClientBuiltState {
+        debug!("moving client compiling -> built");
         let ClientBuildingState {
             conn, working_dir, ..
         } = self.state;
-        let conn = conn.update_state();
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
         super::built::ClientBuiltState {
             conn,
             working_dir,
@@ -142,11 +150,16 @@ impl Machine<Building, ClientBuildingState> {
         }
     }
 
-    pub(crate) fn into_prepare_build(self) -> super::prepare_build::ClientPrepareBuildState {
+    pub(crate) async fn into_prepare_build(self) -> super::prepare_build::ClientPrepareBuildState {
         let ClientBuildingState {
             conn, working_dir, ..
         } = self.state;
-        let conn = conn.update_state();
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
         super::prepare_build::ClientPrepareBuildState { conn, working_dir }
     }
 }
@@ -171,7 +184,7 @@ impl Machine<Building, ServerBuildingState> {
         let out = match msg {
             ClientMsg::SuccessfullCompilation => {
                 // go to Built state
-                let built_state = self.into_built_state();
+                let built_state = self.into_built_state().await;
                 let machine = Machine::from_state(built_state);
                 Either::Left(machine)
             }
@@ -182,7 +195,7 @@ impl Machine<Building, ServerBuildingState> {
                     .common
                     .errored_jobs
                     .insert(self.state.job_identifier);
-                let prepare_build = self.into_prepare_build();
+                let prepare_build = self.into_prepare_build().await;
                 let machine = Machine::from_state(prepare_build);
                 Either::Right(machine)
             }
@@ -191,7 +204,7 @@ impl Machine<Building, ServerBuildingState> {
                 // should no longer exist in the system (it was cancelled everywhere)
 
                 // return to Machine<PrepareBuild, _> here
-                let prepare_build = self.into_prepare_build();
+                let prepare_build = self.into_prepare_build().await;
                 let machine = Machine::from_state(prepare_build);
                 Either::Right(machine)
             }
@@ -204,10 +217,12 @@ impl Machine<Building, ServerBuildingState> {
         let ServerBuildingState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
+        debug!("moving server compiling -> uninit");
         Machine::from_state(state)
     }
 
-    pub(crate) fn into_built_state(self) -> super::built::ServerBuiltState {
+    pub(crate) async fn into_built_state(self) -> super::built::ServerBuiltState {
+        debug!("moving server compiling -> built");
         let ServerBuildingState {
             conn,
             common,
@@ -215,7 +230,12 @@ impl Machine<Building, ServerBuildingState> {
             batch_name,
             job_identifier,
         } = self.state;
-        let conn = conn.update_state();
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
         super::built::ServerBuiltState {
             conn,
             common,
@@ -225,9 +245,16 @@ impl Machine<Building, ServerBuildingState> {
         }
     }
 
-    pub(crate) fn into_prepare_build(self) -> super::prepare_build::ServerPrepareBuildState {
+    pub(crate) async fn into_prepare_build(self) -> super::prepare_build::ServerPrepareBuildState {
+        debug!("moving server compiling -> prepare build");
+
         let ServerBuildingState { conn, common, .. } = self.state;
-        let conn = conn.update_state();
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }
 }

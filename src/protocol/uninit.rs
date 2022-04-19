@@ -79,7 +79,7 @@ impl Machine<Uninit, ClientUninitState> {
                 debug!("versions matched - continuing to next step");
 
                 // transition to Machine<PrepareBuild, _>
-                let state = self.into_prepare_build_state();
+                let state = self.into_prepare_build_state().await;
                 let machine = Machine::from_state(state);
                 Ok(machine)
             }
@@ -97,9 +97,15 @@ impl Machine<Uninit, ClientUninitState> {
         }
     }
 
-    fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
+    async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
         let ClientUninitState { conn, working_dir } = self.state;
-        let conn = conn.update_state();
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
+        debug!("moving client uninit -> prepare build");
         super::prepare_build::ClientPrepareBuildState { conn, working_dir }
     }
 }
@@ -147,7 +153,7 @@ impl Machine<Uninit, ServerUninitState> {
         );
 
         // transition to Machine<PrepareBuild, _>
-        let prepare_build_state = self.into_prepare_build_state();
+        let prepare_build_state = self.into_prepare_build_state().await;
         let machine = Machine::from_state(prepare_build_state);
 
         Ok(machine)
@@ -165,9 +171,15 @@ impl Machine<Uninit, ServerUninitState> {
         }
     }
 
-    fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
+    async fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
+        debug!("moving server uninit -> prepare build");
         let ServerUninitState { conn, common } = self.state;
-        let conn = conn.update_state();
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }
 
@@ -256,22 +268,47 @@ mod tests {
 
         // run the server on its own process
         let server = tokio::spawn(async move {
-            if let Err((_, e)) = server.connect_to_node().await {
-                eprintln!("server crashed: {:?}", e);
-                tx_server.send(false).unwrap();
-            } else {
-                println!("server finished successfully");
-                tx_server.send(true).unwrap();
+            match server.connect_to_node().await {
+                // we arrived at the next state correctly
+                Ok(mut next_state) => {
+                    eprintln!("server finished successfully");
+
+                    if next_state.state.conn.bytes_left().await > 0 {
+                        eprintln!("bytes remain in the server connection - this will cause errors in the next state");
+
+                        tx_server.send(false).unwrap();
+                    } else {
+                        eprintln!("no bytes are remaining in server connection");
+                        tx_server.send(true).unwrap();
+                    }
+                }
+                Err((_self, e)) => {
+                    eprintln!("server crashed: {:?}", e);
+                    tx_server.send(false).unwrap();
+                }
             }
         });
 
+        // run the client on its own process
         let client = tokio::spawn(async move {
-            if let Err((_, e)) = client.connect_to_host().await {
-                eprintln!("server crashed: {:?}", e);
-                tx_client.send(false).unwrap();
-            } else {
-                println!("client finished successfully");
-                tx_client.send(true).unwrap();
+            match client.connect_to_host().await {
+                // we arrived at the next state correctly
+                Ok(mut next_state) => {
+                    eprintln!("client finished successfully");
+
+                    if next_state.state.conn.bytes_left().await > 0 {
+                        eprintln!("bytes remain in the client connection - this will cause errors in the next state");
+
+                        tx_client.send(false).unwrap();
+                    } else {
+                        eprintln!("no bytes are remaining in client connection");
+                        tx_client.send(true).unwrap();
+                    }
+                }
+                Err((_self, e)) => {
+                    eprintln!("client crashed: {:?}", e);
+                    tx_client.send(false).unwrap();
+                }
             }
         });
 

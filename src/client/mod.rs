@@ -247,10 +247,22 @@ async fn start_keepalive_checker(keepalive_port: SocketAddr) -> Result<(), error
 async fn answer_query_connection(
     client_conn: &mut transport::Connection<transport::ClientQueryAnswer>,
 ) -> Result<(), error::TcpConnection> {
-    trace!("responded to keepalive connection");
-    client_conn
-        .transport_data(&transport::ClientQueryAnswer::KeepaliveResponse)
-        .await
+    let query = client_conn.receive_data().await?;
+
+    match query {
+        transport::ServerQuery::KeepaliveCheck => {
+            trace!("responded to keepalive connection");
+            client_conn
+                .transport_data(&transport::ClientQueryAnswer::KeepaliveResponse)
+                .await
+        }
+        transport::ServerQuery::VersionCheck=> {
+            trace!("responded to version check connection");
+            client_conn
+                .transport_data(&transport::ClientQueryAnswer::VersionResponse(transport::Version::current_version()))
+                .await
+        }
+    }
 }
 
 fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {

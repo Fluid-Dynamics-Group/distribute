@@ -60,6 +60,9 @@ pub(crate) async fn run_node(
                 }
             }
         };
+
+        info!("sleeping 10 seconds before restarting from init stage");
+        tokio::time::sleep(Duration::from_secs(10)).await
     }
 }
 

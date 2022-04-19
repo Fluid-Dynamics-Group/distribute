@@ -31,8 +31,6 @@ pub(crate) struct ServerSendFilesState {
 pub(crate) enum ClientError {
     #[error("{0}")]
     TcpConnection(error::TcpConnection),
-    //#[error("{0}")]
-    //CreateDir(error::CreateDir),
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -86,8 +84,8 @@ impl Machine<SendFiles, ClientSendFilesState> {
                 }
                 Err(e) => {
                     error!(
-                        "failed to convert file metadata to file bytes when transporting: {}",
-                        e
+                        "failed to convert file metadata to file bytes when transporting: {} for job {}",
+                        e, self.state.job_name
                     );
                 }
             }
@@ -98,7 +96,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
         let tmp = self.state.conn.transport_data(&msg).await;
         throw_error_with_self!(tmp, self);
 
-        let built_state = self.into_built_state();
+        let built_state = self.into_built_state().await;
         let machine = Machine::from_state(built_state);
         Ok(machine)
     }
@@ -108,18 +106,26 @@ impl Machine<SendFiles, ClientSendFilesState> {
             conn, working_dir, ..
         } = self.state;
         let conn = conn.update_state();
+        debug!("moving client send files -> uninit");
         let state = super::uninit::ClientUninitState { conn, working_dir };
         Machine::from_state(state)
     }
 
-    pub(crate) fn into_built_state(self) -> super::built::ClientBuiltState {
+    async fn into_built_state(self) -> super::built::ClientBuiltState {
+        debug!("moving client send files -> built");
         let ClientSendFilesState {
             conn,
             working_dir,
             folder_state,
             ..
         } = self.state;
-        let conn = conn.update_state();
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
         super::built::ClientBuiltState {
             conn,
             working_dir,
@@ -212,7 +218,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
                     }
 
                     // we are now done receiving files
-                    let built_state = self.into_built_state();
+                    let built_state = self.into_built_state().await;
                     let machine = Machine::from_state(built_state);
                     return Ok(machine);
                 }
@@ -227,7 +233,8 @@ impl Machine<SendFiles, ServerSendFilesState> {
         }
     }
 
-    pub(crate) fn into_built_state(self) -> super::built::ServerBuiltState {
+     async fn into_built_state(self) -> super::built::ServerBuiltState {
+        debug!("moving server send files -> built");
         let ServerSendFilesState {
             conn,
             common,
@@ -236,7 +243,13 @@ impl Machine<SendFiles, ServerSendFilesState> {
             job_identifier,
             ..
         } = self.state;
-        let conn = conn.update_state();
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        #[cfg(test)]
+        assert!(conn.bytes_left().await == 0);
+
         super::built::ServerBuiltState {
             conn,
             common,
@@ -250,6 +263,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
         let ServerSendFilesState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
+        debug!("moving server send files -> uninit");
         Machine::from_state(state)
     }
 }
