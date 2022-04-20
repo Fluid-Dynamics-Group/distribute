@@ -52,6 +52,7 @@ fn setup_logs(args: &cli::ArgsWrapper) -> Result<(), ErrorWrap> {
         // Add blanket level filter -
         .level(log::LevelFilter::Debug)
         // - and per-module overrides
+        .level_for("distribute::transport", log::LevelFilter::Debug)
         .level_for("hyper", log::LevelFilter::Info);
 
     if args.show_logs {

@@ -8,8 +8,6 @@ use super::built::{Built, ClientBuiltState, ServerBuiltState};
 #[cfg(not(test))]
 const LARGE_FILE_BYTE_THRESHOLD : u64 = 10u64.pow(9);
 #[cfg(test)]
-//const LARGE_FILE_BYTE_THRESHOLD : u64 = 1;
-//const LARGE_FILE_BYTE_THRESHOLD : u64 = 1000000;
 const LARGE_FILE_BYTE_THRESHOLD : u64 = 1000;
 
 #[derive(Default)]
@@ -88,7 +86,6 @@ impl Machine<SendFiles, ClientSendFilesState> {
             //
             if fs_meta.len() > LARGE_FILE_BYTE_THRESHOLD && fs_meta.is_file() {
                 let file_len = fs_meta.len();
-                std::mem::drop(fs_meta);
                 debug!("number of bytes being transported : {}", file_len);
 
                 let path = metadata.file_path.clone();
@@ -104,24 +101,13 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
                 match msg {
                     ServerMsg::AwaitingLargeFile => {
-                        let mut reader = tokio::fs::File::open(&path).await.expect("could not unwrap large file after we checked its metadata, this should not happen");
-
-                        //println!("reading bytes with .read() and fixed size buffer");
-                        //let mut test_buffer = [0; 100];
-                        //let bytes_read = reader.read(&mut test_buffer).await.unwrap();
-                        //dbg!(bytes_read);
-                        ////assert!(bytes_read == 100);
-
-                        //println!("now reading bytes with read_to_end");
-                        //let mut bytes = Vec::new();
-                        //reader.read_to_end(&mut bytes).await.unwrap();
-                        //dbg!(bytes.len());
-                        //assert!(bytes.len() > 0);
-
-                        dbg!(&reader);
-                        //let reader = tokio::io::BufReader::new(reader);
-                        debug!("calling transport on the reader for the path");
+                        let reader = tokio::fs::File::open(&path).await.expect("could not unwrap large file after we checked its metadata, this should not happen");
+                        let mut reader = tokio::io::BufReader::new(reader);
                         self.state.conn.transport_from_reader(&mut reader, file_len).await.ok();
+
+                        // receive the server telling us its ok to send the next file
+                        let msg = self.state.conn.receive_data().await;
+                        throw_error_with_self!(msg, self);
                     }
                     ServerMsg::ReceivedFile | ServerMsg::DontSendLargeFile => {
                         debug!("skipping large file transport to server {}", path.display());
@@ -388,7 +374,7 @@ impl transport::AssociatedMessage for ClientMsg {
 
 #[tokio::test]
 async fn transport_files_with_large_file() {
-    if true {
+    if false {
         crate::logger()
     }
 
@@ -519,10 +505,12 @@ async fn async_read_from_file() {
     let mut buffer = [0; 100];
     let num_bytes = file.read(&mut buffer).await.unwrap();
 
+    let len = tokio::fs::metadata(&path).await.unwrap().len();
+
     std::fs::remove_file(&path).ok();
 
     dbg!(num_bytes);
     assert!(num_bytes > 0);
 
-    assert_eq!(tokio::fs::metadata(&path).await.unwrap().len(), 1000);
+    assert_eq!(len, 1000);
 }
