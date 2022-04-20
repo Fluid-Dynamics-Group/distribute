@@ -8,6 +8,7 @@ use super::built::{Built, ClientBuiltState, ServerBuiltState};
 #[cfg(not(test))]
 const LARGE_FILE_BYTE_THRESHOLD : u64 = 10u64.pow(9);
 #[cfg(test)]
+//const LARGE_FILE_BYTE_THRESHOLD : u64 = 1;
 //const LARGE_FILE_BYTE_THRESHOLD : u64 = 1000000;
 const LARGE_FILE_BYTE_THRESHOLD : u64 = 1000;
 
@@ -86,25 +87,41 @@ impl Machine<SendFiles, ClientSendFilesState> {
             // check if this file is very large
             //
             if fs_meta.len() > LARGE_FILE_BYTE_THRESHOLD && fs_meta.is_file() {
-                debug!("number of bytes being transported : {}", fs_meta.len());
+                let file_len = fs_meta.len();
+                std::mem::drop(fs_meta);
+                debug!("number of bytes being transported : {}", file_len);
 
                 let path = metadata.file_path.clone();
 
                 dbg!(&path, path.exists());
 
-                let file = ClientMsg::FileMarker(transport::FileMarker::new(metadata.file_path));
+                // strip out the useless prefixes to the path so it saves nicely on the other side
+                let abbreviated_path = utils::remove_path_prefixes(metadata.file_path, &dist_save_path);
+                let file = ClientMsg::FileMarker(transport::FileMarker::new(abbreviated_path));
                 throw_error_with_self!(self.state.conn.transport_data(&file).await, self);
 
                 let msg = throw_error_with_self!(self.state.conn.receive_data().await, self);
 
                 match msg {
                     ServerMsg::AwaitingLargeFile => {
-                        let len = fs_meta.len();
+                        let mut reader = tokio::fs::File::open(&path).await.expect("could not unwrap large file after we checked its metadata, this should not happen");
 
-                        let reader = tokio::fs::File::open(&path).await.expect("could not unwrap large file after we checked its metadata, this should not happen");
+                        //println!("reading bytes with .read() and fixed size buffer");
+                        //let mut test_buffer = [0; 100];
+                        //let bytes_read = reader.read(&mut test_buffer).await.unwrap();
+                        //dbg!(bytes_read);
+                        ////assert!(bytes_read == 100);
+
+                        //println!("now reading bytes with read_to_end");
+                        //let mut bytes = Vec::new();
+                        //reader.read_to_end(&mut bytes).await.unwrap();
+                        //dbg!(bytes.len());
+                        //assert!(bytes.len() > 0);
+
+                        dbg!(&reader);
                         //let reader = tokio::io::BufReader::new(reader);
                         debug!("calling transport on the reader for the path");
-                        self.state.conn.transport_from_reader(reader, len).await.ok();
+                        self.state.conn.transport_from_reader(&mut reader, file_len).await.ok();
                     }
                     ServerMsg::ReceivedFile | ServerMsg::DontSendLargeFile => {
                         debug!("skipping large file transport to server {}", path.display());
@@ -119,6 +136,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
             else {
                 match metadata.into_send_file() {
                     Ok(mut send_file) => {
+                        // strip the path prefix so the other side does not botch the path to save
                         send_file.file_path =
                             utils::remove_path_prefixes(send_file.file_path, &dist_save_path);
 
@@ -257,7 +275,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
 
                         let file = match fs_file {
                             Ok(f) => {
-                                debug!("created path for large file at {}, telling client to procede", path.display());
+                                debug!("created path for large file at {}, telling client to proceed", path.display());
                                 let msg = ServerMsg::AwaitingLargeFile;
                                 throw_error_with_self!(self.state.conn.transport_data(&msg).await, self);
                                 f
@@ -394,9 +412,11 @@ async fn transport_files_with_large_file() {
     std::fs::create_dir(&base_dir).unwrap();
     std::fs::create_dir(&dist_save).unwrap();
 
-    std::fs::File::create(file1).unwrap().write_all(&vec![0; 100]).unwrap();
-    std::fs::File::create(file2).unwrap().write_all(&vec![0; 2000]).unwrap();
-    std::fs::File::create(file3).unwrap().write_all(&vec![0; 20]).unwrap();
+    {
+        std::fs::File::create(file1).unwrap().write_all(&vec![0; 100]).unwrap();
+        std::fs::File::create(file2).unwrap().write_all(&vec![0; 2000]).unwrap();
+        std::fs::File::create(file3).unwrap().write_all(&vec![0; 20]).unwrap();
+    }
 
     let client_port = 10_000;
     let client_keepalive = 10_001;

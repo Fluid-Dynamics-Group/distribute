@@ -675,6 +675,7 @@ mod tests {
 
         transport_from_reader(&mut client_conn, reader, len as u64).await.unwrap();
         receive_to_writer(&mut server_conn, &mut received_data).await.unwrap();
+        std::fs::remove_file(&path).ok();
 
         assert!(received_data.len() == len);
         //panic!()
