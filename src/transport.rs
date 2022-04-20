@@ -15,6 +15,12 @@ use crate::config::requirements;
 use crate::error;
 use crate::error::Error;
 use crate::server;
+use tokio::io::{AsyncWrite, AsyncRead};
+
+#[cfg(not(test))]
+const BUFFER_LEN: usize = 10_000;
+#[cfg(test)]
+const BUFFER_LEN: usize = 100;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) enum ServerQuery {
@@ -213,10 +219,18 @@ impl Version {
 pub struct FinishedJob;
 
 #[derive(Deserialize, Serialize, Debug, Constructor)]
+/// a file or directory loaded into memory to be saved after transport
 pub struct SendFile {
     pub file_path: PathBuf,
     pub is_file: bool,
     pub bytes: Vec<u8>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Constructor)]
+/// a file (not a directory) that describes the save path and signals that the next message sent through the buffer will
+/// be very large, and should be directly copied to a file IO stream instead of stored in memory
+pub struct FileMarker {
+    pub file_path: PathBuf,
 }
 
 #[derive(Deserialize, Serialize, Debug, Constructor, Clone, PartialEq)]
@@ -275,8 +289,20 @@ where
         transport(&mut self.conn, request).await
     }
 
+    pub(crate) async fn transport_from_reader<R: AsyncRead + Unpin>(
+        &mut self,
+        reader: R,
+        len: u64,
+    ) -> Result<(), error::TcpConnection> {
+        transport_from_reader(&mut self.conn, reader, len).await
+    }
+
     pub(crate) async fn receive_data(&mut self) -> Result<RX, error::TcpConnection> {
         receive(&mut self.conn).await
+    }
+
+    pub(crate) async fn receive_to_writer<W: AsyncWrite + Unpin>(&mut self, writer: W) -> Result<(), error::TcpConnection> {
+        receive_to_writer(&mut self.conn, writer).await
     }
 
     pub(crate) async fn reconnect(&mut self, addr: &SocketAddr) -> Result<(), Error> {
@@ -306,6 +332,7 @@ where
     }
 }
 
+/// serialize a `T` to bytes and send it through a TCP connection
 async fn transport<T: Serialize>(
     tcp_connection: &mut TcpStream,
     data: &T,
@@ -329,6 +356,42 @@ async fn transport<T: Serialize>(
     Ok(())
 }
 
+/// send raw bytes from a [`AsyncRead`]er through a [`TcpStream`]
+async fn transport_from_reader<R: AsyncReadExt + Unpin>(
+    conn: &mut TcpStream,
+    mut reader: R,
+    length: u64
+) -> Result<(), error::TcpConnection> {
+    debug!("transporting extra large with with length {}", length);
+    conn.write_all(&length.to_le_bytes()).await?;
+
+    let mut buffer = [0; BUFFER_LEN];
+    dbg!(buffer.len());
+    let mut total_bytes = 0;
+
+    loop {
+        let bytes_read = reader.read(&mut buffer).await?;
+
+        conn.write_all(&buffer[0..bytes_read]).await?;
+
+        total_bytes += bytes_read;
+
+        debug!("while transporting file, read {} ({} / {}) bytes from the reader", bytes_read, total_bytes, length);
+
+        #[cfg(test)]
+        if bytes_read == 0 {
+            panic!("read 0 bytes in a test");
+        }
+
+        if total_bytes == length as usize {
+            break
+        }
+    }
+
+    Ok(())
+}
+
+/// use `bincode` to receive and deserialize a type from a connection
 async fn receive<T: DeserializeOwned>(
     tcp_connection: &mut TcpStream,
 ) -> Result<T, error::TcpConnection> {
@@ -353,6 +416,48 @@ async fn receive<T: DeserializeOwned>(
     Ok(output)
 }
 
+/// read a raw byte stream from a tcp connection to a reader
+async fn receive_to_writer<W: AsyncWrite + Unpin>(conn: &mut TcpStream, mut writer: W) -> Result<(), error::TcpConnection> {
+    let mut buf: [u8; 8] = [0; 8];
+
+    read_buffer_bytes(&mut buf, conn).await?;
+    
+    let content_length = u64::from_le_bytes(buf);
+
+    debug!("receiving extra large buffer with length {}", content_length);
+
+    let mut tmp_buffer = [0; BUFFER_LEN];
+
+    let mut running_length = 0;
+
+    loop {
+        let bytes_read = conn
+            .read(&mut tmp_buffer)
+            .await
+            .map_err(error::TcpConnection::from)?;
+
+        debug!("read {} bytes ({} / {}) from TCP connection to copy to a writer", bytes_read, running_length, content_length);
+
+        // this should mean that the other party has closed the connection
+        if bytes_read == 0 {
+            return Err(error::TcpConnection::ConnectionClosed);
+        }
+
+        // just ignore any errors in the writing process
+        // TODO: do not ignore the errors here
+        writer.write_all(&tmp_buffer[0..bytes_read]).await.ok();
+
+        running_length += bytes_read;
+
+        if running_length as u64 == content_length {
+            break;
+        }
+    }
+
+    Ok(())
+}
+
+/// a generic and useful function for pulling a fixed number of bytes from a [`TcpStream`]
 async fn read_buffer_bytes(
     buffer: &mut [u8],
     conn: &mut TcpStream,
@@ -360,12 +465,6 @@ async fn read_buffer_bytes(
     let mut starting_idx = 0;
 
     loop {
-        //trace!(
-        //    "reading buffer bytes w/ index {} and buffer len {}",
-        //    starting_idx,
-        //    buffer.len()
-        //);
-
         let bytes_read = conn
             .read(&mut buffer[starting_idx..])
             .await
@@ -383,8 +482,6 @@ async fn read_buffer_bytes(
         }
     }
 
-    //trace!("finished reading bytes from buffer");
-
     Ok(())
 }
 
@@ -395,6 +492,7 @@ mod tests {
     use std::net::SocketAddr;
     use std::time::{Duration, Instant};
     use tokio::net::TcpListener;
+    use crate::prelude::*;
 
     #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
     struct Arbitrary {
@@ -520,5 +618,65 @@ mod tests {
     fn version_parses() {
         let v = Version::current_version();
         assert_eq!(v.to_string(), env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    /// ensure the length of data in the filesystem is the length of the
+    /// data if we were to read it into a vector
+    fn check_filesystem_bytes() {
+        let length = 40732;
+        let buffer = vec![0; length];
+        let path = "./tests/buffer_check.binary";
+        let mut f = std::fs::File::create(&path).unwrap();
+
+        f.write_all(&buffer).unwrap();
+        std::mem::drop(f);
+
+        let len = std::fs::metadata(&path).unwrap().len();
+
+        std::fs::remove_file(path).ok();
+        assert_eq!(length as u64, len);
+    }
+
+    #[tokio::test]
+    async fn read_from_writer() {
+        let len = 1099;
+        let reader = std::io::Cursor::new(vec![0u8; len]);
+
+        let server_port = 9999;
+
+        let server_listener = TcpListener::bind(add_port(server_port)).await.unwrap();
+        let mut client_conn = TcpStream::connect(add_port(server_port)).await.unwrap();
+        let mut server_conn = server_listener.accept().await.unwrap().0;
+
+        let mut received_data = Vec::<u8>::new();
+
+        transport_from_reader(&mut client_conn, reader, len as u64).await.unwrap();
+        receive_to_writer(&mut server_conn, &mut received_data).await.unwrap();
+
+        assert!(received_data.len() == len);
+    }    
+
+    #[tokio::test]
+    async fn read_from_writer_binary() {
+        //crate::logger();
+        let len = 1099;
+        let path = PathBuf::from("./tests/read_from_writer_file.binary");
+        std::fs::File::create(&path).unwrap().write_all(&vec![0u8; len]).unwrap();
+        let reader = tokio::fs::File::open(&path).await.unwrap();
+
+        let server_port = 10_002;
+
+        let server_listener = TcpListener::bind(add_port(server_port)).await.unwrap();
+        let mut client_conn = TcpStream::connect(add_port(server_port)).await.unwrap();
+        let mut server_conn = server_listener.accept().await.unwrap().0;
+
+        let mut received_data = Vec::<u8>::new();
+
+        transport_from_reader(&mut client_conn, reader, len as u64).await.unwrap();
+        receive_to_writer(&mut server_conn, &mut received_data).await.unwrap();
+
+        assert!(received_data.len() == len);
+        //panic!()
     }
 }

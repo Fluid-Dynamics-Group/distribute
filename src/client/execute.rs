@@ -67,7 +67,7 @@ impl BindingFolderState {
 
 impl std::ops::Drop for BindingFolderState {
     fn drop(&mut self) {
-        trace!("executing Drop for BindingFolderState - removing all folderes");
+        trace!("executing Drop for BindingFolderState - removing all folders");
         self.clear_folders();
     }
 }
