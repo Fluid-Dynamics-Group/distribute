@@ -260,3 +260,5 @@ OPTIONS:
 ARGS:
     <job-file>    location of your configuration file [default: distribute-jobs.yaml]
 ```
+
+An example is provided in the apptainer jobs section.

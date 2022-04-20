@@ -376,7 +376,7 @@ async fn transport_from_reader<R: AsyncReadExt + Unpin>(
 
         total_bytes += bytes_read;
 
-        debug!("while transporting file, read {} ({} / {}) bytes from the reader", bytes_read, total_bytes, length);
+        trace!("while transporting file, read {} ({} / {}) bytes from the reader", bytes_read, total_bytes, length);
 
         #[cfg(test)]
         if bytes_read == 0 {
@@ -436,7 +436,7 @@ async fn receive_to_writer<W: AsyncWrite + Unpin>(conn: &mut TcpStream, mut writ
             .await
             .map_err(error::TcpConnection::from)?;
 
-        debug!("read {} bytes ({} / {}) from TCP connection to copy to a writer", bytes_read, running_length, content_length);
+        trace!("read {} bytes ({} / {}) from TCP connection to copy to a writer", bytes_read, running_length, content_length);
 
         // this should mean that the other party has closed the connection
         if bytes_read == 0 {

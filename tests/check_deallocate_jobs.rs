@@ -13,7 +13,7 @@ use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn check_deallocate_jobs() {
-    if true {
+    if false {
         distribute::logger();
     }
 
