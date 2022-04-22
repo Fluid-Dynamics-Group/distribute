@@ -110,6 +110,8 @@ pub enum ServerResponseToUser {
     PullFilesDryResponse(PullFilesDryResponse),
     #[display(fmt = "A file was sent at path {}", "_0.file_path.display()")]
     SendFile(SendFile),
+    #[display(fmt = "A file marker was sent at {} indicating the next data will be raw bytes", "_0.file_path.display()")]
+    FileMarker(FileMarker),
     #[display(fmt = "Finished sending all files")]
     FinishFiles,
 }
