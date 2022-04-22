@@ -256,10 +256,12 @@ async fn answer_query_connection(
                 .transport_data(&transport::ClientQueryAnswer::KeepaliveResponse)
                 .await
         }
-        transport::ServerQuery::VersionCheck=> {
+        transport::ServerQuery::VersionCheck => {
             trace!("responded to version check connection");
             client_conn
-                .transport_data(&transport::ClientQueryAnswer::VersionResponse(transport::Version::current_version()))
+                .transport_data(&transport::ClientQueryAnswer::VersionResponse(
+                    transport::Version::current_version(),
+                ))
                 .await
         }
     }

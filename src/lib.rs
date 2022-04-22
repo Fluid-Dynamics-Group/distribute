@@ -13,6 +13,8 @@ mod error;
 #[cfg(feature = "cli")]
 mod kill;
 #[cfg(feature = "cli")]
+mod node_status;
+#[cfg(feature = "cli")]
 mod pause;
 #[cfg(feature = "cli")]
 mod prelude;
@@ -26,8 +28,6 @@ mod run_local;
 mod server;
 #[cfg(feature = "cli")]
 mod server_status;
-#[cfg(feature = "cli")]
-mod node_status;
 #[cfg(feature = "cli")]
 mod template;
 #[cfg(feature = "cli")]
@@ -46,10 +46,9 @@ pub use serde_yaml;
 
 #[cfg(feature = "cli")]
 pub use {
-    add::add, client::client_command, kill::kill, pause::pause, pull::pull, run_local::run_local,
-    server::server_command, server::RemainingJobs, server_status::get_current_jobs,
-    server_status::server_status, template::template,
-    node_status::node_status
+    add::add, client::client_command, kill::kill, node_status::node_status, pause::pause,
+    pull::pull, run_local::run_local, server::server_command, server::RemainingJobs,
+    server_status::get_current_jobs, server_status::server_status, template::template,
 };
 
 #[cfg(test)]

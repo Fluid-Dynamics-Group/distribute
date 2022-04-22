@@ -32,7 +32,9 @@ async fn wrap_main() -> Result<(), ErrorWrap> {
         }
         cli::Arguments::Pull(pull) => distribute::pull(pull).await.map_err(ErrorWrap::from),
         cli::Arguments::Run(pull) => distribute::run_local(pull).await.map_err(ErrorWrap::from),
-        cli::Arguments::ServerStatus(s) => distribute::server_status(s).await.map_err(ErrorWrap::from),
+        cli::Arguments::ServerStatus(s) => {
+            distribute::server_status(s).await.map_err(ErrorWrap::from)
+        }
         cli::Arguments::NodeStatus(s) => distribute::node_status(s).await.map_err(ErrorWrap::from),
     }
 }

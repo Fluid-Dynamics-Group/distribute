@@ -334,14 +334,25 @@ async fn pull_files(
             } else {
                 let file_length = std::fs::metadata(&abs_path)
                     .map(|meta| meta.len())
-                    .map_err(|_| warn!("failed to read metadata for {} - defaulting to 0 length", abs_path.display()))
+                    .map_err(|_| {
+                        warn!(
+                            "failed to read metadata for {} - defaulting to 0 length",
+                            abs_path.display()
+                        )
+                    })
                     .unwrap_or(0);
 
-                trace!("file length for {} is {} bytes", relative_path.display(), file_length);
+                trace!(
+                    "file length for {} is {} bytes",
+                    relative_path.display(),
+                    file_length
+                );
 
                 // sending a large file
                 if file_length > 10u64.pow(9) {
-                    if let Err(e) = send_large_file(abs_path, relative_path, file_length, conn).await {
+                    if let Err(e) =
+                        send_large_file(abs_path, relative_path, file_length, conn).await
+                    {
                         error!("failed to send large file: {}", e);
                     }
                 }
@@ -371,7 +382,11 @@ async fn pull_files(
     }
 }
 
-async fn send_regular_file(absolute_path: PathBuf, relative_path: PathBuf, conn: &mut transport::Connection<transport::ServerResponseToUser>) -> Result<(), Box<dyn std::error::Error>> {
+async fn send_regular_file(
+    absolute_path: PathBuf,
+    relative_path: PathBuf,
+    conn: &mut transport::Connection<transport::ServerResponseToUser>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // we are sending a file
     match std::fs::read(&absolute_path) {
         Ok(bytes) => {
@@ -388,24 +403,31 @@ async fn send_regular_file(absolute_path: PathBuf, relative_path: PathBuf, conn:
             // send an error message for this file
             let msg = error::PullError::LoadFile(absolute_path.clone());
             conn.transport_data(&msg.into()).await.ok();
-            return Err(error::ReadBytes::new(e, absolute_path).into())
+            return Err(error::ReadBytes::new(e, absolute_path).into());
         }
     };
 
     Ok(())
 }
 
-async fn send_large_file(absolute_path: PathBuf, relative_path: PathBuf, file_size: u64, conn: &mut transport::Connection<transport::ServerResponseToUser>) -> Result<(), Box<dyn std::error::Error>> {
+async fn send_large_file(
+    absolute_path: PathBuf,
+    relative_path: PathBuf,
+    file_size: u64,
+    conn: &mut transport::Connection<transport::ServerResponseToUser>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // first, tell the client that we are sending a large file
     let marker = transport::FileMarker::new(relative_path);
-    conn.transport_data(&transport::ServerResponseToUser::FileMarker(marker)).await?;
+    conn.transport_data(&transport::ServerResponseToUser::FileMarker(marker))
+        .await?;
 
     // await a response from them - it will tell us they have received the marker
     conn.receive_data().await?;
 
     // set up a reader for the file
     // TODO: if returning early here it will mess with the expected results for the other side
-    let reader = tokio::fs::File::open(&absolute_path).await
+    let reader = tokio::fs::File::open(&absolute_path)
+        .await
         .map_err(|e| error::ReadBytes::new(e, absolute_path))?;
     let buf_reader = tokio::io::BufReader::new(reader);
 

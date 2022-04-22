@@ -189,7 +189,10 @@ impl Machine<Executing, ServerExecutingState> {
     }
 
     async fn into_send_files_state(self) -> super::send_files::ServerSendFilesState {
-        debug!("moving {} server executing -> send files", self.state.common.node_name );
+        debug!(
+            "moving {} server executing -> send files",
+            self.state.common.node_name
+        );
         let ServerExecutingState {
             conn,
             common,
@@ -218,7 +221,10 @@ impl Machine<Executing, ServerExecutingState> {
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
-        debug!("moving {} server executing -> prepare build", self.state.common.node_name);
+        debug!(
+            "moving {} server executing -> prepare build",
+            self.state.common.node_name
+        );
         let ServerExecutingState { conn, common, .. } = self.state;
 
         #[allow(unused_mut)]

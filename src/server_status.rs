@@ -9,7 +9,6 @@ use std::net::SocketAddr;
 /// check that all the nodes are up *and* the versions match. returns `true` if all nodes are
 /// healthy w/ version matches
 pub async fn server_status(args: cli::ServerStatus) -> Result<(), Error> {
-
     let job_list = get_current_jobs(&args).await?;
 
     for batch in job_list {

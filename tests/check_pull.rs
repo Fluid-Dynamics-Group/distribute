@@ -2,11 +2,11 @@ use distribute::cli::Pull;
 use distribute::cli::Server;
 
 use std::fs;
+use std::io::Write;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
-use std::io::Write;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn check_pull() {
@@ -146,11 +146,15 @@ async fn pull_large_file() {
 
     let length = 10.01f64.powf(9.) as usize;
     dbg!(length);
-    fs::File::create(&j1_1).unwrap()
+    fs::File::create(&j1_1)
+        .unwrap()
         .write_all(&vec![0; length])
         .unwrap();
 
-    assert!(fs::metadata(&j1_1).unwrap().len() == length as u64, "file length was not the expected length");
+    assert!(
+        fs::metadata(&j1_1).unwrap().len() == length as u64,
+        "file length was not the expected length"
+    );
     dbg!(fs::metadata(&j1_1).unwrap().len());
 
     // initialize the pull and server commands as they would be read from the CLI

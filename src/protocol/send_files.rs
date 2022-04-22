@@ -6,9 +6,9 @@ use tokio::io::AsyncWriteExt;
 use super::built::{Built, ClientBuiltState, ServerBuiltState};
 
 #[cfg(not(test))]
-const LARGE_FILE_BYTE_THRESHOLD : u64 = 10u64.pow(9);
+const LARGE_FILE_BYTE_THRESHOLD: u64 = 10u64.pow(9);
 #[cfg(test)]
-const LARGE_FILE_BYTE_THRESHOLD : u64 = 1000;
+const LARGE_FILE_BYTE_THRESHOLD: u64 = 1000;
 
 #[derive(Default)]
 pub(crate) struct SendFiles;
@@ -77,8 +77,11 @@ impl Machine<SendFiles, ClientSendFilesState> {
             let fs_meta = if let Ok(fs_meta) = tokio::fs::metadata(&metadata.file_path).await {
                 fs_meta
             } else {
-                error!("could not read metadata for {} - skipping", metadata.file_path.display());
-                continue
+                error!(
+                    "could not read metadata for {} - skipping",
+                    metadata.file_path.display()
+                );
+                continue;
             };
 
             //
@@ -91,7 +94,8 @@ impl Machine<SendFiles, ClientSendFilesState> {
                 let path = metadata.file_path.clone();
 
                 // strip out the useless prefixes to the path so it saves nicely on the other side
-                let abbreviated_path = utils::remove_path_prefixes(metadata.file_path, &dist_save_path);
+                let abbreviated_path =
+                    utils::remove_path_prefixes(metadata.file_path, &dist_save_path);
                 let file = ClientMsg::FileMarker(transport::FileMarker::new(abbreviated_path));
                 throw_error_with_self!(self.state.conn.transport_data(&file).await, self);
 
@@ -101,7 +105,11 @@ impl Machine<SendFiles, ClientSendFilesState> {
                     ServerMsg::AwaitingLargeFile => {
                         let reader = tokio::fs::File::open(&path).await.expect("could not unwrap large file after we checked its metadata, this should not happen");
                         let mut reader = tokio::io::BufReader::new(reader);
-                        self.state.conn.transport_from_reader(&mut reader, file_len).await.ok();
+                        self.state
+                            .conn
+                            .transport_from_reader(&mut reader, file_len)
+                            .await
+                            .ok();
 
                         // receive the server telling us its ok to send the next file
                         let msg = self.state.conn.receive_data().await;
@@ -109,14 +117,13 @@ impl Machine<SendFiles, ClientSendFilesState> {
                     }
                     ServerMsg::ReceivedFile | ServerMsg::DontSendLargeFile => {
                         debug!("skipping large file transport to server {}", path.display());
-                        continue
+                        continue;
                     }
                 }
-
             }
             //
             // file is small - send the file in memory
-            // 
+            //
             else {
                 match metadata.into_send_file() {
                     Ok(mut send_file) => {
@@ -139,7 +146,6 @@ impl Machine<SendFiles, ClientSendFilesState> {
                         );
                     }
                 }
-                
             }
         }
 
@@ -254,29 +260,44 @@ impl Machine<SendFiles, ServerSendFilesState> {
                 // signals that the next file sent will be very large, and we should not attempt to
                 // read it into memory
                 ClientMsg::FileMarker(marker) => {
-                        let path = self.state.save_location.join(marker.file_path);
-                        let fs_file = tokio::fs::File::create(&path).await;
+                    let path = self.state.save_location.join(marker.file_path);
+                    let fs_file = tokio::fs::File::create(&path).await;
 
-                        let file = match fs_file {
-                            Ok(f) => {
-                                debug!("created path for large file at {}, telling client to proceed", path.display());
-                                let msg = ServerMsg::AwaitingLargeFile;
-                                throw_error_with_self!(self.state.conn.transport_data(&msg).await, self);
-                                f
-                            }
-                            Err(e) => {
-                                error!("failed to create file for path {} ({}), telling the client not to send the file", path.display(), e);
-                                let msg = ServerMsg::DontSendLargeFile;
-                                throw_error_with_self!(self.state.conn.transport_data(&msg).await, self);
-                                continue
-                            }
-                        };
+                    let file = match fs_file {
+                        Ok(f) => {
+                            debug!(
+                                "created path for large file at {}, telling client to proceed",
+                                path.display()
+                            );
+                            let msg = ServerMsg::AwaitingLargeFile;
+                            throw_error_with_self!(
+                                self.state.conn.transport_data(&msg).await,
+                                self
+                            );
+                            f
+                        }
+                        Err(e) => {
+                            error!("failed to create file for path {} ({}), telling the client not to send the file", path.display(), e);
+                            let msg = ServerMsg::DontSendLargeFile;
+                            throw_error_with_self!(
+                                self.state.conn.transport_data(&msg).await,
+                                self
+                            );
+                            continue;
+                        }
+                    };
 
-                        // now the sender should send the large file directly from disk
-                        let writer = tokio::io::BufWriter::new(file);
-                        self.state.conn.receive_to_writer(writer).await.ok();
+                    // now the sender should send the large file directly from disk
+                    let writer = tokio::io::BufWriter::new(file);
+                    self.state.conn.receive_to_writer(writer).await.ok();
 
-                        throw_error_with_self!(self.state.conn.transport_data(&ServerMsg::ReceivedFile).await, self);
+                    throw_error_with_self!(
+                        self.state
+                            .conn
+                            .transport_data(&ServerMsg::ReceivedFile)
+                            .await,
+                        self
+                    );
                 }
                 ClientMsg::FinishFiles => {
                     // first, tell the scheduler that this job has finished
@@ -312,8 +333,11 @@ impl Machine<SendFiles, ServerSendFilesState> {
         }
     }
 
-     async fn into_built_state(self) -> super::built::ServerBuiltState {
-        debug!("moving {} server send files -> built", self.state.common.node_name);
+    async fn into_built_state(self) -> super::built::ServerBuiltState {
+        debug!(
+            "moving {} server send files -> built",
+            self.state.common.node_name
+        );
         let ServerSendFilesState {
             conn,
             common,
@@ -369,16 +393,13 @@ impl transport::AssociatedMessage for ClientMsg {
     type Receive = ServerMsg;
 }
 
-
 #[tokio::test]
 async fn transport_files_with_large_file() {
     if false {
         crate::logger()
     }
 
-    let add_port = |port| {
-        return SocketAddr::from(([0, 0, 0, 0], port))
-    };
+    let add_port = |port| return SocketAddr::from(([0, 0, 0, 0], port));
 
     let f1name = "small_file.txt";
     let f2name = "large_file.binary";
@@ -397,33 +418,47 @@ async fn transport_files_with_large_file() {
     std::fs::create_dir(&dist_save).unwrap();
 
     {
-        std::fs::File::create(file1).unwrap().write_all(&vec![0; 100]).unwrap();
-        std::fs::File::create(file2).unwrap().write_all(&vec![0; 2000]).unwrap();
-        std::fs::File::create(file3).unwrap().write_all(&vec![0; 20]).unwrap();
+        std::fs::File::create(file1)
+            .unwrap()
+            .write_all(&vec![0; 100])
+            .unwrap();
+        std::fs::File::create(file2)
+            .unwrap()
+            .write_all(&vec![0; 2000])
+            .unwrap();
+        std::fs::File::create(file3)
+            .unwrap()
+            .write_all(&vec![0; 20])
+            .unwrap();
     }
 
     let client_port = 10_000;
     let client_keepalive = 10_001;
 
-    let client_listener= tokio::net::TcpListener::bind(add_port(client_port)).await.unwrap();
-    let server_conn= tokio::net::TcpStream::connect(add_port(client_port)).await.unwrap();
+    let client_listener = tokio::net::TcpListener::bind(add_port(client_port))
+        .await
+        .unwrap();
+    let server_conn = tokio::net::TcpStream::connect(add_port(client_port))
+        .await
+        .unwrap();
     let client_conn = client_listener.accept().await.unwrap().0;
 
     let server_conn = transport::Connection::from_connection(server_conn);
     let client_conn = transport::Connection::from_connection(client_conn);
 
     let client_state = ClientSendFilesState {
-        conn: client_conn, 
-        working_dir: base_dir.clone(), 
-        job_name: "test job name".into(), 
-        folder_state: client::BindingFolderState::new()
+        conn: client_conn,
+        working_dir: base_dir.clone(),
+        job_name: "test job name".into(),
+        folder_state: client::BindingFolderState::new(),
     };
-    
+
     let namespace = "namespace".into();
     let batch_name = "batch_name".into();
     let job_name = "job_name".into();
 
-    let (_tx, common) = super::Common::test_configuration(add_port(client_port), add_port(client_keepalive));
+    let (_tx, common) =
+        super::Common::test_configuration(add_port(client_port), add_port(client_keepalive));
     let server_state = ServerSendFilesState {
         conn: server_conn,
         common,
@@ -431,7 +466,7 @@ async fn transport_files_with_large_file() {
         batch_name,
         job_identifier: server::JobIdentifier::none(),
         job_name,
-        save_location: save_path.clone()
+        save_location: save_path.clone(),
     };
 
     let server_machine = Machine::from_state(server_state);
@@ -470,9 +505,12 @@ async fn transport_files_with_large_file() {
     });
 
     // execute the tasks
-    tokio::time::timeout(Duration::from_secs(2),
-        futures::future::join_all([server_handle, client_handle])
-    ).await.expect("futures did not complete in time");
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        futures::future::join_all([server_handle, client_handle]),
+    )
+    .await
+    .expect("futures did not complete in time");
 
     // check that the client returns something
     assert_eq!(
@@ -493,16 +531,23 @@ async fn transport_files_with_large_file() {
     );
 
     assert_eq!(save_path.join(f1name).exists(), true);
-    assert_eq!(save_path.join(f2name).exists(), true, "large file does not exist");
+    assert_eq!(
+        save_path.join(f2name).exists(),
+        true,
+        "large file does not exist"
+    );
     assert_eq!(save_path.join(f3name).exists(), true);
 
     std::fs::remove_dir_all(base_dir).ok();
 }
 
-#[tokio::test(flavor="multi_thread", worker_threads=3)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn async_read_from_file() {
-    let path= PathBuf::from("./tests/test_file.binary");
-    std::fs::File::create(&path).unwrap().write_all(&vec![0; 1000]).unwrap();
+    let path = PathBuf::from("./tests/test_file.binary");
+    std::fs::File::create(&path)
+        .unwrap()
+        .write_all(&vec![0; 1000])
+        .unwrap();
 
     let mut file = tokio::fs::File::open(&path).await.unwrap();
 

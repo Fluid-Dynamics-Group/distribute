@@ -202,7 +202,10 @@ impl Machine<Built, ServerBuiltState> {
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
-        debug!("moving {} server built -> prepare_build", self.state.common.node_name);
+        debug!(
+            "moving {} server built -> prepare_build",
+            self.state.common.node_name
+        );
         let ServerBuiltState { conn, common, .. } = self.state;
 
         #[allow(unused_mut)]
@@ -218,7 +221,10 @@ impl Machine<Built, ServerBuiltState> {
         self,
         job_name: String,
     ) -> super::executing::ServerExecutingState {
-        debug!("moving {} server built -> executing", self.state.common.node_name);
+        debug!(
+            "moving {} server built -> executing",
+            self.state.common.node_name
+        );
 
         let ServerBuiltState {
             conn,

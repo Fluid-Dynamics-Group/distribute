@@ -222,7 +222,10 @@ impl Machine<Building, ServerBuildingState> {
     }
 
     pub(crate) async fn into_built_state(self) -> super::built::ServerBuiltState {
-        debug!("moving {} server compiling -> built", self.state.common.node_name);
+        debug!(
+            "moving {} server compiling -> built",
+            self.state.common.node_name
+        );
         let ServerBuildingState {
             conn,
             common,
@@ -246,7 +249,10 @@ impl Machine<Building, ServerBuildingState> {
     }
 
     pub(crate) async fn into_prepare_build(self) -> super::prepare_build::ServerPrepareBuildState {
-        debug!("moving {} server compiling -> prepare build", self.state.common.node_name);
+        debug!(
+            "moving {} server compiling -> prepare build",
+            self.state.common.node_name
+        );
 
         let ServerBuildingState { conn, common, .. } = self.state;
 

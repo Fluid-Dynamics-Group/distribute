@@ -130,7 +130,11 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
 }
 
 /// helper function for collecting the TCP byte stream to a `Writer` instead of loading into memory
-async fn save_large_file(conn: &mut transport::Connection<transport::UserMessageToServer>, base_path: &Path, marker: transport::FileMarker) -> Result<(), Box<dyn std::error::Error>> {   
+async fn save_large_file(
+    conn: &mut transport::Connection<transport::UserMessageToServer>,
+    base_path: &Path,
+    marker: transport::FileMarker,
+) -> Result<(), Box<dyn std::error::Error>> {
     let new_save_location = base_path.join(&marker.file_path);
     debug!(
         "saving large file from server at {} to {}",
@@ -139,10 +143,12 @@ async fn save_large_file(conn: &mut transport::Connection<transport::UserMessage
     );
 
     // first, acknowledge that we have received the marker
-    conn.transport_data(&transport::UserMessageToServer::FileReceived).await?;
+    conn.transport_data(&transport::UserMessageToServer::FileReceived)
+        .await?;
 
     // then, create a writer for this file to go to
-    let file = tokio::fs::File::create(&new_save_location).await
+    let file = tokio::fs::File::create(&new_save_location)
+        .await
         .map_err(|e| error::WriteFile::new(e, new_save_location))?;
     let writer = tokio::io::BufWriter::new(file);
 

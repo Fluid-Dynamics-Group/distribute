@@ -148,7 +148,10 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         batch_name: String,
         job_identifier: server::JobIdentifier,
     ) -> super::compiling::ServerBuildingState {
-        debug!("moving {} server prepare build -> compiling", self.state.common.node_name);
+        debug!(
+            "moving {} server prepare build -> compiling",
+            self.state.common.node_name
+        );
         let ServerPrepareBuildState { conn, common } = self.state;
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
