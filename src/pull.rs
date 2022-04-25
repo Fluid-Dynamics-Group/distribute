@@ -3,6 +3,7 @@ use crate::config;
 use crate::error;
 use crate::error::Error;
 use crate::transport;
+use crate::prelude::*;
 
 use std::io::Write;
 use std::net::SocketAddr;
@@ -150,10 +151,12 @@ async fn save_large_file(
     let file = tokio::fs::File::create(&new_save_location)
         .await
         .map_err(|e| error::WriteFile::new(e, new_save_location))?;
-    let writer = tokio::io::BufWriter::new(file);
+    let mut writer = file;
 
     // then, receive the raw byte stream directly to the writer
-    conn.receive_to_writer(writer).await?;
+    conn.receive_to_writer(&mut writer).await?;
+
+    writer.flush().await?;
 
     Ok(())
 }

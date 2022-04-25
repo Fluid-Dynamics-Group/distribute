@@ -429,9 +429,8 @@ async fn send_large_file(
     let reader = tokio::fs::File::open(&absolute_path)
         .await
         .map_err(|e| error::ReadBytes::new(e, absolute_path))?;
-    let buf_reader = tokio::io::BufReader::new(reader);
 
-    conn.transport_from_reader(buf_reader, file_size).await?;
+    conn.transport_from_reader(reader, file_size).await?;
 
     Ok(())
 }

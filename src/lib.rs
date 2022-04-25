@@ -86,7 +86,7 @@ pub fn logger() {
         .level(log::LevelFilter::Trace)
         // - and per-module overrides
         .level_for("hyper", log::LevelFilter::Info)
-        .level_for("distribute::transport", log::LevelFilter::Debug)
+        //.level_for("distribute::transport", log::LevelFilter::Debug)
         .level_for("mio", log::LevelFilter::Info)
         // Output to stdout, files, and other Dispatch configurations
         .chain(std::io::stdout())

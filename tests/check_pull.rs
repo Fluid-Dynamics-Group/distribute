@@ -192,10 +192,13 @@ async fn pull_large_file() {
 
     // make sure that all the paths exist - we dont include the namespace in the output
     let out_namespace = save_dir.join("some_batch");
+    let f1_out = out_namespace.join("job_1").join("file1.txt");
     assert_eq!(
-        dbg!(out_namespace.join("job_1").join("file1.txt")).exists(),
+        dbg!(&f1_out).exists(),
         true
     );
+
+    assert_eq!(fs::metadata(&f1_out).unwrap().len(), length as u64);
 
     // cleaup remaining files
     fs::remove_dir_all(&save_dir).ok();

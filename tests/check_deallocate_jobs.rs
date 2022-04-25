@@ -13,9 +13,11 @@ use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn check_deallocate_jobs() {
+    println!("starting check_deallocate_jobs");
     if false {
         distribute::logger();
     }
+
 
     let server_port = 9981;
     // this is the port in the corresponding distribute-nodes.yaml file for this job
@@ -60,6 +62,10 @@ async fn check_deallocate_jobs() {
         server_port,
         false,
     );
+    
+    //
+    // ABOVE HERE
+    //
 
     // start the server
     tokio::spawn(async move {

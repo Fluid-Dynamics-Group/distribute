@@ -18,7 +18,7 @@ use crate::server;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 #[cfg(not(test))]
-const BUFFER_LEN: usize = 10_000;
+const BUFFER_LEN: usize = 1000_000;
 #[cfg(test)]
 const BUFFER_LEN: usize = 100;
 
@@ -373,8 +373,7 @@ async fn transport_from_reader<R: AsyncReadExt + Unpin>(
     debug!("transporting extra large with with length {}", length);
     conn.write_all(&length.to_le_bytes()).await?;
 
-    let mut buffer = [0; BUFFER_LEN];
-    dbg!(buffer.len());
+    let mut buffer = vec![0; BUFFER_LEN];
     let mut total_bytes = 0;
 
     loop {
@@ -445,7 +444,7 @@ async fn receive_to_writer<W: AsyncWrite + Unpin>(
         content_length
     );
 
-    let mut tmp_buffer = [0; BUFFER_LEN];
+    let mut tmp_buffer = vec![0; BUFFER_LEN];
 
     let mut running_length = 0;
 
@@ -469,7 +468,7 @@ async fn receive_to_writer<W: AsyncWrite + Unpin>(
 
         // just ignore any errors in the writing process
         // TODO: do not ignore the errors here
-        writer.write_all(&tmp_buffer[0..bytes_read]).await.ok();
+        writer.write_all(&tmp_buffer[0..bytes_read]).await?;
 
         running_length += bytes_read;
 

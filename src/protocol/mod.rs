@@ -15,7 +15,10 @@ macro_rules! throw_error_with_self {
     ($result:expr, $_self:expr) => {
         match $result {
             Ok(x) => x,
-            Err(e) => return Err(($_self, e.into())),
+            Err(e) => {
+                debug!("just threw with error");
+                return Err(($_self, e.into()))
+            }
         }
     };
 }

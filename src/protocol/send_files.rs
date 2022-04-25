@@ -103,8 +103,13 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
                 match msg {
                     ServerMsg::AwaitingLargeFile => {
-                        let reader = tokio::fs::File::open(&path).await.expect("could not unwrap large file after we checked its metadata, this should not happen");
-                        let mut reader = tokio::io::BufReader::new(reader);
+                        let mut reader = if let Ok(rdr)  = tokio::fs::File::open(&path).await {
+                            rdr
+                        } else {
+                            error!("could not unwrap large file after we checked its metadata, this should not happen - panicking");
+                            panic!("could not unwrap large file after we checked its metadata, this should not happen");
+                        };
+
                         self.state
                             .conn
                             .transport_from_reader(&mut reader, file_len)
@@ -288,8 +293,15 @@ impl Machine<SendFiles, ServerSendFilesState> {
                     };
 
                     // now the sender should send the large file directly from disk
-                    let writer = tokio::io::BufWriter::new(file);
-                    self.state.conn.receive_to_writer(writer).await.ok();
+                    let mut writer =  file;
+
+                    throw_error_with_self!(
+                        self.state.conn.receive_to_writer(&mut writer).await, 
+                        self
+                    );
+
+                    // flush the contents of the buffer to the file
+                    writer.flush().await.unwrap();
 
                     throw_error_with_self!(
                         self.state
@@ -538,7 +550,11 @@ async fn transport_files_with_large_file() {
     );
     assert_eq!(save_path.join(f3name).exists(), true);
 
-    std::fs::remove_dir_all(base_dir).ok();
+    assert_eq!(std::fs::metadata(save_path.join(f1name)).unwrap().len(), 100);
+    assert_eq!(std::fs::metadata(save_path.join(f3name)).unwrap().len(), 20);
+    assert_eq!(std::fs::metadata(save_path.join(f2name)).unwrap().len(), 2000);
+
+    //std::fs::remove_dir_all(base_dir).ok();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
