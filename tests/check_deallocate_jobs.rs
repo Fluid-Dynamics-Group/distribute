@@ -63,10 +63,6 @@ async fn check_deallocate_jobs() {
         false,
     );
     
-    //
-    // ABOVE HERE
-    //
-
     // start the server
     tokio::spawn(async move {
         println!("starting server");
