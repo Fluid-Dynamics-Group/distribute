@@ -3,7 +3,7 @@ meta:
   batch_name: some_batch
   namespace: some_namespace
   capabilities: []
-singularity:
+apptainer:
   initialize:
     sif: apptainer_local.sif
     required_files: []

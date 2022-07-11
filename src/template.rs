@@ -1,6 +1,6 @@
 use super::cli;
 use super::cli::Template;
-use crate::config::{self, common, python, singularity};
+use crate::config::{self, common, python, apptainer};
 use crate::error::{Error, TemplateError};
 
 pub fn template(args: Template) -> Result<(), Error> {
@@ -14,7 +14,7 @@ pub fn template(args: Template) -> Result<(), Error> {
 fn to_template(template: cli::TemplateType) -> Result<String, TemplateError> {
     match template {
         cli::TemplateType::Python => python_template(),
-        cli::TemplateType::Singularity => singularity_template(),
+        cli::TemplateType::Apptainer => apptainer_template(),
     }
 }
 
@@ -60,8 +60,8 @@ fn python_template() -> Result<String, TemplateError> {
     Ok(serialized)
 }
 
-fn singularity_template() -> Result<String, TemplateError> {
-    let initialize = singularity::Initialize::new(
+fn apptainer_template() -> Result<String, TemplateError> {
+    let initialize = apptainer::Initialize::new(
         "execute_container.sif".into(),
         vec![
             common::File {
@@ -80,7 +80,7 @@ fn singularity_template() -> Result<String, TemplateError> {
         vec!["/path/inside/container/to/mount".into()],
     );
 
-    let job_1 = singularity::Job::new(
+    let job_1 = apptainer::Job::new(
         "job_1".into(),
         vec![
             common::File {
@@ -94,9 +94,9 @@ fn singularity_template() -> Result<String, TemplateError> {
         ],
     );
 
-    let singularity = singularity::Description::new(initialize, vec![job_1]);
+    let apptainer = apptainer::Description::new(initialize, vec![job_1]);
     let meta = meta();
-    let desc = config::Jobs::Singularity { meta, singularity };
+    let desc = config::Jobs::Apptainer { meta, apptainer };
     let serialized = serde_yaml::to_string(&desc)?;
 
     Ok(serialized)
@@ -107,7 +107,7 @@ fn meta() -> config::Meta {
         batch_name: "your_jobset_name".into(),
         namespace: "example_namespace".into(),
         matrix: None,
-        capabilities: vec!["python3", "singularity", "gfortran"]
+        capabilities: vec!["python3", "apptainer", "gfortran"]
             .into_iter()
             .map(Into::into)
             .collect(),

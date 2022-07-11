@@ -59,9 +59,9 @@ impl Machine<Executing, ClientExecutingState> {
                         client::run_python_job(python_job, &working_dir, &mut rx_cancel).await;
                     ClientMsg::from_run_result(run_result)
                 }
-                transport::JobOpt::Singularity(singularity_job) => {
-                    let run_result = client::run_singularity_job(
-                        singularity_job,
+                transport::JobOpt::Apptainer(apptainer_job) => {
+                    let run_result = client::run_apptainer_job(
+                        apptainer_job,
                         &working_dir,
                         &mut rx_cancel,
                         &mut folder_state,

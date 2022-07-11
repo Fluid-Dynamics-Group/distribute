@@ -10,7 +10,7 @@ use transport::JobOpt;
 #[derive(Debug)]
 pub(crate) enum StoredJob {
     Python(LazyPythonJob),
-    Singularity(LazySingularityJob),
+    Apptainer(LazyApptainerJob),
 }
 
 impl StoredJob {
@@ -59,8 +59,8 @@ impl StoredJob {
         Ok(Self::Python(job))
     }
 
-    pub(crate) fn from_singularity(
-        x: transport::SingularityJob,
+    pub(crate) fn from_apptainer(
+        x: transport::ApptainerJob,
         output_dir: &Path,
     ) -> Result<Self, io::Error> {
         // compute the hash
@@ -90,32 +90,32 @@ impl StoredJob {
             i += 1
         }
 
-        let job = LazySingularityJob {
+        let job = LazyApptainerJob {
             job_name: x.job_name,
             required_files,
         };
 
-        Ok(Self::Singularity(job))
+        Ok(Self::Apptainer(job))
     }
 
     pub(crate) fn from_opt(x: JobOpt, path: &Path) -> Result<Self, io::Error> {
         match x {
             JobOpt::Python(python) => Self::from_python(python, path),
-            JobOpt::Singularity(sing) => Self::from_singularity(sing, path),
+            JobOpt::Apptainer(sing) => Self::from_apptainer(sing, path),
         }
     }
 
     pub(crate) fn load_job(self) -> Result<JobOpt, io::Error> {
         match self {
             Self::Python(x) => Ok(JobOpt::Python(x.load_job()?)),
-            Self::Singularity(x) => Ok(JobOpt::Singularity(x.load_job()?)),
+            Self::Apptainer(x) => Ok(JobOpt::Apptainer(x.load_job()?)),
         }
     }
 
     pub(crate) fn job_name(&self) -> &str {
         match &self {
             Self::Python(python) => &python.job_name,
-            Self::Singularity(sing) => &sing.job_name,
+            Self::Apptainer(sing) => &sing.job_name,
         }
     }
 }
@@ -142,16 +142,16 @@ impl LazyPythonJob {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LazySingularityJob {
+pub(crate) struct LazyApptainerJob {
     job_name: String,
     required_files: Vec<LazyFile>,
 }
 
-impl LazySingularityJob {
-    pub(crate) fn load_job(self) -> Result<transport::SingularityJob, io::Error> {
+impl LazyApptainerJob {
+    pub(crate) fn load_job(self) -> Result<transport::ApptainerJob, io::Error> {
         let job_files = load_files(&self.required_files, true)?;
 
-        Ok(transport::SingularityJob {
+        Ok(transport::ApptainerJob {
             job_name: self.job_name,
             job_files,
         })
@@ -168,7 +168,7 @@ pub(crate) struct LazyFile {
 #[derive(Debug)]
 pub(crate) enum StoredJobInit {
     Python(LazyPythonInit),
-    Singularity(LazySingularityInit),
+    Apptainer(LazyApptainerInit),
 }
 
 impl StoredJobInit {
@@ -218,8 +218,8 @@ impl StoredJobInit {
         Ok(Self::Python(job))
     }
 
-    pub(crate) fn from_singularity(
-        x: transport::SingularityJobInit,
+    pub(crate) fn from_apptainer(
+        x: transport::ApptainerJobInit,
         output_dir: &Path,
     ) -> Result<Self, io::Error> {
         // compute the hash
@@ -253,27 +253,27 @@ impl StoredJobInit {
             i += 1
         }
 
-        let job = LazySingularityInit {
+        let job = LazyApptainerInit {
             batch_name: x.batch_name,
             sif_path,
             required_files,
             container_bind_paths: x.container_bind_paths,
         };
 
-        Ok(Self::Singularity(job))
+        Ok(Self::Apptainer(job))
     }
 
     pub(crate) fn load_build(&self) -> Result<transport::BuildOpts, io::Error> {
         match self {
             Self::Python(x) => Ok(transport::BuildOpts::Python(x.load_build()?)),
-            Self::Singularity(x) => Ok(transport::BuildOpts::Singularity(x.load_build()?)),
+            Self::Apptainer(x) => Ok(transport::BuildOpts::Apptainer(x.load_build()?)),
         }
     }
 
     pub(crate) fn delete(&self) -> Result<(), io::Error> {
         match self {
             Self::Python(x) => x.delete()?,
-            Self::Singularity(x) => x.delete()?,
+            Self::Apptainer(x) => x.delete()?,
         };
 
         Ok(())
@@ -284,7 +284,7 @@ impl StoredJobInit {
         output_dir: &Path,
     ) -> Result<Self, io::Error> {
         match opt {
-            transport::BuildOpts::Singularity(s) => Self::from_singularity(s, output_dir),
+            transport::BuildOpts::Apptainer(s) => Self::from_apptainer(s, output_dir),
             transport::BuildOpts::Python(s) => Self::from_python(s, output_dir),
         }
     }
@@ -322,20 +322,20 @@ impl LazyPythonInit {
 }
 
 #[derive(Debug)]
-pub(crate) struct LazySingularityInit {
+pub(crate) struct LazyApptainerInit {
     batch_name: String,
     sif_path: PathBuf,
     required_files: Vec<LazyFile>,
     container_bind_paths: Vec<PathBuf>,
 }
 
-impl LazySingularityInit {
-    fn load_build(&self) -> Result<transport::SingularityJobInit, io::Error> {
+impl LazyApptainerInit {
+    fn load_build(&self) -> Result<transport::ApptainerJobInit, io::Error> {
         let sif_bytes = std::fs::read(&self.sif_path)?;
 
         let build_files = load_files(&self.required_files, false)?;
 
-        let out = transport::SingularityJobInit {
+        let out = transport::ApptainerJobInit {
             batch_name: self.batch_name.clone(),
             sif_bytes,
             build_files,

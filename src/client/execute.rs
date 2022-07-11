@@ -223,14 +223,14 @@ pub(crate) async fn initialize_python_job(
     .await
 }
 
-pub(crate) async fn initialize_singularity_job(
-    init: transport::SingularityJobInit,
+pub(crate) async fn initialize_apptainer_job(
+    init: transport::ApptainerJobInit,
     base_path: &Path,
     _cancel: &mut broadcast::Receiver<()>,
     folder_state: &mut BindingFolderState,
 ) -> Result<Option<()>, Error> {
     // write the .sif file to the root
-    write_init_file(base_path, "singularity.sif", &init.sif_bytes).await?;
+    write_init_file(base_path, "apptainer.sif", &init.sif_bytes).await?;
     // write any included files for the initialization to the `initial_files` directory
     // and they will be copied over to `input` at the start of each job run
     write_all_init_files(&base_path.join("initial_files"), &init.build_files).await?;
@@ -249,13 +249,13 @@ pub(crate) async fn initialize_singularity_job(
 /// execute a job after the build file has already been built
 ///
 /// returns None if the job was cancelled
-pub(crate) async fn run_singularity_job(
-    job: transport::SingularityJob,
+pub(crate) async fn run_apptainer_job(
+    job: transport::ApptainerJob,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
     folder_state: &BindingFolderState,
 ) -> Result<Option<()>, Error> {
-    info!("running singularity job");
+    info!("running apptainer job");
 
     // reset the input files directory
     utils::clear_input_files(base_path)
@@ -266,16 +266,16 @@ pub(crate) async fn run_singularity_job(
     // copy all the files for this job to the directory
     write_all_init_files(&base_path.join("input"), &job.job_files).await?;
 
-    let singularity_path = base_path
-        .join("singularity.sif")
+    let apptainer_path = base_path
+        .join("apptainer.sif")
         .to_string_lossy()
         .to_string();
 
     let bind_arg = create_bind_argument(base_path, folder_state);
 
-    info!("binding argument for singularity job is {}", bind_arg);
+    info!("binding argument for apptainer job is {}", bind_arg);
 
-    let mut command = tokio::process::Command::new("singularity");
+    let mut command = tokio::process::Command::new("apptainer");
     command.args(&[
         "run",
         "--nv",
@@ -283,7 +283,7 @@ pub(crate) async fn run_singularity_job(
         "distribute",
         "--bind",
         &bind_arg,
-        &singularity_path,
+        &apptainer_path,
         &num_cpus::get_physical().to_string(),
     ]);
 
@@ -304,7 +304,7 @@ pub(crate) async fn run_singularity_job(
     .await
 }
 
-/// create a --bind argument for `singularity run`
+/// create a --bind argument for `apptainer run`
 fn create_bind_argument(base_path: &Path, folder_state: &BindingFolderState) -> String {
     let dist_save = base_path.join("distribute_save");
 

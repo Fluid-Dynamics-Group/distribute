@@ -26,13 +26,13 @@ impl Description {
         self.jobs.len()
     }
 
-    pub(crate) async fn load_jobs(&self) -> Result<Vec<transport::SingularityJob>, LoadJobsError> {
+    pub(crate) async fn load_jobs(&self) -> Result<Vec<transport::ApptainerJob>, LoadJobsError> {
         let mut out = Vec::with_capacity(self.jobs.len());
 
         for job in &self.jobs {
             let job_files = load_from_file(&job.required_files).await?;
 
-            let job = transport::SingularityJob {
+            let job = transport::ApptainerJob {
                 job_name: job.name.clone(),
                 job_files,
             };
@@ -45,14 +45,14 @@ impl Description {
     pub(crate) async fn load_build(
         &self,
         batch_name: String,
-    ) -> Result<transport::SingularityJobInit, LoadJobsError> {
+    ) -> Result<transport::ApptainerJobInit, LoadJobsError> {
         let sif_bytes = tokio::fs::read(&self.initialize.sif)
             .await
             .map_err(|e| ReadBytesError::new(e, self.initialize.sif.clone()))?;
 
         let build_files = load_from_file(&self.initialize.required_files).await?;
 
-        Ok(transport::SingularityJobInit {
+        Ok(transport::ApptainerJobInit {
             sif_bytes,
             batch_name,
             build_files,

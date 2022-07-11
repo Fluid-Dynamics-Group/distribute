@@ -151,7 +151,7 @@ pub struct PythonJob {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct SingularityJobInit {
+pub struct ApptainerJobInit {
     pub batch_name: String,
     pub sif_bytes: Vec<u8>,
     pub build_files: Vec<File>,
@@ -159,7 +159,7 @@ pub struct SingularityJobInit {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct SingularityJob {
+pub struct ApptainerJob {
     pub job_name: String,
     pub job_files: Vec<File>,
 }
@@ -168,19 +168,19 @@ pub struct SingularityJob {
 #[cfg(feature = "cli")]
 pub enum BuildOpts {
     Python(PythonJobInit),
-    Singularity(SingularityJobInit),
+    Apptainer(ApptainerJobInit),
 }
 
 #[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize)]
 pub(crate) enum JobOpt {
-    Singularity(SingularityJob),
+    Apptainer(ApptainerJob),
     Python(PythonJob),
 }
 
 impl JobOpt {
     pub(crate) fn name(&self) -> &str {
         match &self {
-            Self::Singularity(x) => &x.job_name,
+            Self::Apptainer(x) => &x.job_name,
             Self::Python(x) => &x.job_name,
         }
     }
@@ -190,7 +190,7 @@ impl JobOpt {
 impl BuildOpts {
     pub(crate) fn batch_name(&self) -> &str {
         match &self {
-            Self::Singularity(s) => &s.batch_name,
+            Self::Apptainer(s) => &s.batch_name,
             Self::Python(p) => &p.batch_name,
         }
     }

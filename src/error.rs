@@ -356,7 +356,7 @@ pub enum RunErrorLocal {
     FolderExists,
     #[error("A general io error occured: {0}")]
     GeneralIo(std::io::Error),
-    #[error("A python configuration was specified, but run-local only supports singularity configurations")]
+    #[error("A python configuration was specified, but run-local only supports apptainer configurations")]
     OnlyApptainer,
     #[error("{0}")]
     LoadJobs(config::LoadJobsError),

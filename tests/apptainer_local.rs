@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn verify_singularity_execution() {
+async fn verify_apptainer_execution() {
     let dir = PathBuf::from("./tests/apptainer_local");
 
     assert_eq!(

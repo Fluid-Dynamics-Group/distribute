@@ -160,7 +160,7 @@ pub struct Add {
 /// generate a template file to fill for executing with `distribute add`
 pub struct Template {
     #[structopt(subcommand)]
-    /// set the configuration type to either python or singularity format
+    /// set the configuration type to either python or apptainer format
     pub(crate) mode: TemplateType,
 
     #[structopt(long, default_value = "distribute-jobs.yaml")]
@@ -170,7 +170,7 @@ pub struct Template {
 
 #[derive(StructOpt, PartialEq, Debug)]
 pub(crate) enum TemplateType {
-    Singularity,
+    Apptainer,
     Python,
 }
 

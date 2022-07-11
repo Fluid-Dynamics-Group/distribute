@@ -65,7 +65,7 @@ meta:
   capabilities:
     - gfortran
     - python3
-    - singularity
+    - apptainer
 python:
   initialize:
     build_file: /path/to/build.py

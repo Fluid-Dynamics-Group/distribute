@@ -83,9 +83,9 @@ impl Machine<Building, ClientBuildingState> {
                     let msg = ClientMsg::from_build_result(build_result);
                     tx_result.send((folder_state, msg)).ok().unwrap();
                 }
-                transport::BuildOpts::Singularity(singularity_job) => {
-                    let build_result = crate::client::initialize_singularity_job(
-                        singularity_job,
+                transport::BuildOpts::Apptainer(apptainer_job) => {
+                    let build_result = crate::client::initialize_apptainer_job(
+                        apptainer_job,
                         &working_dir,
                         &mut cancel,
                         &mut folder_state,
