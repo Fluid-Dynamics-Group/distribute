@@ -9,12 +9,12 @@ meta:
 
   matrix: "@karlik:matrix.org"
 
-singularity:
+apptainer:
 
   # describe how to initialize everything so that successive jobs can be 
   # run one after the other without recompiling
   initialize: 
-    # the path to your singularity .sif image that will be used to run the job
+    # the path to your apptainer .sif image that will be used to run the job
     sif: /path/to/your/file.sif
 
     # you can also specify required files to be present in the 

@@ -73,7 +73,7 @@ meta:
   capabilities:
     - gfortran
     - python3
-    - singularity
+    - apptainer
 python:
   initialize:
     build_file: /path/to/build.py
@@ -97,7 +97,7 @@ python:
 and
 
 ```bash
-distribute template singularity
+distribute template apptainer
 ```
 
 ```yaml
@@ -109,8 +109,8 @@ meta:
   capabilities:
     - gfortran
     - python3
-    - singularity
-singularity:
+    - apptainer
+apptainer:
   initialize:
     sif: execute_container.sif
     required_files:

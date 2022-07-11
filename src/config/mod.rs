@@ -1,7 +1,7 @@
 pub mod common;
 pub mod python;
 pub mod requirements;
-pub mod singularity;
+pub mod apptainer;
 
 #[cfg(feature = "cli")]
 use crate::transport;
@@ -116,9 +116,9 @@ pub enum Jobs {
         meta: Meta,
         python: python::Description,
     },
-    Singularity {
+    Apptainer {
         meta: Meta,
-        singularity: singularity::Description,
+        apptainer: apptainer::Description,
     },
 }
 
@@ -136,10 +136,10 @@ impl Jobs {
     pub fn len_jobs(&self) -> usize {
         match &self {
             Self::Python { meta: _, python } => python.len_jobs(),
-            Self::Singularity {
+            Self::Apptainer {
                 meta: _,
-                singularity,
-            } => singularity.len_jobs(),
+                apptainer,
+            } => apptainer.len_jobs(),
         }
     }
     pub async fn load_jobs(&self) -> Result<JobOpts, LoadJobsError> {
@@ -148,11 +148,11 @@ impl Jobs {
                 let py_jobs = python.load_jobs().await?;
                 Ok(py_jobs.into())
             }
-            Self::Singularity {
+            Self::Apptainer {
                 meta: _,
-                singularity,
+                apptainer,
             } => {
-                let sin_jobs = singularity.load_jobs().await?;
+                let sin_jobs = apptainer.load_jobs().await?;
                 Ok(sin_jobs.into())
             }
         }
@@ -164,8 +164,8 @@ impl Jobs {
                 let py_build = python.load_build(meta.batch_name.clone()).await?;
                 Ok(py_build.into())
             }
-            Self::Singularity { meta, singularity } => {
-                let sin_build = singularity.load_build(meta.batch_name.clone()).await?;
+            Self::Apptainer { meta, apptainer } => {
+                let sin_build = apptainer.load_build(meta.batch_name.clone()).await?;
                 Ok(sin_build.into())
             }
         }
@@ -176,28 +176,28 @@ impl Jobs {
     ) -> &requirements::Requirements<requirements::JobRequiredCaps> {
         match &self {
             Self::Python { meta, .. } => &meta.capabilities,
-            Self::Singularity { meta, .. } => &meta.capabilities,
+            Self::Apptainer { meta, .. } => &meta.capabilities,
         }
     }
 
     pub fn batch_name(&self) -> String {
         match self {
             Self::Python { meta, .. } => meta.batch_name.clone(),
-            Self::Singularity { meta, .. } => meta.batch_name.clone(),
+            Self::Apptainer { meta, .. } => meta.batch_name.clone(),
         }
     }
 
     pub fn matrix_user(&self) -> Option<matrix_notify::UserId> {
         match self {
             Self::Python { meta, .. } => meta.matrix.clone(),
-            Self::Singularity { meta, .. } => meta.matrix.clone(),
+            Self::Apptainer { meta, .. } => meta.matrix.clone(),
         }
     }
 
     pub fn namespace(&self) -> String {
         match self {
             Self::Python { meta, .. } => meta.namespace.clone(),
-            Self::Singularity { meta, .. } => meta.namespace.clone(),
+            Self::Apptainer { meta, .. } => meta.namespace.clone(),
         }
     }
 }
@@ -222,10 +222,10 @@ impl NormalizePaths for Jobs {
                 meta: _meta,
                 python,
             } => python.normalize_paths(base),
-            Self::Singularity {
+            Self::Apptainer {
                 meta: _meta,
-                singularity,
-            } => singularity.normalize_paths(base),
+                apptainer,
+            } => apptainer.normalize_paths(base),
         }
     }
 }
@@ -241,7 +241,7 @@ impl NormalizePaths for Nodes {
 #[cfg(feature = "cli")]
 pub enum JobOpts {
     Python(Vec<transport::PythonJob>),
-    Singularity(Vec<transport::SingularityJob>),
+    Apptainer(Vec<transport::ApptainerJob>),
 }
 
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(
@@ -271,8 +271,8 @@ fn serialize_jobs_python() {
 }
 
 #[test]
-fn serialize_jobs_singularity() {
-    let bytes = include_str!("../../static/example-jobs-singularity.yaml");
+fn serialize_jobs_apptainer() {
+    let bytes = include_str!("../../static/example-jobs-apptainer.yaml");
     let _out: Jobs = serde_yaml::from_str(bytes).unwrap();
 }
 
@@ -289,9 +289,9 @@ mod tests {
 
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct SingularityConfiguration {
+    struct ApptainerConfiguration {
         meta: Meta,
-        singularity: singularity::Description,
+        apptainer: apptainer::Description,
     }
 
     #[test]
@@ -301,8 +301,8 @@ mod tests {
     }
 
     #[test]
-    fn serialize_singularity() {
-        let bytes = include_str!("../../static/example-jobs-singularity.yaml");
-        let _out: SingularityConfiguration = serde_yaml::from_str(bytes).unwrap();
+    fn serialize_apptainer() {
+        let bytes = include_str!("../../static/example-jobs-apptainer.yaml");
+        let _out: ApptainerConfiguration = serde_yaml::from_str(bytes).unwrap();
     }
 }

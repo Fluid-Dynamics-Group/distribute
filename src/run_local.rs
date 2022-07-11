@@ -17,7 +17,7 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
 
     let (_tx, mut rx) = tokio::sync::broadcast::channel(1);
 
-    client::execute::initialize_singularity_job(build, &args.save_dir, &mut rx, &mut state).await?;
+    client::execute::initialize_apptainer_job(build, &args.save_dir, &mut rx, &mut state).await?;
 
     let archive = args.save_dir.join("archived_files");
     fs::create_dir(&archive)?;
@@ -26,7 +26,7 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
 
     for job in jobs {
         let name = job.job_name.clone();
-        client::execute::run_singularity_job(job, &args.save_dir, &mut rx, &mut state).await?;
+        client::execute::run_apptainer_job(job, &args.save_dir, &mut rx, &mut state).await?;
         fs::rename(&distribute_save, archive.join(name))?;
         fs::create_dir(&distribute_save)?;
     }
@@ -54,8 +54,8 @@ async fn load_config(
     path: &Path,
 ) -> Result<
     (
-        transport::SingularityJobInit,
-        Vec<transport::SingularityJob>,
+        transport::ApptainerJobInit,
+        Vec<transport::ApptainerJob>,
     ),
     RunErrorLocal,
 > {
@@ -64,13 +64,13 @@ async fn load_config(
     debug!("loading job information from files");
     let loaded_jobs = match jobs.load_jobs().await? {
         config::JobOpts::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
-        config::JobOpts::Singularity(s) => s,
+        config::JobOpts::Apptainer(s) => s,
     };
 
     debug!("loading build information from files");
     let loaded_build = match jobs.load_build().await? {
         transport::BuildOpts::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
-        transport::BuildOpts::Singularity(s) => s,
+        transport::BuildOpts::Apptainer(s) => s,
     };
 
     Ok((loaded_build, loaded_jobs))

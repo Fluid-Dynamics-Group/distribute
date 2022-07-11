@@ -136,7 +136,7 @@ meta:
   namespace: example_namespace
   matrix: @your-username:matrix.org
   capabilities: []
-singularity:
+apptainer:
   initialize:
     sif: execute_container.sif
     required_files: []

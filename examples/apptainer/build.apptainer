@@ -6,7 +6,7 @@ Stage: build
 	# copy the files over
 	build.py /build.py
 	run.py /run.py
-	#/home/brooks/github/distribute/examples/singularity/build.py /build.py
+	#/home/brooks/github/distribute/examples/apptainer/build.py /build.py
 
 %post
 	# install packages on the host system

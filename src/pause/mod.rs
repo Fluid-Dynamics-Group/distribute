@@ -25,9 +25,9 @@ pub async fn pause(args: cli::Pause) -> Result<(), Error> {
         .map_err(error::PauseError::from)?;
 
     // these two commands are used for running the python
-    // procs / singularity containers
+    // procs / apptainer containers
     let to_pause = ProcessSet::new(
-        &["python3 run.py", "singularity run --app distribute"],
+        &["python3 run.py", "apptainer run --app distribute"],
         duration,
     );
 

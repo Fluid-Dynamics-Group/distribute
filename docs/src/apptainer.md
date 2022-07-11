@@ -20,7 +20,7 @@ benefits for using apptainer from an implementation standpoint in `distribute`:
 
 ## Apptainer definition files
 
-This documentation is not the place to discuss the intricacies of singularity / apptainer. As a user, we have tried to make
+This documentation is not the place to discuss the intricacies of apptainer. As a user, we have tried to make
 it as easy as possible to build an image that can run on `distribute`. 
 The [apptainer-common](https://github.com/Fluid-Dynamics-Group/apptainer-common) was purpose built to give you a good
 starting place with compilers and runtimes (including fortran, C++, openfoam, python3). Your definition file
@@ -115,7 +115,7 @@ I want to emphasize one specific thing from this file: the `%apprun distribute` 
 with 16 cores, your `distribute` section gets called like this:
 
 ```
-singularity run --app distribute 16
+apptainer run --app distribute 16
 ```
 
 In reality, this call is actually slightly more complex (see below), but this command is illustrative of the point.
@@ -157,15 +157,15 @@ From: nvcr.io/nvidia/nvhpc:22.1-devel-cuda_multi-ubuntu20.05
 Compiling an apptainer definition file to a `.sif` file to run on the `distribute` compute is relatively simple (on linux). Run something like this:
 
 ```
-mkdir ~/singularity
-SINGULARITY_TMPDIR="~/singularity" sudo -E singularity build your-output-file.sif build.singularity
+mkdir ~/apptainer
+APPTAINER_TMPDIR="~/apptainer" sudo -E apptainer build your-output-file.sif build.apptainer
 ```
 
-where `your-output-file.sif` is the desired name of the `.sif` file that apptainer will spit out, and `build.singularity` is the 
-definition file you have built. The `SINGULARITY_TMPDIR="~/singularity"` portion of the command sets the `SINGULARITY_TMPDIR` environment
-variable to a location on disk (`~/singularity`) because singularity / apptainer can often require more memory to compile the `sif` file
-than what is available on your computer (yes, more than your 64 GB). Since `singularity build` requires root privileges, it must be run with `sudo`. The additional
-`-E` passed to `sudo` copies the environment variables from the host shell (which is needed for `SINGULARITY_TMPDIR`)
+where `your-output-file.sif` is the desired name of the `.sif` file that apptainer will spit out, and `build.apptainer` is the 
+definition file you have built. The `APPTAINER_TMPDIR="~/apptainer"` portion of the command sets the `APPTAINER_TMPDIR` environment
+variable to a location on disk (`~/apptainer`) because apptainer / apptainer can often require more memory to compile the `sif` file
+than what is available on your computer (yes, more than your 64 GB). Since `apptainer build` requires root privileges, it must be run with `sudo`. The additional
+`-E` passed to `sudo` copies the environment variables from the host shell (which is needed for `APPTAINER_TMPDIR`)
 
 ## Binding Volumes (Mutable Filesystems)
 
@@ -183,7 +183,7 @@ to the root directory: `/distribute_save` and `/input`. When running your apptai
 cores, the following command is used to ensure that these bindings happen:
 
 ```bash
-singularity run singularity.sif --app distribute --bind \
+apptainer run apptainer_file.sif --app distribute --bind \
 	path/to/a/folder:/distribute_save:rw,\
 	path/to/another/folder:/input:rw\
 	16
@@ -191,14 +191,14 @@ singularity run singularity.sif --app distribute --bind \
 
 Note that the binding arguments are simply a comma separated list in the format `folder_on_host:folder_in_container:rw`
 where `rw` specifies that files in the folder are readable and writeable.
-If your configuration file for singularity looks like this:
+If your configuration file for apptainer looks like this:
 
 ```yaml
 meta:
   batch_name: your_jobset_name
   namespace: example_namespace
   capabilities: []
-singularity:
+apptainer:
   initialize:
     sif: execute_container.sif
     required_files:
@@ -263,7 +263,7 @@ meta:
   batch_name: your_jobset_name
   namespace: example_namespace
   capabilities: []
-singularity:
+apptainer:
   initialize:
     sif: execute_container.sif
     required_files:
@@ -283,7 +283,7 @@ singularity:
 By adding this line, your container will be invoked like this (on a 16 core machine):
 
 ```
-singularity run singularity.sif --app distribute --bind \
+apptainer run apptainer_file.sif --app distribute --bind \
 	path/to/a/folder:/distribute_save:rw,\
 	path/to/another/folder:/input:rw,\
 	path/to/yet/another/folder/:/output:rw\
@@ -295,7 +295,7 @@ singularity run singularity.sif --app distribute --bind \
 A default configuration file can be generated with :
 
 ```
-distribute template singularity
+distribute template apptainer
 ```
 
 ```yaml
@@ -307,8 +307,8 @@ meta:
   capabilities:
     - gfortran
     - python3
-    - singularity
-singularity:
+    - apptainer
+apptainer:
   initialize:
     sif: execute_container.sif
     required_files:
@@ -330,11 +330,11 @@ singularity:
 ```
 
 The `meta` section is identical to the `meta` section of python. For apptainer configurations, the only 
-`capability` you need to specify is `singularity` or `apptainer`. If you require your job to use a gpu,
+`capability` you need to specify is `apptainer` or `apptainer`. If you require your job to use a gpu,
 you can also specify a `gpu` capability.
 
 The `initialize` section takes in a single `.sif` file
-that is built using the `singularity build` command on a definition file, as well as some files that you always want
+that is built using the `apptainer build` command on a definition file, as well as some files that you always want
 to be available in the `/input` directory. Then, the `required_mounts` provides a way to bind mutable directories 
 to the inside of the container. Make sure that the directory you are binding to does not actually exist in the container
 (but its parent directory *does* exist).
@@ -429,7 +429,7 @@ meta:
   batch_name: some_batch
   namespace: some_namespace
   capabilities: []
-singularity:
+apptainer:
   initialize:
     sif: apptainer_local.sif
     required_files: []
@@ -473,7 +473,7 @@ output
 ├── initial_files
 ├── input
 │   └── input.txt
-└── singularity.sif
+└── apptainer_file.sif
 ```
 
 This shows that we were able to write to additional folders on the host system (`_bind_path_x`), as well as read and write output files. Its worth noting that 

@@ -453,10 +453,10 @@ impl JobSet {
                 }
                 out
             }
-            config::JobOpts::Singularity(python_jobs) => {
+            config::JobOpts::Apptainer(python_jobs) => {
                 let mut out = vec![];
                 for job in python_jobs {
-                    let stored_job = StoredJob::from_singularity(job, base_path)?;
+                    let stored_job = StoredJob::from_apptainer(job, base_path)?;
                     out.push(stored_job);
                 }
                 out
