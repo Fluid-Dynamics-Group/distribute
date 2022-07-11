@@ -170,7 +170,7 @@ pub struct Template {
 
 #[derive(StructOpt, PartialEq, Debug)]
 pub(crate) enum TemplateType {
-    Singularity,
+    Apptainer,
     Python,
 }
 
