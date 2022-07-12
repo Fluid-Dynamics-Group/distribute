@@ -309,6 +309,8 @@ pub enum TemplateError {
     Serde(serde_yaml::Error),
     #[error("Could not write to the output file: {0}")]
     Io(io::Error),
+    #[error("failed to load some information for the job: {0}")]
+    LoadJobs(crate::config::LoadJobsError)
 }
 
 #[derive(Debug, From, thiserror::Error, serde::Deserialize, Clone, serde::Serialize)]

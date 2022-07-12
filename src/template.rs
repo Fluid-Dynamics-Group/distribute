@@ -1,6 +1,6 @@
 use super::cli;
 use super::cli::Template;
-use crate::config::{self, common, python, apptainer};
+use crate::config::{self, apptainer, common, python};
 use crate::error::{Error, TemplateError};
 
 pub fn template(args: Template) -> Result<(), Error> {
@@ -22,18 +22,16 @@ fn python_template() -> Result<String, TemplateError> {
     let initialize = python::Initialize::new(
         "/path/to/build.py".into(),
         vec![
-            common::File {
-                path: "/file/always/present/1.txt".into(),
-                alias: Some("optional_alias.txt".to_string()),
-            },
-            common::File {
-                path: "/another/file/2.json".into(),
-                alias: None,
-            },
-            common::File {
-                path: "/maybe/python/utils_file.py".into(),
-                alias: None,
-            },
+            common::File::with_alias_relative(
+                "/file/always/present/1.txt",
+                "optional_alias.txt",
+            ),
+            common::File::new_relative(
+                "/another/file/2.json"
+            ),
+            common::File::new_relative(
+                "/maybe/python/utils_file.py",
+            ),
         ],
     );
 
@@ -41,14 +39,13 @@ fn python_template() -> Result<String, TemplateError> {
         "job_1".into(),
         "execute_job.py".into(),
         vec![
-            common::File {
-                path: "job_configuration_file.json".into(),
-                alias: None,
-            },
-            common::File {
-                path: "job_configuration_file_with_alias.json".into(),
-                alias: Some("input.json".to_string()),
-            },
+            common::File::new_relative(
+                "job_configuration_file.json",
+            ),
+            common::File::with_alias_relative(
+                "job_configuration_file_with_alias.json",
+                "input.json"
+            )
         ],
     );
 
@@ -64,18 +61,16 @@ fn apptainer_template() -> Result<String, TemplateError> {
     let initialize = apptainer::Initialize::new(
         "execute_container.sif".into(),
         vec![
-            common::File {
-                path: "/file/always/present/1.txt".into(),
-                alias: Some("optional_alias.txt".to_string()),
-            },
-            common::File {
-                path: "/another/file/2.json".into(),
-                alias: None,
-            },
-            common::File {
-                path: "/maybe/python/utils_file.py".into(),
-                alias: None,
-            },
+            common::File::with_alias_relative(
+                "/file/always/present/1.txt",
+                "optional_alias.txt"
+            ),
+            common::File::new_relative(
+                "/another/file/2.json",
+            ),
+            common::File::new_relative(
+                "/maybe/python/utils_file.py"
+            ),
         ],
         vec!["/path/inside/container/to/mount".into()],
     );
@@ -83,14 +78,13 @@ fn apptainer_template() -> Result<String, TemplateError> {
     let job_1 = apptainer::Job::new(
         "job_1".into(),
         vec![
-            common::File {
-                path: "job_configuration_file.json".into(),
-                alias: None,
-            },
-            common::File {
-                path: "job_configuration_file_with_alias.json".into(),
-                alias: Some("input.json".to_string()),
-            },
+            common::File::new_relative(
+                "job_configuration_file.json",
+            ),
+            common::File::with_alias_relative(
+                "job_configuration_file_with_alias.json",
+                "input.json"
+            ),
         ],
     );
 
@@ -112,4 +106,14 @@ fn meta() -> config::Meta {
             .map(Into::into)
             .collect(),
     }
+}
+
+#[test]
+fn create_apptainer_template() {
+    apptainer_template().unwrap();
+}
+
+#[test]
+fn create_python_template() {
+    apptainer_template().unwrap();
 }

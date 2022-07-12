@@ -1,7 +1,7 @@
+pub mod apptainer;
 pub mod common;
 pub mod python;
 pub mod requirements;
-pub mod apptainer;
 
 #[cfg(feature = "cli")]
 use crate::transport;
@@ -46,6 +46,16 @@ pub enum LoadJobsError {
     ReadBytes(ReadBytesError),
     #[error("{0}")]
     MissingFileName(MissingFileNameError),
+    #[error("{0}")]
+    Canonicalize(CanonicalizeError),
+}
+
+#[derive(Debug, From, thiserror::Error, Constructor, Display)]
+#[display(fmt = "Failed to canonicalize path {} - error: {}", "path.display()", err)]
+/// happens when calling .canonicalize() on a path
+pub struct CanonicalizeError {
+    path: PathBuf,
+    err: std::io::Error,
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]
@@ -136,10 +146,7 @@ impl Jobs {
     pub fn len_jobs(&self) -> usize {
         match &self {
             Self::Python { meta: _, python } => python.len_jobs(),
-            Self::Apptainer {
-                meta: _,
-                apptainer,
-            } => apptainer.len_jobs(),
+            Self::Apptainer { meta: _, apptainer } => apptainer.len_jobs(),
         }
     }
     pub async fn load_jobs(&self) -> Result<JobOpts, LoadJobsError> {
@@ -148,10 +155,7 @@ impl Jobs {
                 let py_jobs = python.load_jobs().await?;
                 Ok(py_jobs.into())
             }
-            Self::Apptainer {
-                meta: _,
-                apptainer,
-            } => {
+            Self::Apptainer { meta: _, apptainer } => {
                 let sin_jobs = apptainer.load_jobs().await?;
                 Ok(sin_jobs.into())
             }

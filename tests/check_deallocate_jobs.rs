@@ -18,7 +18,6 @@ async fn check_deallocate_jobs() {
         distribute::logger();
     }
 
-
     let server_port = 9981;
     // this is the port in the corresponding distribute-nodes.yaml file for this job
     let client_port = 9967;
@@ -62,7 +61,7 @@ async fn check_deallocate_jobs() {
         server_port,
         false,
     );
-    
+
     // start the server
     tokio::spawn(async move {
         println!("starting server");

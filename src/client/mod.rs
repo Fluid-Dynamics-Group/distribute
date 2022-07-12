@@ -2,7 +2,7 @@ pub(crate) mod execute;
 pub(crate) mod utils;
 
 pub(crate) use execute::{
-    initialize_python_job, initialize_apptainer_job, run_python_job, run_apptainer_job,
+    initialize_apptainer_job, initialize_python_job, run_apptainer_job, run_python_job,
     BindingFolderState,
 };
 

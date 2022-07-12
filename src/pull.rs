@@ -2,8 +2,8 @@ use crate::cli;
 use crate::config;
 use crate::error;
 use crate::error::Error;
-use crate::transport;
 use crate::prelude::*;
+use crate::transport;
 
 use std::io::Write;
 use std::net::SocketAddr;

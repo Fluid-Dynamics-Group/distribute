@@ -17,7 +17,7 @@ macro_rules! throw_error_with_self {
             Ok(x) => x,
             Err(e) => {
                 debug!("just threw with error");
-                return Err(($_self, e.into()))
+                return Err(($_self, e.into()));
             }
         }
     };

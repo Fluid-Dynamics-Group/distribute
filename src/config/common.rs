@@ -1,8 +1,10 @@
+use super::CanonicalizeError;
 use super::LoadJobsError;
 use super::MissingFileNameError;
 use super::ReadBytesError;
 
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::path::PathBuf;
 
 #[cfg(feature = "cli")]
@@ -12,13 +14,59 @@ use crate::transport;
 #[serde(deny_unknown_fields)]
 pub struct File {
     // the path to the file locally
-    pub path: PathBuf,
+    path: PathBuf,
     // the save name of the file in the root
     // directory once it has been transported to the client
-    pub alias: Option<String>,
+    alias: Option<String>,
 }
 
 impl File {
+    pub fn with_alias<T: Into<PathBuf>, U: Into<String>>(path: T, alias: U) -> Result<Self, LoadJobsError> {
+        let path = path.into();
+        let path = path
+            .canonicalize()
+            .map_err(|e| CanonicalizeError::new(path, e))?;
+        Ok(Self {
+            path,
+            alias: Some(alias.into()),
+        })
+    }
+
+    /// create a `File` without an alias and dont try to canonicalize the path to something real
+    ///
+    /// most useful for templating the results - when the path does not actually exist
+    pub fn with_alias_relative<T: Into<PathBuf>, U: Into<String>>(path: T, alias: U) -> Self {
+        let path = path.into();
+        Self {
+            path,
+            alias: Some(alias.into()),
+        }
+    }
+
+    /// create a new `File` and ensure that the path is an absolute path
+    pub fn new<T: Into<PathBuf>>(path: T) -> Result<Self, LoadJobsError> {
+        let path = path.into();
+        let path = path
+            .canonicalize()
+            .map_err(|e| CanonicalizeError::new(path, e))?;
+        Ok(Self { path, alias: None })
+    }
+
+    /// create a file without an alias, and dont try to canonicalize the path to something real
+    ///
+    /// this is most useful for templating the results
+    pub fn new_relative<T: Into<PathBuf>>(path: T) -> Self {
+        let path = path.into();
+        Self { path, alias: None }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn alias(&self) -> Option<&String> {
+        self.alias.as_ref()
+    }
     pub(crate) fn filename(&self) -> Result<String, LoadJobsError> {
         if let Some(alias) = &self.alias {
             Ok(alias.to_string())

@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "distribute"
-version = "0.9.4"
+version = "0.10.0"
 dependencies = [
  "bincode",
  "chrono",

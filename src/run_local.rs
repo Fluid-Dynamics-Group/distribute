@@ -52,13 +52,7 @@ async fn create_required_dirs(args: &cli::Run) -> Result<(), RunErrorLocal> {
 /// load the config files
 async fn load_config(
     path: &Path,
-) -> Result<
-    (
-        transport::ApptainerJobInit,
-        Vec<transport::ApptainerJob>,
-    ),
-    RunErrorLocal,
-> {
+) -> Result<(transport::ApptainerJobInit, Vec<transport::ApptainerJob>), RunErrorLocal> {
     let jobs = config::load_config::<config::Jobs>(&path)?;
 
     debug!("loading job information from files");
