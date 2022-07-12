@@ -33,12 +33,13 @@ then, on each compute node:
 
 ```
 sudo su distribute
+cd ~/distribute
 
 git fetch -a
 git checkout release-$VERSION
 git pull
 
-cargo install --path .
+cargo install --path . --locked
 
 systemctl restart distribute-compute
 ```
