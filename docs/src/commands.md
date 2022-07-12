@@ -10,29 +10,31 @@ $ distribute
 at the time of writing, this yields:
 
 ```
-distribute 0.6.0
+distribute 0.9.4
 A utility for scheduling jobs on a cluster
 
 USAGE:
-    distribute <SUBCOMMAND>
+    distribute [FLAGS] <SUBCOMMAND>
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -h, --help         Prints help information
+        --save-log
+        --show-logs
+    -V, --version      Prints version information
 
 SUBCOMMANDS:
-    add         add a job set to the queue
-    client      start this workstation as a node and prepare it for a server connection
-    help        Prints this message or the help of the given subcommand(s)
-    kill        terminate any running jobs of a given batch name and remove the batch from the queue
-    pause       pause all currently running processes on this node for a specified amount of time
-    pull        Pull files from the server to your machine
-    server      start serving jobs out to nodes using the provied configuration file
-    status      check the status of all the nodes
-    template    generate a template file to fill for executing with `distribute add`
+    add              add a job set to the queue
+    client           start this workstation as a node and prepare it for a server connection
+    help             Prints this message or the help of the given subcommand(s)
+    kill             terminate any running jobs of a given batch name and remove the batch from the queue
+    node-status      check the status of all the nodes
+    pause            pause all currently running processes on this node for a specified amount of time
+    pull             Pull files from the server to your machine
+    run              run a apptainer configuration file locally (without sending it off to a server)
+    server           start serving jobs out to nodes using the provied configuration file
+    server-status    check the status of all the nodes
+    template         generate a template file to fill for executing with `distribute add`
 ```
-
-
 
 ## add
 
@@ -133,8 +135,8 @@ apptainer:
 
 ## pause
 
-`distribute pause` will pause all locally running jobs so that you can use the workstation normally. It takes
-a simple argument as an upper bound on how long the tasks can be paused. The maximum amount of time that 
+If you use a compute node as a work station, `distribute pause` will pause all locally running jobs so that you 
+can use the workstation normally. It takes a simple argument as an upper bound on how long the tasks can be paused. The maximum amount of time that 
 a job can be paused is four hours (`4h`), but if this is not enough you can simply rerun the command. This 
 upper bound is just present to remove any chance of you accidentally leaving the jobs paused for an extended
 period of time.
@@ -164,8 +166,10 @@ names of the jobs that have not been run yet. You can use this command to fetch 
 to execute the `kill` command if needed.
 
 ```bash
-distribute status --ip <server ip here>
+distribute server-status --ip <server ip here>
 ```
+
+If there is no output then there are no jobs currently in the queue or executing on nodes.
 
 **TODO** An example output here
 
