@@ -19,3 +19,26 @@ Developer documentation is built with
 ```
 cargo doc --no-deps --open
 ```
+
+## Releasing a New Version
+
+on master branch of a development machine:
+
+```
+git checkout -b release-$VERSION
+git push --set-upstream origin release-$VERSION
+```
+
+then, on each compute node:
+
+```
+sudo su distribute
+
+git fetch -a
+git checkout release-$VERSION
+git pull
+
+cargo install --path .
+
+systemctl restart distribute-compute
+```
