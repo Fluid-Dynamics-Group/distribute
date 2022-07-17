@@ -12,6 +12,8 @@ use crate::transport;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
+//#[cfg_attr(feature = "python", derive(pyo3::FromPyObject))]
 pub struct File {
     // the path to the file locally
     path: PathBuf,
@@ -21,7 +23,10 @@ pub struct File {
 }
 
 impl File {
-    pub fn with_alias<T: Into<PathBuf>, U: Into<String>>(path: T, alias: U) -> Result<Self, LoadJobsError> {
+    pub fn with_alias<T: Into<PathBuf>, U: Into<String>>(
+        path: T,
+        alias: U,
+    ) -> Result<Self, LoadJobsError> {
         let path = path.into();
         let path = path
             .canonicalize()

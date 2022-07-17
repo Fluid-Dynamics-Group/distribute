@@ -4,6 +4,8 @@ version = "0.10.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 thiserror = "1.0.31"
@@ -29,8 +31,16 @@ structopt = { version = "0.3.25", optional = true }
 git = "https://github.com/fluid-Dynamics-Group/matrix-notify"
 rev = "cfc4988e60515bd99d2000c48d58eb56ae336a71"
 
+[dependencies.pyo3]
+#version = "0.16.5" 
+git = "https://github.com/PyO3/pyo3"
+rev = "2b6d59f8898ed579a7cbd1c538f0fe2db65c659b"
+features = ["extension-module"]
+optional = true
+
 [features]
-default = ["cli"]
+#default = ["cli"]
+default = ["cli", "pyo3"]
 cli = [
 	"structopt", 
 	"regex", 
@@ -48,6 +58,7 @@ cli = [
 	"bincode",
 	"matrix-notify/cli"
 ]
+python = ["pyo3"]
 
 [[bin]]
 name = "distribute"

@@ -93,6 +93,7 @@ pub struct Initialize {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Job {
     name: String,
     #[serde(default)]

@@ -51,7 +51,11 @@ pub enum LoadJobsError {
 }
 
 #[derive(Debug, From, thiserror::Error, Constructor, Display)]
-#[display(fmt = "Failed to canonicalize path {} - error: {}", "path.display()", err)]
+#[display(
+    fmt = "Failed to canonicalize path {} - error: {}",
+    "path.display()",
+    err
+)]
 /// happens when calling .canonicalize() on a path
 pub struct CanonicalizeError {
     path: PathBuf,
