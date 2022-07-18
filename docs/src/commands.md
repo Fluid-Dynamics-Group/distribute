@@ -158,7 +158,7 @@ distribute pause 1h30m10s
 distribute pause 60s
 ```
 
-## status
+## server-status
 
 `distribute status` prints out all the running jobs at the head node. It will show you all the job batches
 that are currently running, as well as the number of jobs in that set currently running and the 
@@ -172,6 +172,18 @@ distribute server-status --ip <server ip here>
 If there is no output then there are no jobs currently in the queue or executing on nodes.
 
 **TODO** An example output here
+
+```
+260sec
+        :jobs running now: 1
+10sec_positive
+        -unforced_viscous_decay
+        -unforced_inviscid_decay
+        -viscous_forcing_no_compensation_eh_first
+        -viscous_forcing_no_compensation_eh_second
+        -viscous_forcing_no_compensation_eh_both
+        :jobs running now: 0
+```
 
 ## pull
 
