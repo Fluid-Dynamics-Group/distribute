@@ -90,9 +90,13 @@ jobs:
     # load in GIT_CREDENTIALS from repo secrets since
     # building the distribute binary will clone matrix-notify
     # which is a private repo
-    - uses: de-vri-es/setup-git-credentials@v2
+    - name: add git credentials for clone
+      uses: de-vri-es/setup-git-credentials@v2
       with:
         credentials: ${{secrets.GIT_CREDENTIALS}}
+    - name: Clone Private Repo
+      run: |
+        git clone "https://github.com/fluid-Dynamics-Group/matrix-notify"
     - name: Build wheels
       uses: messense/maturin-action@v1
       with:
