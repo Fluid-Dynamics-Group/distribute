@@ -2,6 +2,13 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use std::path::PathBuf;
 
+use distribute::common::File;
+use distribute::apptainer::Description;
+use distribute::apptainer::Initialize;
+use distribute::apptainer::Job;
+use distribute::ApptainerConfig;
+use distribute::Meta;
+
 #[pyfunction]
 fn metadata(
     namespace: String,
@@ -23,43 +30,34 @@ fn metadata(
         capabilities,
         matrix,
     };
-    Ok(Meta(meta))
+    Ok(meta)
 }
 
 #[pyfunction]
 fn initialize(
     sif_path: String,
-    required_files: Vec<DistributeFile>,
+    required_files: Vec<File>,
     required_mounts: Vec<String>,
-) -> PyResult<Initialize> {
-    println!("!!!in initialize");
-    let init = distribute::apptainer::Initialize::new(
+) -> Initialize {
+    distribute::apptainer::Initialize::new(
         PathBuf::from(sif_path),
-        required_files.into_iter().map(|x| x.file()).collect(),
+        required_files,
         required_mounts.into_iter().map(PathBuf::from).collect(),
-    );
-
-    Ok(Initialize(init))
+    )
 }
 
 #[pyfunction]
-fn job(name: String, required_files: Vec<DistributeFile>) -> PyResult<Job> {
-    println!("!!!! start of job function call");
-    let job =
-        distribute::apptainer::Job::new(name, required_files.into_iter().map(|x| x.file()).collect());
-
-    Ok(Job(job))
+fn job(name: String, required_files: Vec<File>) -> Job {
+    distribute::apptainer::Job::new(name, required_files)
 }
 
 #[pyfunction]
-fn description(initialize: Initialize, jobs: Vec<Job>) -> PyResult<ApptainerDescription> {
-    let desc = distribute::apptainer::Description::new(initialize.0, jobs.into_iter().map(|x| x.0).collect());
-
-    Ok(ApptainerDescription(desc))
+fn description(initialize: Initialize, jobs: Vec<Job>) -> Description {
+    distribute::apptainer::Description::new(initialize, jobs)
 }
 
 #[pyfunction(relative="false", alias="None")]
-fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<DistributeFile> {
+fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<distribute::common::File> {
     
     let file = match (relative, alias) {
         (true, Some(alias)) => {
@@ -76,101 +74,23 @@ fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<Distri
         }
     };
 
-    Ok(DistributeFile::new(file))
-}
-
-
-#[pyclass]
-#[derive(Clone)]
-struct Meta(distribute::Meta);
-
-#[pyclass]
-#[derive(FromPyObject)]
-struct Job(distribute::apptainer::Job);
-
-#[pyclass]
-#[derive(Clone)]
-struct Initialize(distribute::apptainer::Initialize);
-
-#[pyclass]
-#[derive(FromPyObject)]
-struct DistributeFile(distribute::common::File);
-
-impl DistributeFile {
-    fn new(x: distribute::common::File) -> Self {
-        Self(x)
-    }
-    fn file(self) -> distribute::common::File {
-        self.0
-    }
-}
-
-fn extract_file(py: &PyAny) -> PyResult<distribute::common::File> {
-    println!("!!! attempting to extract file!");
-    Ok(py
-        .extract::<distribute::common::File>()
-        .expect("Could not cast"))
-}
-
-#[pyclass]
-#[derive(Clone)]
-struct ApptainerDescription(distribute::apptainer::Description);
-
-#[pyclass]
-struct ApptainerJobset {
-    meta: Meta,
-    description: ApptainerDescription,
-}
-
-#[pymethods]
-impl ApptainerJobset {
-    #[new]
-    fn new(meta: Meta, description: ApptainerDescription) -> Self {
-        Self{ meta, description }
-    }
-
-    fn write_to_path(&self, path: PathBuf) -> PyResult<()> {
-        let config = distribute::Jobs::Apptainer { meta: self.meta.0.clone(), apptainer:self.description.0.clone() };
-
-        let file = std::fs::File::create(&path)
-            .map_err(|e| PyValueError::new_err(format!("failed to create distribute jobs file at {}, full error: {e}", path.display())))?;
-
-        config.to_writer(file)
-            .map_err(|e| PyValueError::new_err(format!("failed to serialize provided data to file. This should probably not happen. full error: {e}")))?;
-
-        Ok(())
-    }
+    Ok(file)
 }
 
 #[pyfunction]
-fn take_foo_wrapper(foo: FooWrapper) -> () {
-    //
+fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig {
+    ApptainerConfig::new(meta, description)
 }
 
 #[pyfunction]
-fn take_foo(foo: Foo) -> () {
-    //
-}
+fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<()> {
+    let file = std::fs::File::create(&path)
+        .map_err(|e| PyValueError::new_err(format!("failed to create file at {}. Full error: {e}", path.display())))?;
 
-#[pyfunction]
-fn make_foo() -> Foo {
-    Foo{ one: "made from foo".into()}
-}
+    distribute::Jobs::from(config).to_writer(file)
+        .map_err(|e| PyValueError::new_err(format!("failed to serialize contents to file. Full error: {e}")))?;
 
-#[pyfunction]
-fn make_foo_wrapper() -> FooWrapper {
-    FooWrapper(Foo{ one: "made from wrapper".into()})
-}
-
-
-#[derive(Clone)]
-#[pyclass]
-struct FooWrapper(Foo);
-
-#[derive(Clone)]
-#[pyclass]
-struct Foo {
-    one: String,
+    Ok(())
 }
 
 /// A Python module implemented in Rust. The name of this function must match
@@ -183,12 +103,8 @@ fn distribute_config(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(job, m)?)?;
     m.add_function(wrap_pyfunction!(description, m)?)?;
     m.add_function(wrap_pyfunction!(file, m)?)?;
-    m.add_class::<DistributeFile>()?;
-    m.add_class::<distribute::common::File>()?;
+    m.add_function(wrap_pyfunction!(apptainer_config, m)?)?;
+    m.add_function(wrap_pyfunction!(write_config_to_file, m)?)?;
 
-    m.add_function(wrap_pyfunction!(take_foo_wrapper, m)?)?;
-    m.add_function(wrap_pyfunction!(take_foo, m)?)?;
-    m.add_function(wrap_pyfunction!(make_foo, m)?)?;
-    m.add_function(wrap_pyfunction!(make_foo_wrapper, m)?)?;
     Ok(())
 }

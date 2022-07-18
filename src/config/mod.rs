@@ -122,22 +122,35 @@ impl Node {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, From)]
 #[serde(untagged)]
 #[serde(deny_unknown_fields)]
 pub enum Jobs {
-    Python {
-        meta: Meta,
-        python: python::Description,
-    },
-    Apptainer {
-        meta: Meta,
-        apptainer: apptainer::Description,
-    },
+    Python(PythonConfig),
+    Apptainer(ApptainerConfig),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
+pub struct ApptainerConfig {
+    meta: Meta,
+    #[serde(rename = "apptainer")]
+    description: apptainer::Description,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
+pub struct PythonConfig {
+    meta: Meta,
+    #[serde(rename = "python")]
+    description: python::Description,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Meta {
     pub batch_name: String,
     pub namespace: String,
@@ -149,18 +162,18 @@ pub struct Meta {
 impl Jobs {
     pub fn len_jobs(&self) -> usize {
         match &self {
-            Self::Python { meta: _, python } => python.len_jobs(),
-            Self::Apptainer { meta: _, apptainer } => apptainer.len_jobs(),
+            Self::Python(pyconfig) => pyconfig.description.len_jobs(),
+            Self::Apptainer(apptainer_config) => apptainer_config.description.len_jobs(),
         }
     }
     pub async fn load_jobs(&self) -> Result<JobOpts, LoadJobsError> {
         match &self {
-            Self::Python { meta: _, python } => {
-                let py_jobs = python.load_jobs().await?;
+            Self::Python(pyconfig) => {
+                let py_jobs = pyconfig.description.load_jobs().await?;
                 Ok(py_jobs.into())
             }
-            Self::Apptainer { meta: _, apptainer } => {
-                let sin_jobs = apptainer.load_jobs().await?;
+            Self::Apptainer(apptainer_config) => {
+                let sin_jobs = apptainer_config.description.load_jobs().await?;
                 Ok(sin_jobs.into())
             }
         }
@@ -168,12 +181,18 @@ impl Jobs {
 
     pub async fn load_build(&self) -> Result<transport::BuildOpts, LoadJobsError> {
         match &self {
-            Self::Python { meta, python } => {
-                let py_build = python.load_build(meta.batch_name.clone()).await?;
+            Self::Python(pyconfig) => {
+                let py_build = pyconfig
+                    .description
+                    .load_build(pyconfig.meta.batch_name.clone())
+                    .await?;
                 Ok(py_build.into())
             }
-            Self::Apptainer { meta, apptainer } => {
-                let sin_build = apptainer.load_build(meta.batch_name.clone()).await?;
+            Self::Apptainer(apptainer_config) => {
+                let sin_build = apptainer_config
+                    .description
+                    .load_build(apptainer_config.meta.batch_name.clone())
+                    .await?;
                 Ok(sin_build.into())
             }
         }
@@ -183,29 +202,29 @@ impl Jobs {
         &self,
     ) -> &requirements::Requirements<requirements::JobRequiredCaps> {
         match &self {
-            Self::Python { meta, .. } => &meta.capabilities,
-            Self::Apptainer { meta, .. } => &meta.capabilities,
+            Self::Python(py) => &py.meta.capabilities,
+            Self::Apptainer(app) => &app.meta.capabilities,
         }
     }
 
     pub fn batch_name(&self) -> String {
         match self {
-            Self::Python { meta, .. } => meta.batch_name.clone(),
-            Self::Apptainer { meta, .. } => meta.batch_name.clone(),
+            Self::Python(py) => py.meta.batch_name.clone(),
+            Self::Apptainer(app) => app.meta.batch_name.clone(),
         }
     }
 
     pub fn matrix_user(&self) -> Option<matrix_notify::UserId> {
         match self {
-            Self::Python { meta, .. } => meta.matrix.clone(),
-            Self::Apptainer { meta, .. } => meta.matrix.clone(),
+            Self::Python(py) => py.meta.matrix.clone(),
+            Self::Apptainer(app) => app.meta.matrix.clone(),
         }
     }
 
     pub fn namespace(&self) -> String {
         match self {
-            Self::Python { meta, .. } => meta.namespace.clone(),
-            Self::Apptainer { meta, .. } => meta.namespace.clone(),
+            Self::Python(py) => py.meta.namespace.clone(),
+            Self::Apptainer(app) => app.meta.namespace.clone(),
         }
     }
 }
@@ -226,14 +245,8 @@ pub trait NormalizePaths {
 impl NormalizePaths for Jobs {
     fn normalize_paths(&mut self, base: PathBuf) {
         match self {
-            Self::Python {
-                meta: _meta,
-                python,
-            } => python.normalize_paths(base),
-            Self::Apptainer {
-                meta: _meta,
-                apptainer,
-            } => apptainer.normalize_paths(base),
+            Self::Python(py) => py.description.normalize_paths(base),
+            Self::Apptainer(app) => app.description.normalize_paths(base),
         }
     }
 }

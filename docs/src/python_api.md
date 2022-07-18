@@ -1,3 +1,17 @@
+# Python Api
+
+Since solver configuration files are sometimes machine generated, it can be arduous to manually create 
+`distribute-jobs.yaml` files with methods like `distribute template`. To aid in this difficulty, a python
+package is available to generate configurations with minimal effort.
+
+
+## Full Documentation
+
+TODO
+
+## Example
+
+```python
 import distribute_config
 
 matrix_user = "@karik:matrix.org"
@@ -45,3 +59,34 @@ description = distribute_config.description(initialize, jobs)
 
 jobset = distribute_config.apptainer_config(meta, description)
 distribute_config.write_config_to_file(jobset,"./distribute-jobs.yaml")
+```
+
+This generates:
+
+```
+---
+meta:
+  batch_name: test_batch
+  namespace: test_namespace
+  matrix: "@karik:matrix.org"
+  capabilities:
+    - apptainer
+apptainer:
+  initialize:
+    sif: "./path/to/some/container.sif"
+    required_files:
+      - path: "./path/to/some/file.h5"
+        alias: initial_condition.h5
+    required_mounts:
+      - /solver/extra_mount
+  jobs:
+    - name: job_1
+      required_files:
+        - path: "./path/to/config1.json"
+          alias: config.json
+    - name: job_2
+      required_files:
+        - path: "./path/to/config2.json"
+          alias: config.json
+
+```

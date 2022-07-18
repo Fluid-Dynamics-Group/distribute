@@ -39,8 +39,7 @@ features = ["extension-module"]
 optional = true
 
 [features]
-#default = ["cli"]
-default = ["cli", "pyo3"]
+default = ["cli"]
 cli = [
 	"structopt", 
 	"regex", 
