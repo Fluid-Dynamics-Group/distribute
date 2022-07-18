@@ -87,6 +87,12 @@ jobs:
       with:
         python-version: 3.9
         architecture: x64
+    # load in GIT_CREDENTIALS from repo secrets since
+    # building the distribute binary will clone matrix-notify
+    # which is a private repo
+    - uses: de-vri-es/setup-git-credentials@v2
+      with:
+        credentials: ${{secrets.GIT_CREDENTIALS}}
     - name: Build wheels
       uses: messense/maturin-action@v1
       with:
