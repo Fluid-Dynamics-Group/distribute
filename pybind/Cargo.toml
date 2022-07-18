@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "distribute_config"
+name = "distribute_compute_config"
 crate-type = ["cdylib"]
 
 [dependencies]

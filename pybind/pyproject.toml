@@ -1,0 +1,9 @@
+[tool.poetry]
+name = "distribute_compute_config"
+version = "0.10.0"
+description = ""
+authors = ["Brooks"]
+
+[build-system]
+requires = ["maturin>=0.13,<0.14"]
+build-backend = "maturin"

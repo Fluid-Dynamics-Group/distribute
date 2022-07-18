@@ -97,7 +97,7 @@ fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<()> 
 /// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
 /// import the module.
 #[pymodule]
-fn distribute_config(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn distribute_compute_config(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(metadata, m)?)?;
     m.add_function(wrap_pyfunction!(initialize, m)?)?;
     m.add_function(wrap_pyfunction!(job, m)?)?;
