@@ -602,6 +602,7 @@ dependencies = [
  "hyper-tls",
  "mime_guess",
  "ruma",
+ "ruma-identifiers",
  "serde",
  "serde_json",
  "thiserror",

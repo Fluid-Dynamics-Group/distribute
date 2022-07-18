@@ -28,6 +28,7 @@ regex = { version = "1.5.4", optional = true }
 structopt = { version = "0.3.25", optional = true }
 
 [dependencies.matrix-notify]
+default_features = false
 git = "https://github.com/fluid-Dynamics-Group/matrix-notify"
 rev = "cfc4988e60515bd99d2000c48d58eb56ae336a71"
 
@@ -57,7 +58,7 @@ cli = [
 	"bincode",
 	"matrix-notify/cli"
 ]
-python = ["pyo3"]
+python = ["pyo3", "matrix-notify/userid"]
 
 [[bin]]
 name = "distribute"

@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies.distribute]
 path = "../"
-default-features=false
+default_features=false
 features = ["python"]
 
 [dependencies.pyo3]
