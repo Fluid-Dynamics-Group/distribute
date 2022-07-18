@@ -92,12 +92,12 @@ jobs:
       with:
         target: ${{ matrix.target }}
         manylinux: auto
-        args: --release --out dist -m python/Cargo.toml
+        args: --release --out dist -m pybind/Cargo.toml
     - name: Install built wheel
       if: matrix.target == 'x86_64'
       run: |
-        pip install crfs --no-index --find-links dist --force-reinstall
-        python -c "import crfs"
+        pip install distribute_compute_config --no-index --find-links dist --force-reinstall
+        python -c "import distribute_compute_config"
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
