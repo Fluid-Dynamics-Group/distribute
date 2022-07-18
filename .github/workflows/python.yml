@@ -97,6 +97,10 @@ jobs:
     - name: Clone Private Repo
       run: |
         git clone "https://github.com/fluid-Dynamics-Group/matrix-notify"
+        cd matrix-notify
+        ls
+    - name: Build distribute
+      run: cargo build --color=always --no-default-features --features python
     - name: Build wheels
       uses: messense/maturin-action@v1
       with:
