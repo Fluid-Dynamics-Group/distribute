@@ -101,6 +101,11 @@ jobs:
         ls
     - name: Build distribute
       run: cargo build --color=always --no-default-features --features python
+    - name: Build pybind
+      run: |
+        cd pybind
+        cargo install maturin
+        maturin build
     - name: Build wheels
       uses: messense/maturin-action@v1
       with:
