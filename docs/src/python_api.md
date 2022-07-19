@@ -62,7 +62,7 @@ distribute.write_config_to_file(jobset,"./distribute-jobs.yaml")
 
 This generates:
 
-```
+```yaml
 ---
 meta:
   batch_name: test_batch
