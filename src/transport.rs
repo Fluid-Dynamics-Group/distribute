@@ -36,6 +36,7 @@ pub(crate) enum ClientQueryAnswer {
 
 pub(crate) trait AssociatedMessage {
     type Receive;
+    const IS_KEEPALIVE: bool = false;
 }
 
 mod messages {
@@ -51,10 +52,12 @@ mod messages {
 
     impl AssociatedMessage for ServerQuery {
         type Receive = ClientQueryAnswer;
+        const IS_KEEPALIVE: bool = true;
     }
 
     impl AssociatedMessage for ClientQueryAnswer {
         type Receive = ServerQuery;
+        const IS_KEEPALIVE: bool = true;
     }
 }
 
@@ -291,7 +294,7 @@ where
         &mut self,
         request: &TX,
     ) -> Result<(), error::TcpConnection> {
-        transport(&mut self.conn, request).await
+        transport(&mut self.conn, request, <TX as AssociatedMessage>::IS_KEEPALIVE).await
     }
 
     pub(crate) async fn transport_from_reader<R: AsyncRead + Unpin>(
@@ -303,7 +306,7 @@ where
     }
 
     pub(crate) async fn receive_data(&mut self) -> Result<RX, error::TcpConnection> {
-        receive(&mut self.conn).await
+        receive(&mut self.conn, <TX as AssociatedMessage>::IS_KEEPALIVE).await
     }
 
     pub(crate) async fn receive_to_writer<W: AsyncWrite + Unpin>(
@@ -344,13 +347,18 @@ where
 async fn transport<T: Serialize>(
     tcp_connection: &mut TcpStream,
     data: &T,
+    is_keepalive: bool,
 ) -> Result<(), error::TcpConnection> {
     let serializer = serialization_options();
     let bytes = serializer
         .serialize(&data)
         .map_err(error::Serialization::from)?;
 
-    debug!("sending buffer of length {}", bytes.len());
+    if is_keepalive {
+        debug!("keepalive - sending buffer of length {}", bytes.len());
+    } else {
+        debug!("sending buffer of length {}", bytes.len());
+    }
 
     let bytes_len: u64 = bytes.len() as u64;
 
@@ -406,6 +414,7 @@ async fn transport_from_reader<R: AsyncReadExt + Unpin>(
 /// use `bincode` to receive and deserialize a type from a connection
 async fn receive<T: DeserializeOwned>(
     tcp_connection: &mut TcpStream,
+    is_keepalive: bool,
 ) -> Result<T, error::TcpConnection> {
     let deserializer = serialization_options();
 
@@ -415,7 +424,11 @@ async fn receive<T: DeserializeOwned>(
 
     let content_length = u64::from_le_bytes(buf);
 
-    debug!("receiving buffer with length {}", content_length);
+    if is_keepalive {
+        debug!("keepalive - receiving buffer with length {}", content_length);
+    } else {
+        debug!("receiving buffer with length {}", content_length);
+    }
 
     let mut content_buffer = vec![0; content_length as usize];
 

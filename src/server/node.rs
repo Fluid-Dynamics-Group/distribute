@@ -415,7 +415,7 @@ async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> 
     }
 }
 
-/// ping an address and
+/// ping an address and make sure it responsds to a keepalive check
 async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(), Error> {
     trace!("making keepalive check to {}", address);
     // TODO: this connection might be able to stall, im not sure
