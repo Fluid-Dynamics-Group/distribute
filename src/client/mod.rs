@@ -288,3 +288,27 @@ fn is_closed_connection(error: error::TcpConnection) -> bool {
         _ => false,
     }
 }
+
+pub(crate) async fn check_for_failure<ClientMsg, ServerMsg, F>(
+    conn: &mut transport::Connection<ClientMsg>,
+    is_cancellation: F,
+    send_on_cancel: broadcast::Sender<()>,
+    did_cancel: &mut bool,
+) -> !
+where
+    ClientMsg: transport::AssociatedMessage<Receive = ServerMsg> + Serialize,
+    ServerMsg: serde::de::DeserializeOwned + std::fmt::Debug,
+    F: Fn(&ServerMsg) -> bool,
+{
+    loop {
+        let rx: Result<ServerMsg, _> = conn.receive_data().await;
+        if let Ok(msg) = rx {
+            if is_cancellation(&msg) {
+                *did_cancel = true;
+                send_on_cancel.send(()).ok();
+            } else {
+                warn!("received non-cancel message from the server: {:?}", msg);
+            }
+        }
+    }
+}

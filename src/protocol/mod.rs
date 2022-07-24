@@ -1,3 +1,27 @@
+//! Lays out the flow of how jobs are executed between a server and the client
+//!
+//! See SVG graphic in general user documentation for a flowchart
+//!
+//! [`uninit::Uninit`] can move to [`prepare_build::PrepareBuild`]
+//!
+//! [`prepare_build::PrepareBuild`] can move to [`compiling::Building`]
+//!
+//! [`compiling::Building`] can move to [`built::Built`] (in the case that everything compiled
+//! correctly and we await jobs to execute) or [`prepare_build::PrepareBuild`] (in the case that
+//! compilation failed or the compilation was cancelled)
+//!
+//! [`built::Built`] can move to [`executing::Executing`] (if a job was assigned to the node) or
+//! [`prepare_build::PrepareBuild`] (if the job was cancelled)
+//!
+//! [`executing::Executing`] can move to [`send_files::SendFiles`] (if the job finished, transport
+//! all results to head node)
+//!
+//! [`send_files::SendFiles`] can move (back) to [`built::Built`] after all files have been
+//! transported
+//!
+//! [`prepare_build::PrepareBuild`], [`compiling::Building`], [`built::Built`], [`executing::Executing`], [`send_files::SendFiles`] can all return to
+//! [`uninit::Uninit`] if the connection is dropped
+
 use crate::prelude::*;
 use crate::server::JobIdentifier;
 use std::collections::BTreeSet;
@@ -131,7 +155,6 @@ type ServerEitherPrepareBuild<T> =
     Either<Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>, T>;
 
 #[derive(Constructor)]
-// copy pasted from node.rs
 pub(crate) struct Common {
     receive_cancellation: broadcast::Receiver<JobIdentifier>,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
@@ -171,5 +194,25 @@ impl Common {
         );
 
         (tx, common)
+    }
+}
+
+async fn check_broadcast_for_matching_token<ServerMsg, ClientMsg>(
+    cancel_rx: &mut broadcast::Receiver<JobIdentifier>,
+    conn: &mut transport::Connection<ServerMsg>,
+    msg_on_failure: ServerMsg,
+    job_id_to_monitor: JobIdentifier,
+    cancelled_marker: &mut bool,
+) -> ! 
+where ServerMsg: Serialize + transport::AssociatedMessage<Receive=ClientMsg>,
+      ClientMsg: serde::de::DeserializeOwned
+{
+    loop {
+        while let Ok(job_id) = cancel_rx.recv().await {
+            if job_id == job_id_to_monitor {
+                conn.transport_data(&msg_on_failure).await.ok();
+                *cancelled_marker = true;
+            }
+        }
     }
 }

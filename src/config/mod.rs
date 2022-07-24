@@ -22,6 +22,9 @@ pub const CLIENT_PORT_STR: &'static str = "8953";
 pub const CLIENT_KEEPALIVE_PORT: u16 = 8954;
 pub const CLIENT_KEEPALIVE_PORT_STR: &'static str = "8954";
 
+pub const CLIENT_CANCEL_PORT : u16 = 8954;
+pub const CLIENT_CANCEL_PORT_STR: &'static str = CLIENT_CANCEL_PORT.to_string().as_str();
+
 #[derive(Debug, Display, thiserror::Error, From)]
 #[display(
     fmt = "configuration file: `{}` reason: `{}`",

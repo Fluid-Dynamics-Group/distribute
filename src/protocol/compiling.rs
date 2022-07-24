@@ -60,6 +60,8 @@ impl Machine<Building, ClientBuildingState> {
             let tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
         }
 
+        let mut did_cancel = false;
+
         // TODO: monitor for cancellation
         let (tx_cancel, rx_cancel) = broadcast::channel(10);
         let (tx_result, rx_result) = oneshot::channel();
@@ -97,7 +99,32 @@ impl Machine<Building, ClientBuildingState> {
             }
         });
 
-        let (folder_state, msg) = rx_result.await.unwrap();
+        let check_for_cancel = crate::client::check_for_failure(
+            &mut self.state.conn,
+            |msg| matches!(msg, ServerMsg::Cancel),
+            tx_cancel,
+            &mut did_cancel,
+        );
+
+        let (folder_state, msg) = tokio::select!(
+            response = rx_result => {
+                response
+            }
+            _ = check_for_cancel => {
+                // this will never finish
+                panic!("check_for_failure in compiling finished when it never should");
+            }
+        )
+        .unwrap();
+
+        // overwrite the message that we previously had if we marked from `check_for_failure`
+        // this is to prevent the (rare chance) of a race condition where a cancellation is
+        // in the broadcast queue but the job just finished compiling
+        let msg = if did_cancel {
+            ClientMsg::CancelledCompilation
+        } else {
+            msg
+        };
 
         // tell the node about what the result was
         throw_error_with_self!(self.state.conn.transport_data(&msg).await, self);
@@ -178,7 +205,19 @@ impl Machine<Building, ServerBuildingState> {
         Either<Machine<Built, ServerBuiltState>, Machine<PrepareBuild, ServerPrepareBuildState>>,
         (Self, ServerError),
     > {
-        let tmp = self.state.conn.receive_data().await;
+        let mut cancelled = false;
+        let check_for_cancel = super::check_broadcast_for_matching_token(&mut self.state.common.receive_cancellation, &mut self.state.conn, ServerMsg::Cancel, self.state.job_identifier, &mut cancelled);
+
+        let tmp = tokio::select!(
+            x = self.state.conn.receive_data() => {
+                x
+            }
+            _ = check_for_cancel => {
+                panic!("cant be reached");
+                //
+            }
+        );
+
         let msg = throw_error_with_self!(tmp, self);
 
         let out = match msg {
@@ -265,8 +304,10 @@ impl Machine<Building, ServerBuildingState> {
     }
 }
 
-#[derive(Serialize, Deserialize, Unwrap)]
-pub(crate) enum ServerMsg {}
+#[derive(Serialize, Deserialize, Unwrap, Debug)]
+pub(crate) enum ServerMsg {
+    Cancel,
+}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ClientMsg {
