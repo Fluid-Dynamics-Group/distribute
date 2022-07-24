@@ -388,7 +388,7 @@ impl JobSet {
         } else {
             debug!(
                 "calling job_finished() -> remaining jobs are now {}",
-                self.currently_running_jobs
+                self.currently_running_jobs - 1
             );
             self.currently_running_jobs -= 1
         }

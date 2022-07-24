@@ -44,18 +44,26 @@ impl Machine<Built, ClientBuiltState> {
         super::ClientEitherPrepareBuild<Machine<Executing, ClientExecutingState>>,
         (Self, ClientError),
     > {
+        info!("now in built state");
+
         let msg = self.state.conn.receive_data().await;
         let msg: ServerMsg = throw_error_with_self!(msg, self);
 
         match msg {
             ServerMsg::ExecuteJob(job) => {
                 // return Machine<Executing, _>
+                
+                debug!("got executing instructions from the server for {}", job.name());
+
                 let executing_state = self.into_executing_state(job).await;
                 let machine = Machine::from_state(executing_state);
                 Ok(Either::Right(machine))
             }
             ServerMsg::ReturnPrepareBuild => {
                 // return Machine<PrepareBuild, _>
+                
+                debug!("got build instructions from the server");
+
                 let prepare_build_state = self.into_prepare_build_state().await;
                 let machine = Machine::from_state(prepare_build_state);
                 Ok(Either::Left(machine))
@@ -122,6 +130,8 @@ impl Machine<Built, ServerBuiltState> {
         super::ServerEitherPrepareBuild<Machine<Executing, ServerExecutingState>>,
         (Self, ServerError),
     > {
+        info!("{} now in built state", self.state.common.node_name);
+
         let job = server::node::fetch_new_job(
             scheduler_tx,
             self.state.job_identifier,
@@ -138,6 +148,8 @@ impl Machine<Built, ServerBuiltState> {
         //let build_job: server::pool_data::BuildTaskInfo =
         match job {
             server::pool_data::FetchedJob::Build(build) => {
+                debug!("{} got build instructions from the job pool", self.state.common.node_name);
+
                 //
                 // we need to compile a different job and transition to the PrepareBuild state
                 //
@@ -145,6 +157,8 @@ impl Machine<Built, ServerBuiltState> {
                     error!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                     panic!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                 } else {
+                    debug!("{} notifying compute node to transition states to prepare build", self.state.common.node_name);
+
                     // notify the compute machine that we are transitioning states
                     let tmp = self
                         .state
@@ -165,8 +179,8 @@ impl Machine<Built, ServerBuiltState> {
                 //
                 // We have been assigned to run a job that we have already compiled
                 //
-
-                // TODO: add some logs about what job we have been assigned to run
+                
+                debug!("{} got execute instructions from the job pool, job name is {}", self.state.common.node_name, run.task.name());
 
                 let job_name = run.task.name().to_string();
 
@@ -222,7 +236,7 @@ impl Machine<Built, ServerBuiltState> {
         job_name: String,
     ) -> super::executing::ServerExecutingState {
         debug!(
-            "moving {} server built -> executing",
+            "{} is moving built -> executing",
             self.state.common.node_name
         );
 
