@@ -155,6 +155,8 @@ impl Machine<SendFiles, ClientSendFilesState> {
         }
 
         // tell the server we are done sending files and we should transition to the next state
+        debug!("done sending files - transitioning to next state");
+
         let msg = ClientMsg::FinishFiles;
         let tmp = self.state.conn.transport_data(&msg).await;
         throw_error_with_self!(tmp, self);
@@ -407,7 +409,7 @@ impl transport::AssociatedMessage for ClientMsg {
 
 #[tokio::test]
 async fn transport_files_with_large_file() {
-    if false {
+    if true {
         crate::logger()
     }
 

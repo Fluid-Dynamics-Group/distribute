@@ -336,7 +336,7 @@ where
     #[cfg(test)]
     /// determine how many bytes are remaining in the connection
     pub(crate) async fn bytes_left(&mut self) -> usize {
-        let mut buffer = Vec::new();
+        let mut buffer = vec![0;100];
         let fut = read_buffer_bytes(&mut buffer, &mut self.conn);
         tokio::time::timeout(Duration::from_secs(1), fut).await.ok();
         return buffer.len();
@@ -355,7 +355,7 @@ async fn transport<T: Serialize>(
         .map_err(error::Serialization::from)?;
 
     if is_keepalive {
-        debug!("keepalive - sending buffer of length {}", bytes.len());
+        debug!("keepalive - sending buffer of length {} to {:?}", bytes.len(), tcp_connection.peer_addr());
     } else {
         debug!("sending buffer of length {}", bytes.len());
     }
@@ -425,7 +425,7 @@ async fn receive<T: DeserializeOwned>(
     let content_length = u64::from_le_bytes(buf);
 
     if is_keepalive {
-        debug!("keepalive - receiving buffer with length {}", content_length);
+        debug!("keepalive - receiving buffer with length {} to {:?}", content_length, tcp_connection.peer_addr());
     } else {
         debug!("receiving buffer with length {}", content_length);
     }

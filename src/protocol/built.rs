@@ -136,23 +136,19 @@ impl Machine<Built, ServerBuiltState> {
             scheduler_tx,
             self.state.job_identifier,
             &self.state.common.node_name,
-            &self.state.common.main_transport_addr,
             &self.state.common.keepalive_addr,
             self.state.common.capabilities.clone(),
             self.state.common.errored_jobs.clone(),
         )
         .await;
 
-        // TODO: specify the query function that we only receive BuildTaskInfo
-        //       and then we wont have the possibility of erroring here
-        //let build_job: server::pool_data::BuildTaskInfo =
         match job {
             server::pool_data::FetchedJob::Build(build) => {
-                debug!("{} got build instructions from the job pool", self.state.common.node_name);
-
                 //
                 // we need to compile a different job and transition to the PrepareBuild state
                 //
+
+                debug!("{} got build instructions from the job pool", self.state.common.node_name);
                 if build.identifier == self.state.job_identifier {
                     error!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                     panic!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);

@@ -93,7 +93,6 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
             scheduler_tx,
             server::JobIdentifier::none(),
             &self.state.common.node_name,
-            &self.state.common.main_transport_addr,
             &self.state.common.keepalive_addr,
             self.state.common.capabilities.clone(),
             self.state.common.errored_jobs.clone(),

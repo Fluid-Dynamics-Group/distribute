@@ -193,7 +193,7 @@ async fn make_connection(addr: SocketAddr, name: &str) -> tokio::net::TcpStream 
         match tokio::net::TcpStream::connect(addr).await {
             Ok(conn) => return conn,
             Err(e) => {
-                error!("failed to connect to node {} at {} to create uninitialized connection - sleeping for 5 minutes", name, addr);
+                error!("failed to connect to node {} at {} to create uninitialized connection - sleeping for 5 minutes. err: `{e}`", name, addr);
 
                 tokio::time::sleep(Duration::from_secs(60 * 5)).await;
 
@@ -207,7 +207,6 @@ pub(crate) async fn fetch_new_job(
     scheduler_tx: &mut mpsc::Sender<JobRequest>,
     initialized_job: JobIdentifier,
     node_name: &str,
-    _transport_addr: &SocketAddr,
     keepalive_addr: &SocketAddr,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
     errored_jobsets: BTreeSet<JobIdentifier>,

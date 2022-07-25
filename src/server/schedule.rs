@@ -360,7 +360,7 @@ impl JobSet {
         if let Some(job) = self.remaining_jobs.pop() {
             self.currently_running_jobs += 1;
             debug!(
-                "calling next_job() -> remaining jobs are now {}",
+                "calling next_job() -> currently running jobs is now {}",
                 self.currently_running_jobs
             );
             job.load_job().ok()
@@ -386,11 +386,11 @@ impl JobSet {
         if self.currently_running_jobs == 0 {
             warn!("a job from {}'s currently_running_jobs finished, but the value was already zero. This should not happen", &self.batch_name);
         } else {
+            self.currently_running_jobs -= 1;
             debug!(
-                "calling job_finished() -> remaining jobs are now {}",
-                self.currently_running_jobs - 1
+                "calling job_finished() -> currently running jobs is now {}",
+                self.currently_running_jobs
             );
-            self.currently_running_jobs -= 1
         }
     }
 
