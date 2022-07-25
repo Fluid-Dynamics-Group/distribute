@@ -337,9 +337,10 @@ where
     /// determine how many bytes are remaining in the connection
     pub(crate) async fn bytes_left(&mut self) -> usize {
         let mut buffer = vec![0;100];
-        let fut = read_buffer_bytes(&mut buffer, &mut self.conn);
-        tokio::time::timeout(Duration::from_secs(1), fut).await.ok();
-        return buffer.len();
+        //let fut = read_buffer_bytes(&mut buffer, &mut self.conn);
+        let fut = self.conn.read(&mut buffer[0..]);
+        let buffer_length : Result<Result<usize, _>, _> = tokio::time::timeout(Duration::from_millis(500), fut).await;
+        buffer_length.map(|x| x.unwrap_or(0)).unwrap_or(0)
     }
 }
 

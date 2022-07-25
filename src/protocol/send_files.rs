@@ -304,14 +304,6 @@ impl Machine<SendFiles, ServerSendFilesState> {
 
                     // flush the contents of the buffer to the file
                     writer.flush().await.unwrap();
-
-                    throw_error_with_self!(
-                        self.state
-                            .conn
-                            .transport_data(&ServerMsg::ReceivedFile)
-                            .await,
-                        self
-                    );
                 }
                 ClientMsg::FinishFiles => {
                     // first, tell the scheduler that this job has finished
@@ -365,7 +357,10 @@ impl Machine<SendFiles, ServerSendFilesState> {
         let mut conn = conn.update_state();
 
         #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        {
+            info!("checking for remaining bytes on server side...");
+            assert!(conn.bytes_left().await == 0);
+        }
 
         super::built::ServerBuiltState {
             conn,
