@@ -404,7 +404,7 @@ impl transport::AssociatedMessage for ClientMsg {
 
 #[tokio::test]
 async fn transport_files_with_large_file() {
-    if true {
+    if false {
         crate::logger()
     }
 

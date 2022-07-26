@@ -46,6 +46,18 @@ impl Machine<Built, ClientBuiltState> {
     > {
         info!("now in built state");
 
+        if let Err(e) = client::utils::clean_distribute_save(&self.state.working_dir).await {
+            error!("could not clean distribute save located inside {}, error: {e}", self.state.working_dir.display());
+            #[cfg(test)]
+            panic!("could not clean distribute save located inside {}, error: {e}", self.state.working_dir.display());
+        }
+
+        if let Err(e) = client::utils::clear_input_files(&self.state.working_dir).await {
+            error!("could not clean input files located inside {}, error: {e}", self.state.working_dir.display());
+            #[cfg(test)]
+            panic!("could not clean input files located inside {}, error: {e}", self.state.working_dir.display());
+        }
+
         let msg = self.state.conn.receive_data().await;
         let msg: ServerMsg = throw_error_with_self!(msg, self);
 
