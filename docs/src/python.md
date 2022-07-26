@@ -219,7 +219,7 @@ directory.
 
 Execution scripts are specified in the `file` key of a list item a job `name` in `jobs`. Execution scripts
 can do a lot of things. I have found it productive to write a single `generic_run.py` script that
-reads a configuration file from `./input/input.json` (`input.json` is spefied under my `required_files` for the job)
+reads a configuration file from `./input/input.json` is spefied under my `required_files` for the job)
 and then run the sovler from there. 
 
 One import thing about execution scripts is that they are run with a command line argument specifying
