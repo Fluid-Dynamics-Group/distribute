@@ -11,7 +11,7 @@ use distribute::apptainer::Job;
 use distribute::ApptainerConfig;
 use distribute::Meta;
 
-#[pyfunction]
+#[pyfunction(matrix_username="None")]
 /// construct the metadata `Meta` object for information about what this job batch will run
 ///
 /// ## Arguments
@@ -35,10 +35,12 @@ use distribute::Meta;
 /// for an apptainer job, this is simply ["apptainer"]. If you need GPU capabilities, this this is
 /// `["apptainer", "gpu"]`. 
 ///
+/// ## Keyword Arguments
+///
 /// ### `matrix_username`
 ///
 /// a matrix username in the format `@your_username:homeserver_url`. An example user is
-/// `"@karlik:matrix.org"`.
+/// `"@karlik:matrix.org"`. Defaults to `None`
 ///
 /// ## Example
 ///
@@ -276,7 +278,7 @@ pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<di
 ///
 /// ## Example
 ///
-/// See the [user documentation](https://fluid-dynamics-group.github.io/distribute-docs/python_api.html/) page in on the python api for a worked example
+/// See the [user documentation](https://fluid-dynamics-group.github.io/distribute-docs/python_api.html) page in on the python api for a worked example
 pub fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig {
     ApptainerConfig::new(meta, description)
 }
@@ -297,7 +299,7 @@ pub fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig
 ///
 /// ## Example
 ///
-/// See the [user documentation](https://fluid-dynamics-group.github.io/distribute-docs/python_api.html/) page in on the python api for a worked example
+/// See the [user documentation](https://fluid-dynamics-group.github.io/distribute-docs/python_api.html) page in on the python api for a worked example
 pub fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<()> {
     let file = std::fs::File::create(&path)
         .map_err(|e| PyValueError::new_err(format!("failed to create file at {}. Full error: {e}", path.display())))?;

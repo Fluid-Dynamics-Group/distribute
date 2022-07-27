@@ -18,6 +18,10 @@ benefits for using apptainer from an implementation standpoint in `distribute`:
 2. Apptainer compiles down to a single `.sif` file that can easily be sent to the `distribute` server and passed to compute nodes
 3. Once your code has been packaged in apptainer, it is very easy to run it on paid HPC clusters
 
+## Overview of Apptainer configuration files
+
+![](./figs/apptainer_config_flowchart.png)
+
 ## Apptainer definition files
 
 This documentation is not the place to discuss the intricacies of apptainer. As a user, we have tried to make

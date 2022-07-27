@@ -5,7 +5,8 @@ batch_name = "test_batch"
 namespace = "test_namespace"
 capabilities = ["apptainer"]
 
-meta = distribute.metadata(namespace, batch_name, capabilities, matrix_user)
+#meta = distribute.metadata(namespace, batch_name, capabilities, matrix_user)
+meta = distribute.metadata(namespace, batch_name, capabilities)
 
 sif_path = "./path/to/some/container.sif"
 # the contents of file.h5 will appear in the /input directory under the name `initial_condition.h5`

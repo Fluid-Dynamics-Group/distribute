@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="190mm"
+   viewBox="0 0 210 190"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
+   sodipodi:docname="apptainer_config_flowchart.svg"
+   inkscape:export-filename="../src/figs/apptainer_config_flowchart.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.3266287"
+     inkscape:cx="370.48798"
+     inkscape:cy="328.27572"
+     inkscape:window-width="2544"
+     inkscape:window-height="1348"
+     inkscape:window-x="8"
+     inkscape:window-y="64"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer3" />
+  <defs
+     id="defs2">
+    <marker
+       style="overflow:visible"
+       id="RoundedArrow"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="RoundedArrow"
+       markerWidth="6.1347523"
+       markerHeight="5.9304948"
+       viewBox="0 0 6.1347524 5.9304951"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.7)"
+         d="m -0.21114562,-4.1055728 6.42229122,3.21114561 a 1,1 90 0 1 0,1.78885438 L -0.21114562,4.1055728 A 1.236068,1.236068 31.717474 0 1 -2,3 v -6 a 1.236068,1.236068 148.28253 0 1 1.78885438,-1.1055728 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:none"
+         id="path1367" />
+    </marker>
+  </defs>
+  <g
+     inkscape:groupmode="layer"
+     id="layer3"
+     inkscape:label="Layer 2">
+    <rect
+       style="fill:#ffffff;stroke-width:0.529167;stroke-dasharray:none"
+       id="rect4872"
+       width="214.99672"
+       height="194.61391"
+       x="-1.9944037"
+       y="-2.2337346" />
+  </g>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     sodipodi:insensitive="true">
+    <text
+       xml:space="preserve"
+       style="font-size:6.35px;line-height:1.25;font-family:sans-serif;white-space:pre;inline-size:56.4336;display:inline;stroke-width:0.264583"
+       x="17.599997"
+       y="16.528208"
+       id="text186"
+       transform="translate(0.27920922,-5.5843304)"><tspan
+         x="17.599997"
+         y="16.528208"
+         id="tspan4978">determine </tspan><tspan
+         x="17.599997"
+         y="24.465707"
+         id="tspan4980">configuration </tspan><tspan
+         x="17.599997"
+         y="32.403207"
+         id="tspan4982">format</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:6.35px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="138.70686"
+       y="12.114036"
+       id="text240"><tspan
+         sodipodi:role="line"
+         id="tspan238"
+         style="stroke-width:0.264583"
+         x="138.70686"
+         y="12.114036">solver code</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:6.35px;line-height:1.25;font-family:sans-serif;white-space:pre;inline-size:70.2002;display:inline;stroke-width:0.264583"
+       x="99.394875"
+       y="26.11795"
+       id="text244"
+       transform="translate(24.958696,12.328616)"><tspan
+         x="99.394875"
+         y="26.11795"
+         id="tspan4984">apptainer image w/ all </tspan><tspan
+         x="99.394875"
+         y="34.05545"
+         id="tspan4986">code dependencies</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:6.35px;line-height:1.25;font-family:sans-serif;white-space:pre;inline-size:69.0751;display:inline;stroke-width:0.264583"
+       x="101.7077"
+       y="50.233334"
+       id="text248"
+       transform="translate(21.997141,20.620922)"><tspan
+         x="101.7077"
+         y="50.233334"
+         id="tspan4988">implement `distribute` </tspan><tspan
+         x="101.7077"
+         y="58.170835"
+         id="tspan4990">compute apptainer </tspan><tspan
+         x="101.7077"
+         y="66.108335"
+         id="tspan4992">interface</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:6.35px;line-height:1.25;font-family:sans-serif;white-space:pre;inline-size:86.1644;display:inline;stroke-width:0.264583"
+       x="80.130768"
+       y="101.7923"
+       id="text256"
+       transform="translate(-13.920154,27.80219)"><tspan
+         x="80.130768"
+         y="101.7923"
+         id="tspan4994">Finalize distribute-jobs.yaml </tspan><tspan
+         x="80.130768"
+         y="109.72979"
+         id="tspan4996">configuration file</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:6.35px;line-height:1.25;font-family:sans-serif;white-space:pre;inline-size:69.5688;display:inline;stroke-width:0.264583"
+       x="16.189741"
+       y="49.894871"
+       id="text260"
+       transform="translate(-5.4909389,-4.3939111)"><tspan
+         x="16.189741"
+         y="49.894871"
+         id="tspan4998">python script to </tspan><tspan
+         x="16.189741"
+         y="57.832372"
+         id="tspan5000">generate config files</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:6.35px;line-height:1.25;font-family:sans-serif;white-space:pre;inline-size:64.5926;display:inline;stroke-width:0.264583"
+       x="18.558975"
+       y="74.179489"
+       id="text264"
+       transform="translate(-4.9020352,-2.4417995)"><tspan
+         x="18.558975"
+         y="74.179489"
+         id="tspan5002">generate config files </tspan><tspan
+         x="18.558975"
+         y="82.116987"
+         id="tspan5004">with required </tspan><tspan
+         x="18.558975"
+         y="90.054487"
+         id="tspan5006">parameters, export </tspan><tspan
+         x="18.558975"
+         y="97.991987"
+         id="tspan5008">to `distribute` python </tspan><tspan
+         x="18.558975"
+         y="105.92949"
+         id="tspan5010">interface</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:6.35px;line-height:1.25;font-family:sans-serif;white-space:pre;inline-size:74.4369;display:inline;stroke-width:0.264583"
+       x="26.879484"
+       y="153.35129"
+       id="text426"
+       transform="translate(-10.84396,8.9437345)"><tspan
+         x="26.879484"
+         y="153.35129"
+         id="tspan5012">determine all directories </tspan><tspan
+         x="26.879484"
+         y="161.28879"
+         id="tspan5014">that are required to be </tspan><tspan
+         x="26.879484"
+         y="169.22629"
+         id="tspan5016">mutable</tspan></text>
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="arrows">
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.529167;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#RoundedArrow)"
+       d="M 33.479486,28.346154 34.6641,37.132049"
+       id="path492"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.529167;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#RoundedArrow)"
+       d="M 35.721792,54.407691 37.25192,64.773075"
+       id="path1322"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.529167;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#RoundedArrow)"
+       d="M 156.48091,14.140321 V 28.882174"
+       id="path1342"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.529167;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#RoundedArrow)"
+       d="M 156.06209,47.367089 V 62.45034"
+       id="path1344"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.529167;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#RoundedArrow)"
+       d="M 147.52605,91.602961 117.51027,121.61874"
+       id="path1346" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.529167;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#RoundedArrow)"
+       d="m 47.466808,102.33285 17.241617,17.24162"
+       id="path1348" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.529167;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#RoundedArrow)"
+       d="M 58.675359,155.36405 73.334223,140.70518"
+       id="path1350" />
+  </g>
+</svg>
