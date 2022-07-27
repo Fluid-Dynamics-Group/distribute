@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "distribute"
-version = "0.10.3"
+version = "0.10.4"
 dependencies = [
  "bincode",
  "chrono",
@@ -1599,6 +1599,12 @@ name = "unicode-width"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973"
+
+[[package]]
+name = "unindent"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52fee519a3e570f7df377a06a1a7775cdbfb7aa460be7e08de2b1f0e69973a44"
 
 [[package]]
 name = "url"

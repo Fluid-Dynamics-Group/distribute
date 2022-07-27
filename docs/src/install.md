@@ -14,5 +14,5 @@ and you are good to go! If you run into any trouble installing, let Brooks know.
 ## Python api install
 
 ```
-cargo install maturin
+pip3 install distribute_compute_config
 ```

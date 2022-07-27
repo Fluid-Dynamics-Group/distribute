@@ -6,7 +6,13 @@ package is available to generate configurations with minimal effort.
 
 ## Full Documentation
 
-TODO
+Detailed documentation can be built:
+
+```
+git clone https://github.com/fluid-Dynamics-Group/distribute
+cd distribute/pybind
+cargo doc --open
+```
 
 ## Example
 
