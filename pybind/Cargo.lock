@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "distribute"
-version = "0.10.0"
+version = "0.10.3"
 dependencies = [
  "derive_more",
  "matrix-notify",
