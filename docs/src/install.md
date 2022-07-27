@@ -10,3 +10,9 @@ cargo install --git https://github.com/fluid-Dynamics-Group/distribute --force
 ```
 
 and you are good to go! If you run into any trouble installing, let Brooks know.
+
+## Python api install
+
+```
+pip3 install distribute_compute_config
+```

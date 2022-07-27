@@ -1,0 +1,9 @@
+[project]
+name = "distribute_compute_config"
+dependencies = []
+version = "0.10.3"
+description = ""
+
+[build-system]
+requires = ["maturin>=0.13,<0.14"]
+build-backend = "maturin"

@@ -15,6 +15,7 @@ use crate::transport;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Description {
     pub initialize: Initialize,
     pub jobs: Vec<Job>,
@@ -81,6 +82,7 @@ impl NormalizePaths for Description {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Initialize {
     sif: PathBuf,
     #[serde(default)]
@@ -93,6 +95,7 @@ pub struct Initialize {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Job {
     name: String,
     #[serde(default)]

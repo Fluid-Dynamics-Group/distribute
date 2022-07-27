@@ -9,3 +9,5 @@ run/
 ./tests/check_deallocate_jobs/workdir
 tests/send_files_with_large_files
 ./tests/check_pull/server
+**/.venv
+pybind/distribute-jobs.yaml
