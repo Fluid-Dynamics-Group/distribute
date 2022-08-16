@@ -27,7 +27,9 @@ pub async fn pause(args: cli::Pause) -> Result<(), Error> {
     // these two commands are used for running the python
     // procs / apptainer containers
     let to_pause = ProcessSet::new(
-        &["python3 run.py", "apptainer run --app distribute"],
+        // `Apptainer runtime parent` is also possible here
+        // these are really just pulled from htop
+        &["python3 run.py", "apptainer run --app distribute", "/bin/sh /scif/apps/distribute"],
         duration,
     );
 
