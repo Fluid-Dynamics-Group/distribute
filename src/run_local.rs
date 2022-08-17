@@ -17,7 +17,7 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
 
     let (_tx, mut rx) = tokio::sync::broadcast::channel(1);
 
-    client::execute::initialize_apptainer_job(build, &args.save_dir, &mut rx, &mut state).await?;
+    client::execute::initialize_apptainer_job(build, &args.save_dir, &mut state).await?;
 
     let archive = args.save_dir.join("archived_files");
     fs::create_dir(&archive)?;

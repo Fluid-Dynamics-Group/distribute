@@ -34,10 +34,17 @@ pub(crate) enum ClientQueryAnswer {
     VersionResponse(Version),
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) struct CancelRequest;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) struct CancelResponse;
+
 pub(crate) trait AssociatedMessage {
     type Receive;
     const IS_KEEPALIVE: bool = false;
 }
+
 
 mod messages {
     use super::*;
@@ -58,6 +65,14 @@ mod messages {
     impl AssociatedMessage for ClientQueryAnswer {
         type Receive = ServerQuery;
         const IS_KEEPALIVE: bool = true;
+    }
+
+    impl AssociatedMessage for CancelRequest {
+        type Receive = CancelResponse;
+    }
+
+    impl AssociatedMessage for CancelResponse {
+        type Receive = CancelRequest;
     }
 }
 
@@ -239,22 +254,6 @@ pub struct SendFile {
 /// be very large, and should be directly copied to a file IO stream instead of stored in memory
 pub struct FileMarker {
     pub file_path: PathBuf,
-}
-
-#[derive(Deserialize, Serialize, Debug, Constructor, Clone, PartialEq)]
-pub struct PauseExecution {
-    pub duration: std::time::Duration,
-}
-
-#[derive(Deserialize, Serialize, Debug, Constructor, Clone, PartialEq)]
-pub struct ResumeExecution;
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct NewJobRequest;
-
-#[derive(Deserialize, Serialize, Debug)]
-pub enum ClientError {
-    NotReady,
 }
 
 fn serialization_options() -> bincode::config::DefaultOptions {

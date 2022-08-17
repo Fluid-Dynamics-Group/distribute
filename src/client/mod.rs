@@ -312,3 +312,42 @@ where
         }
     }
 }
+
+/// binds to cancellation port and waits for a connection to the port. After receiving a
+/// connection, this will contain a cancellation request from the head node dictating that our
+/// current job ID matches a request to kill the jobs.
+pub(crate) async fn return_on_cancellation(addr: SocketAddr) -> Result<(), error::TcpConnection> {
+    let listener = TcpListener::bind(addr)
+        .await
+        .map_err(error::TcpConnection::from)?;
+
+
+    loop {
+        // accept the connection
+        let res = listener.accept().await;
+
+        match res {
+            Ok((conn, _addr)) => {
+                let mut connection : transport::Connection<transport::CancelResponse> = transport::Connection::from_connection(conn);
+
+                match connection.receive_data().await {
+                    Ok(req) => {
+                        let _: transport::CancelRequest = req;
+
+                        connection.transport_data(&transport::CancelResponse).await.ok();
+                        return Ok(())
+                    } 
+                    Err(e) => error!("failed to receive CancelRequest from head node. error: {e}")
+                }
+
+            }
+            Err(e) => {
+                error!(
+                    "error while accepting cancellation connection: {}",
+                    e
+                );
+                continue;
+            }
+        }
+    }
+}

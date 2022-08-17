@@ -1,3 +1,8 @@
+//! Compile a job so that we can execute multiple jobs from it
+//!
+//! These functions do not attempt to receive cancellation signals
+//! since any compilation will simply receive no jobs later, at the cost
+//! of possibly some minimal computational time lost
 use super::Either;
 use super::Machine;
 use crate::prelude::*;
@@ -55,15 +60,11 @@ impl Machine<Building, ClientBuildingState> {
         Either<Machine<Built, ClientBuiltState>, Machine<PrepareBuild, ClientPrepareBuildState>>,
         (Self, ClientError),
     > {
-        // TODO: should probably wipe the folder and instantiate the folders here
         if self.state.working_dir.exists() {
-            let tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
+            let _tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
         }
 
-        let mut did_cancel = false;
-
         // TODO: monitor for cancellation
-        let (tx_cancel, rx_cancel) = broadcast::channel(10);
         let (tx_result, rx_result) = oneshot::channel();
 
         let mut folder_state = crate::client::execute::BindingFolderState::new();
@@ -75,12 +76,11 @@ impl Machine<Building, ClientBuildingState> {
         // spawn off a worker to perform the compilation so that we can monitor
         // for cancellation signals from the master node
         tokio::spawn(async move {
-            let mut cancel = rx_cancel;
 
             match build_opt {
                 transport::BuildOpts::Python(python_job) => {
                     let build_result =
-                        crate::client::initialize_python_job(python_job, &working_dir, &mut cancel)
+                        crate::client::initialize_python_job(python_job, &working_dir)
                             .await;
                     let msg = ClientMsg::from_build_result(build_result);
                     tx_result.send((folder_state, msg)).ok().unwrap();
@@ -89,7 +89,6 @@ impl Machine<Building, ClientBuildingState> {
                     let build_result = crate::client::initialize_apptainer_job(
                         apptainer_job,
                         &working_dir,
-                        &mut cancel,
                         &mut folder_state,
                     )
                     .await;
@@ -99,32 +98,8 @@ impl Machine<Building, ClientBuildingState> {
             }
         });
 
-        let check_for_cancel = crate::client::check_for_failure(
-            &mut self.state.conn,
-            |msg| matches!(msg, ServerMsg::Cancel),
-            tx_cancel,
-            &mut did_cancel,
-        );
+        let (folder_state, msg) = rx_result.await.unwrap();
 
-        let (folder_state, msg) = tokio::select!(
-            response = rx_result => {
-                response
-            }
-            _ = check_for_cancel => {
-                // this will never finish
-                panic!("check_for_failure in compiling finished when it never should");
-            }
-        )
-        .unwrap();
-
-        // overwrite the message that we previously had if we marked from `check_for_failure`
-        // this is to prevent the (rare chance) of a race condition where a cancellation is
-        // in the broadcast queue but the job just finished compiling
-        let msg = if did_cancel {
-            ClientMsg::CancelledCompilation
-        } else {
-            msg
-        };
 
         // tell the node about what the result was
         throw_error_with_self!(self.state.conn.transport_data(&msg).await, self);
@@ -136,7 +111,7 @@ impl Machine<Building, ClientBuildingState> {
                 let machine = Machine::from_state(built_state);
                 Ok(Either::Left(machine))
             }
-            ClientMsg::FailedCompilation | ClientMsg::CancelledCompilation => {
+            ClientMsg::FailedCompilation  => {
                 // go to Machine<PrepareBuild, _>
                 let prepare_build = self.into_prepare_build().await;
                 let machine = Machine::from_state(prepare_build);
@@ -205,18 +180,8 @@ impl Machine<Building, ServerBuildingState> {
         Either<Machine<Built, ServerBuiltState>, Machine<PrepareBuild, ServerPrepareBuildState>>,
         (Self, ServerError),
     > {
-        let mut cancelled = false;
-        let check_for_cancel = super::check_broadcast_for_matching_token(&mut self.state.common.receive_cancellation, &mut self.state.conn, ServerMsg::Cancel, self.state.job_identifier, &mut cancelled);
 
-        let tmp = tokio::select!(
-            x = self.state.conn.receive_data() => {
-                x
-            }
-            _ = check_for_cancel => {
-                panic!("cant be reached");
-                //
-            }
-        );
+        let tmp = self.state.conn.receive_data().await;
 
         let msg = throw_error_with_self!(tmp, self);
 
@@ -234,15 +199,6 @@ impl Machine<Building, ServerBuildingState> {
                     .common
                     .errored_jobs
                     .insert(self.state.job_identifier);
-                let prepare_build = self.into_prepare_build().await;
-                let machine = Machine::from_state(prepare_build);
-                Either::Right(machine)
-            }
-            ClientMsg::CancelledCompilation => {
-                // we dont need to mark the job as cancelled since the job
-                // should no longer exist in the system (it was cancelled everywhere)
-
-                // return to Machine<PrepareBuild, _> here
                 let prepare_build = self.into_prepare_build().await;
                 let machine = Machine::from_state(prepare_build);
                 Either::Right(machine)
@@ -306,25 +262,19 @@ impl Machine<Building, ServerBuildingState> {
 
 #[derive(Serialize, Deserialize, Unwrap, Debug)]
 pub(crate) enum ServerMsg {
-    Cancel,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ClientMsg {
     SuccessfullCompilation,
     FailedCompilation,
-    CancelledCompilation,
 }
 
 impl ClientMsg {
-    fn from_build_result(result: Result<Option<()>, error::Error>) -> Self {
+    fn from_build_result(result: Result<(), error::Error>) -> Self {
         // check what the build result was
         match result {
-            Ok(None) => {
-                // The build process was cancelled since the job was cancelled
-                Self::CancelledCompilation
-            }
-            Ok(Some(_)) => {
+            Ok(_) => {
                 // the process built perfectly
                 Self::SuccessfullCompilation
             }

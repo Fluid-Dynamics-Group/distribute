@@ -12,18 +12,20 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
 
-#[allow(dead_code)]
-pub const SERVER_PORT: u16 = 8952;
-pub const SERVER_PORT_STR: &'static str = "8952";
+macro_rules! const_port {
+    ($NUMERIC:ident, $STR:ident, $value:expr) => {
+        pub const $NUMERIC: u16 = $value;
+        pub const $STR: &'static str = stringify!($value);
+    }
+}
 
-pub const CLIENT_PORT: u16 = 8953;
-pub const CLIENT_PORT_STR: &'static str = "8953";
-
-pub const CLIENT_KEEPALIVE_PORT: u16 = 8954;
-pub const CLIENT_KEEPALIVE_PORT_STR: &'static str = "8954";
-
-pub const CLIENT_CANCEL_PORT : u16 = 8954;
-pub const CLIENT_CANCEL_PORT_STR: &'static str = CLIENT_CANCEL_PORT.to_string().as_str();
+//
+// ports for different communication channels
+//
+const_port!(SERVER_PORT, SERVER_PORT_STR, 8952);
+const_port!(CLIENT_PORT, CLIENT_PORT_STR, 8953);
+const_port!(CLIENT_KEEPALIVE_PORT, CLIENT_KEEPALIVE_PORT_STR, 8954);
+const_port!(CLIENT_CANCEL_PORT, CLIENT_CANCEL_PORT_STR, 8955);
 
 #[derive(Debug, Display, thiserror::Error, From)]
 #[display(
@@ -328,5 +330,10 @@ mod tests {
     fn serialize_apptainer() {
         let bytes = include_str!("../../static/example-jobs-apptainer.yaml");
         let _out: ApptainerConfiguration = serde_yaml::from_str(bytes).unwrap();
+    }
+
+    #[test]
+    fn strings_match() {
+        assert_eq!(SERVER_PORT.to_string(), SERVER_PORT_STR.to_string());
     }
 }
