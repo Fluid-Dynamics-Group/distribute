@@ -45,7 +45,6 @@ pub(crate) trait AssociatedMessage {
     const IS_KEEPALIVE: bool = false;
 }
 
-
 mod messages {
     use super::*;
 

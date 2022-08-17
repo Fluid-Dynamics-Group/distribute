@@ -76,12 +76,10 @@ impl Machine<Building, ClientBuildingState> {
         // spawn off a worker to perform the compilation so that we can monitor
         // for cancellation signals from the master node
         tokio::spawn(async move {
-
             match build_opt {
                 transport::BuildOpts::Python(python_job) => {
                     let build_result =
-                        crate::client::initialize_python_job(python_job, &working_dir)
-                            .await;
+                        crate::client::initialize_python_job(python_job, &working_dir).await;
                     let msg = ClientMsg::from_build_result(build_result);
                     tx_result.send((folder_state, msg)).ok().unwrap();
                 }
@@ -100,7 +98,6 @@ impl Machine<Building, ClientBuildingState> {
 
         let (folder_state, msg) = rx_result.await.unwrap();
 
-
         // tell the node about what the result was
         throw_error_with_self!(self.state.conn.transport_data(&msg).await, self);
 
@@ -111,7 +108,7 @@ impl Machine<Building, ClientBuildingState> {
                 let machine = Machine::from_state(built_state);
                 Ok(Either::Left(machine))
             }
-            ClientMsg::FailedCompilation  => {
+            ClientMsg::FailedCompilation => {
                 // go to Machine<PrepareBuild, _>
                 let prepare_build = self.into_prepare_build().await;
                 let machine = Machine::from_state(prepare_build);
@@ -180,7 +177,6 @@ impl Machine<Building, ServerBuildingState> {
         Either<Machine<Built, ServerBuiltState>, Machine<PrepareBuild, ServerPrepareBuildState>>,
         (Self, ServerError),
     > {
-
         let tmp = self.state.conn.receive_data().await;
 
         let msg = throw_error_with_self!(tmp, self);
@@ -261,8 +257,7 @@ impl Machine<Building, ServerBuildingState> {
 }
 
 #[derive(Serialize, Deserialize, Unwrap, Debug)]
-pub(crate) enum ServerMsg {
-}
+pub(crate) enum ServerMsg {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ClientMsg {

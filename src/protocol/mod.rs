@@ -203,9 +203,10 @@ async fn check_broadcast_for_matching_token<ServerMsg, ClientMsg>(
     msg_on_failure: ServerMsg,
     job_id_to_monitor: JobIdentifier,
     cancelled_marker: &mut bool,
-) -> ! 
-where ServerMsg: Serialize + transport::AssociatedMessage<Receive=ClientMsg>,
-      ClientMsg: serde::de::DeserializeOwned
+) -> !
+where
+    ServerMsg: Serialize + transport::AssociatedMessage<Receive = ClientMsg>,
+    ClientMsg: serde::de::DeserializeOwned,
 {
     loop {
         while let Ok(job_id) = cancel_rx.recv().await {

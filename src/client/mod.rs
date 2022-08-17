@@ -321,31 +321,30 @@ pub(crate) async fn return_on_cancellation(addr: SocketAddr) -> Result<(), error
         .await
         .map_err(error::TcpConnection::from)?;
 
-
     loop {
         // accept the connection
         let res = listener.accept().await;
 
         match res {
             Ok((conn, _addr)) => {
-                let mut connection : transport::Connection<transport::CancelResponse> = transport::Connection::from_connection(conn);
+                let mut connection: transport::Connection<transport::CancelResponse> =
+                    transport::Connection::from_connection(conn);
 
                 match connection.receive_data().await {
                     Ok(req) => {
                         let _: transport::CancelRequest = req;
 
-                        connection.transport_data(&transport::CancelResponse).await.ok();
-                        return Ok(())
-                    } 
-                    Err(e) => error!("failed to receive CancelRequest from head node. error: {e}")
+                        connection
+                            .transport_data(&transport::CancelResponse)
+                            .await
+                            .ok();
+                        return Ok(());
+                    }
+                    Err(e) => error!("failed to receive CancelRequest from head node. error: {e}"),
                 }
-
             }
             Err(e) => {
-                error!(
-                    "error while accepting cancellation connection: {}",
-                    e
-                );
+                error!("error while accepting cancellation connection: {}", e);
                 continue;
             }
         }

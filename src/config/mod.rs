@@ -16,7 +16,7 @@ macro_rules! const_port {
     ($NUMERIC:ident, $STR:ident, $value:expr) => {
         pub const $NUMERIC: u16 = $value;
         pub const $STR: &'static str = stringify!($value);
-    }
+    };
 }
 
 //

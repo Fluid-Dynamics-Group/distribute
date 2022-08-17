@@ -359,23 +359,23 @@ async fn generalized_init(
 ) -> Result<(), Error> {
     let output = command.await;
 
-   // command has finished -> return to the original dir so we dont accidentally
-   // bubble the error up with `?` before we have fixed the directory
-   if let Some(original_dir) = original_dir {
-       enter_output_dir(&original_dir);
-   }
+    // command has finished -> return to the original dir so we dont accidentally
+    // bubble the error up with `?` before we have fixed the directory
+    if let Some(original_dir) = original_dir {
+        enter_output_dir(&original_dir);
+    }
     debug!("current file path is {:?}", std::env::current_dir());
 
-   let output = output
-       .map_err(|e| error::CommandExecutionError::from(e))
-       .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
+    let output = output
+        .map_err(|e| error::CommandExecutionError::from(e))
+        .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
 
-   debug!("job successfully finished - returning to main process");
+    debug!("job successfully finished - returning to main process");
 
-   // write the stdout and stderr to a file
-   command_output_to_file(output, output_file_path).await;
+    // write the stdout and stderr to a file
+    command_output_to_file(output, output_file_path).await;
 
-   Ok(())
+    Ok(())
 }
 
 /// run a future producing a command till completion while also
