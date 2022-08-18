@@ -169,11 +169,18 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
         let ClientSendFilesState {
-            conn, working_dir, cancel_addr, ..
+            conn,
+            working_dir,
+            cancel_addr,
+            ..
         } = self.state;
         let conn = conn.update_state();
         debug!("moving client send files -> uninit");
-        let state = super::uninit::ClientUninitState { conn, working_dir, cancel_addr};
+        let state = super::uninit::ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        };
         Machine::from_state(state)
     }
 
@@ -197,7 +204,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
             conn,
             working_dir,
             folder_state,
-            cancel_addr
+            cancel_addr,
         }
     }
 }
@@ -407,7 +414,7 @@ impl transport::AssociatedMessage for ClientMsg {
 
 #[tokio::test]
 async fn transport_files_with_large_file() {
-    if true {
+    if false {
         crate::logger()
     }
 
@@ -466,15 +473,18 @@ async fn transport_files_with_large_file() {
         working_dir: base_dir.clone(),
         job_name: "test job name".into(),
         folder_state: client::BindingFolderState::new(),
-        cancel_addr
+        cancel_addr,
     };
 
     let namespace = "namespace".into();
     let batch_name = "batch_name".into();
     let job_name = "job_name".into();
 
-    let (_tx, common) =
-        super::Common::test_configuration(add_port(client_port), add_port(client_keepalive), cancel_addr);
+    let (_tx, common) = super::Common::test_configuration(
+        add_port(client_port),
+        add_port(client_keepalive),
+        cancel_addr,
+    );
     let server_state = ServerSendFilesState {
         conn: server_conn,
         common,

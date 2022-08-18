@@ -54,11 +54,15 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
 /// through that connection as possible.
 ///
 /// Only return from this function if there is a TcpConnection error
-async fn run_job(conn: tokio::net::TcpStream, working_dir: &Path, cancel_addr: SocketAddr) -> Result<(), ()> {
+async fn run_job(
+    conn: tokio::net::TcpStream,
+    working_dir: &Path,
+    cancel_addr: SocketAddr,
+) -> Result<(), ()> {
     let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(
         conn,
-        working_dir.to_owned(), 
-        cancel_addr
+        working_dir.to_owned(),
+        cancel_addr,
     );
 
     debug!("created uninitialized state machine for running job on client");
@@ -333,7 +337,7 @@ pub(crate) async fn return_on_cancellation(addr: SocketAddr) -> Result<(), error
             Ok(_) => {
                 return Ok(());
             }
-            Err(e) => error!("error when accepting cancellation connection: {e}")
+            Err(e) => error!("error when accepting cancellation connection: {e}"),
         }
     }
 }

@@ -118,16 +118,40 @@ async fn check_deallocate_jobs() {
     //     │               └── simulated_output.txt
 
     let batch = server_save_dir.join("some_namespace/some_batch");
-    assert_eq!(batch.join("job_1/simulated_output.txt").exists(), true, "missing job 1 simulation output");
-    assert_eq!(batch.join("job_2/simulated_output.txt").exists(), true, "missing job 2 simulation output");
+    assert_eq!(
+        batch.join("job_1/simulated_output.txt").exists(),
+        true,
+        "missing job 1 simulation output"
+    );
+    assert_eq!(
+        batch.join("job_2/simulated_output.txt").exists(),
+        true,
+        "missing job 2 simulation output"
+    );
 
     // we should also have output files for the jobs that we ran
-    assert_eq!(batch.join("job_1/job_1_output.txt").exists(), true, "missing job 1 output file");
-    assert_eq!(batch.join("job_2/job_2_output.txt").exists(), true, "missing job 2 output file");
+    assert_eq!(
+        batch.join("job_1/job_1_output.txt").exists(),
+        true,
+        "missing job 1 output file"
+    );
+    assert_eq!(
+        batch.join("job_2/job_2_output.txt").exists(),
+        true,
+        "missing job 2 output file"
+    );
 
     // we should not have output files from jobs we did not run
-    assert_eq!(batch.join("job_1/job_2_output.txt").exists(), false, "output for job 2 exists in job 1");
-    assert_eq!(batch.join("job_2/job_1_output.txt").exists(), false, "output for job 1 exists in job 2");
+    assert_eq!(
+        batch.join("job_1/job_2_output.txt").exists(),
+        false,
+        "output for job 2 exists in job 1"
+    );
+    assert_eq!(
+        batch.join("job_2/job_1_output.txt").exists(),
+        false,
+        "output for job 1 exists in job 2"
+    );
 
     fs::remove_dir_all(&server_save_dir).ok();
     fs::remove_dir_all(&server_temp_dir).ok();

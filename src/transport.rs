@@ -292,7 +292,12 @@ where
         &mut self,
         request: &TX,
     ) -> Result<(), error::TcpConnection> {
-        transport(&mut self.conn, request, <TX as AssociatedMessage>::IS_KEEPALIVE).await
+        transport(
+            &mut self.conn,
+            request,
+            <TX as AssociatedMessage>::IS_KEEPALIVE,
+        )
+        .await
     }
 
     pub(crate) async fn transport_from_reader<R: AsyncRead + Unpin>(
@@ -334,10 +339,11 @@ where
     #[cfg(test)]
     /// determine how many bytes are remaining in the connection
     pub(crate) async fn bytes_left(&mut self) -> usize {
-        let mut buffer = vec![0;100];
+        let mut buffer = vec![0; 100];
         //let fut = read_buffer_bytes(&mut buffer, &mut self.conn);
         let fut = self.conn.read(&mut buffer[0..]);
-        let buffer_length : Result<Result<usize, _>, _> = tokio::time::timeout(Duration::from_millis(500), fut).await;
+        let buffer_length: Result<Result<usize, _>, _> =
+            tokio::time::timeout(Duration::from_millis(500), fut).await;
         buffer_length.map(|x| x.unwrap_or(0)).unwrap_or(0)
     }
 }
@@ -354,7 +360,11 @@ async fn transport<T: Serialize>(
         .map_err(error::Serialization::from)?;
 
     if is_keepalive {
-        debug!("keepalive - sending buffer of length {} to {:?}", bytes.len(), tcp_connection.peer_addr());
+        debug!(
+            "keepalive - sending buffer of length {} to {:?}",
+            bytes.len(),
+            tcp_connection.peer_addr()
+        );
     } else {
         debug!("sending buffer of length {}", bytes.len());
     }
@@ -424,7 +434,11 @@ async fn receive<T: DeserializeOwned>(
     let content_length = u64::from_le_bytes(buf);
 
     if is_keepalive {
-        debug!("keepalive - receiving buffer with length {} to {:?}", content_length, tcp_connection.peer_addr());
+        debug!(
+            "keepalive - receiving buffer with length {} to {:?}",
+            content_length,
+            tcp_connection.peer_addr()
+        );
     } else {
         debug!("receiving buffer with length {}", content_length);
     }
@@ -510,7 +524,7 @@ async fn read_buffer_bytes(
             .map_err(error::TcpConnection::from)?;
 
         // this should mean that the other party has closed the connection
-        if bytes_read == 0  {
+        if bytes_read == 0 {
             return Err(error::TcpConnection::ConnectionClosed);
         }
 

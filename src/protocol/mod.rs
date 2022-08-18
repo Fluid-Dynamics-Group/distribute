@@ -29,12 +29,11 @@
 /// cancellation messages on the server node task have a type
 /// `tokio::sync::broadcast::Receiver<JobIdentifier>`, so reading through the cancellations later
 /// will still give us identical information as we have a full history of whats being cancelled.
-/// For example, we dont need to worry about cancellations in the compiling phase because once the 
-/// job is compiled, we will request jobs from the server and there will be none (as they were all 
+/// For example, we dont need to worry about cancellations in the compiling phase because once the
+/// job is compiled, we will request jobs from the server and there will be none (as they were all
 /// removed when the job was cancelled).
-/// 
+///
 /// The only place we *do* need to worry about cancellations are in the execution phase.
-
 use crate::prelude::*;
 use crate::server::JobIdentifier;
 use std::collections::BTreeSet;
@@ -214,4 +213,3 @@ impl Common {
         (tx, common)
     }
 }
-

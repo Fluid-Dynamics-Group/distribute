@@ -110,10 +110,17 @@ impl Machine<Executing, ClientExecutingState> {
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
         let ClientExecutingState {
-            conn, working_dir, cancel_addr, ..
+            conn,
+            working_dir,
+            cancel_addr,
+            ..
         } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ClientUninitState { conn, working_dir, cancel_addr };
+        let state = super::uninit::ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        };
         debug!("moving client executing -> uninit");
         Machine::from_state(state)
     }
@@ -125,7 +132,7 @@ impl Machine<Executing, ClientExecutingState> {
             working_dir,
             job,
             folder_state,
-            cancel_addr
+            cancel_addr,
         } = self.state;
 
         #[allow(unused_mut)]
@@ -140,13 +147,16 @@ impl Machine<Executing, ClientExecutingState> {
             working_dir,
             job_name,
             folder_state,
-            cancel_addr
+            cancel_addr,
         }
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
         let ClientExecutingState {
-            conn, working_dir, cancel_addr, ..
+            conn,
+            working_dir,
+            cancel_addr,
+            ..
         } = self.state;
         debug!("moving client executing -> prepare build");
 
@@ -155,7 +165,11 @@ impl Machine<Executing, ClientExecutingState> {
 
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
-        super::prepare_build::ClientPrepareBuildState { conn, working_dir, cancel_addr }
+        super::prepare_build::ClientPrepareBuildState {
+            conn,
+            working_dir,
+            cancel_addr,
+        }
     }
 }
 
@@ -169,10 +183,10 @@ impl Machine<Executing, ServerExecutingState> {
         let mut cancelled = false;
 
         let cancel_checker = server::node::check_broadcast_for_matching_token(
-            &mut self.state.common.receive_cancellation, 
-            &self.state.common.cancel_addr, 
-            self.state.job_identifier, 
-            &mut cancelled
+            &mut self.state.common.receive_cancellation,
+            &self.state.common.cancel_addr,
+            self.state.job_identifier,
+            &mut cancelled,
         );
 
         let msg_result = tokio::select!(
@@ -296,12 +310,16 @@ struct CancelArbiter {
 }
 
 impl CancelArbiter {
-    fn new(cancel_addr: SocketAddr, tx_cancel: broadcast::Sender<()>, is_cancelled: Arc<AtomicBool>) -> Self {
+    fn new(
+        cancel_addr: SocketAddr,
+        tx_cancel: broadcast::Sender<()>,
+        is_cancelled: Arc<AtomicBool>,
+    ) -> Self {
         let (tx, rx) = oneshot::channel();
 
         tokio::spawn(async move {
             tokio::select!(
-                // the first branch of the selection here just returns when we receive a 
+                // the first branch of the selection here just returns when we receive a
                 // message from the head node that the current job should be shutdown
                 _ = client::return_on_cancellation(cancel_addr) => {
                     info!("cancelling job from arbiter");
@@ -325,7 +343,6 @@ impl CancelArbiter {
             );
         });
 
-
         Self { stop_arbiter: tx }
     }
 
@@ -335,23 +352,23 @@ impl CancelArbiter {
         // lets just wait a short time just in case.
         tokio::time::sleep(Duration::from_millis(50)).await;
 
-        // .ok() here since we may have already dropped the corresponding receiver 
+        // .ok() here since we may have already dropped the corresponding receiver
         // in the task since it was cancelled already
         self.stop_arbiter.send(()).ok();
     }
 }
 
 #[tokio::test]
-/// ensure the cancel arbiter correctly ends the task and stores 
+/// ensure the cancel arbiter correctly ends the task and stores
 /// an update to `is_cancelled`
 async fn cancel_arbiter_positive() {
     //crate::logger();
 
     let is_cancelled = Arc::new(AtomicBool::new(false));
     let (tx_cancel, mut rx_cancel) = broadcast::channel(1);
-    
-    let port =  10_005;
-    let cancel_addr = SocketAddr::from(([0,0,0,0], port));
+
+    let port = 10_005;
+    let cancel_addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     let arbiter = CancelArbiter::new(cancel_addr, tx_cancel, Arc::clone(&is_cancelled));
 
@@ -378,9 +395,9 @@ async fn cancel_arbiter_negative() {
 
     let is_cancelled = Arc::new(AtomicBool::new(false));
     let (tx_cancel, mut rx_cancel) = broadcast::channel(1);
-    
-    let port =  10_006;
-    let cancel_addr = SocketAddr::from(([0,0,0,0], port));
+
+    let port = 10_006;
+    let cancel_addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     let arbiter = CancelArbiter::new(cancel_addr, tx_cancel, Arc::clone(&is_cancelled));
 

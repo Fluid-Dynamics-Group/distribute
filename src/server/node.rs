@@ -249,7 +249,6 @@ pub(crate) async fn fetch_new_job(
     }
 }
 
-
 /// constantly polls a connection to ensure that
 async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> () {
     loop {
@@ -270,7 +269,7 @@ async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> 
 }
 
 /// ping keepalive address to ensure that the node responds within 10 seconds. If
-/// the node does not respond, it means that it has silently gone offline and the 
+/// the node does not respond, it means that it has silently gone offline and the
 /// job needs to be returned to the scheduler to be allocated to a functioning node.
 async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(), Error> {
     trace!("making keepalive check to {}", address);
@@ -294,7 +293,7 @@ async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(
     }
 }
 
-/// monitor the receiver pipeline in the background and 
+/// monitor the receiver pipeline in the background and
 ///
 /// this function must never return because there are `unreachable!()` calls
 /// at the call sites.
@@ -303,8 +302,7 @@ pub(crate) async fn check_broadcast_for_matching_token(
     cancel_address: &SocketAddr,
     job_id_to_monitor: JobIdentifier,
     cancelled_marker: &mut bool,
-) -> !
-{
+) -> ! {
     loop {
         while let Ok(job_id) = cancel_rx.recv().await {
             if job_id == job_id_to_monitor {
@@ -321,10 +319,9 @@ pub(crate) async fn check_broadcast_for_matching_token(
                     }
                     Err(e) => {
                         error!("failed to connect to node's cancellation address {cancel_address}. It is currently running a job that should be cancelled. Error: {e}");
-                        continue
+                        continue;
                     }
                 };
-
             }
         }
     }

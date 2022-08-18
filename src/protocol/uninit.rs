@@ -87,10 +87,18 @@ impl Machine<Uninit, ClientUninitState> {
         }
     }
 
-    pub(crate) fn new(conn: tokio::net::TcpStream, working_dir: PathBuf, cancel_addr: SocketAddr) -> Self {
+    pub(crate) fn new(
+        conn: tokio::net::TcpStream,
+        working_dir: PathBuf,
+        cancel_addr: SocketAddr,
+    ) -> Self {
         debug!("constructing uninitialized client");
         let conn = transport::Connection::from_connection(conn);
-        let state = ClientUninitState { conn, working_dir, cancel_addr };
+        let state = ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        };
 
         Self {
             state,
@@ -99,7 +107,11 @@ impl Machine<Uninit, ClientUninitState> {
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
-        let ClientUninitState { conn, working_dir, cancel_addr } = self.state;
+        let ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        } = self.state;
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
@@ -107,7 +119,11 @@ impl Machine<Uninit, ClientUninitState> {
         assert!(conn.bytes_left().await == 0);
 
         debug!("moving client uninit -> prepare build");
-        super::prepare_build::ClientPrepareBuildState { conn, working_dir, cancel_addr }
+        super::prepare_build::ClientPrepareBuildState {
+            conn,
+            working_dir,
+            cancel_addr,
+        }
     }
 }
 
@@ -257,7 +273,7 @@ mod tests {
         let client_state = ClientUninitState {
             conn: client_connection,
             working_dir,
-            cancel_addr
+            cancel_addr,
         };
         let server_state = ServerUninitState {
             conn: server_connection,

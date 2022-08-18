@@ -3,7 +3,9 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use crate::config::{CLIENT_KEEPALIVE_PORT_STR, CLIENT_PORT_STR, SERVER_PORT_STR, CLIENT_CANCEL_PORT_STR};
+use crate::config::{
+    CLIENT_CANCEL_PORT_STR, CLIENT_KEEPALIVE_PORT_STR, CLIENT_PORT_STR, SERVER_PORT_STR,
+};
 
 #[derive(StructOpt, PartialEq, Debug)]
 #[structopt(
