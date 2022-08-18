@@ -1,6 +1,8 @@
 use super::Either;
 use super::Machine;
 use crate::prelude::*;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use super::send_files::{ClientSendFilesState, SendFiles, ServerSendFilesState};
 
@@ -12,6 +14,7 @@ pub(crate) struct ClientExecutingState {
     pub(super) working_dir: PathBuf,
     pub(super) job: transport::JobOpt,
     pub(super) folder_state: client::BindingFolderState,
+    pub(super) cancel_addr: SocketAddr,
 }
 
 pub(crate) struct ServerExecutingState {
@@ -47,6 +50,7 @@ impl Machine<Executing, ClientExecutingState> {
         // TODO: this broadcast can be made a oneshot
         let (tx_cancel, mut rx_cancel) = broadcast::channel(1);
         let (tx_result, rx_result) = oneshot::channel();
+        let is_cancelled = Arc::new(AtomicBool::new(false));
 
         let working_dir = self.state.working_dir.clone();
         let mut folder_state = self.state.folder_state;
@@ -74,13 +78,14 @@ impl Machine<Executing, ClientExecutingState> {
             tx_result.send((folder_state, msg)).ok().unwrap();
         });
 
-        // TODO: handle cancellations as well here
-
-        // TODO: this gets more complex if the job is cancelled since we dont get
-        // our folder state back for free - BUT: i think this might get automatically
-        // handled from the job execution perspective
         let (folder_state, msg_result) = rx_result.await.unwrap();
         self.state.folder_state = folder_state;
+
+        let msg_result = if is_cancelled.load(Ordering::Relaxed) {
+            ClientMsg::CancelledJob
+        } else {
+            msg_result
+        };
 
         let tmp = self.state.conn.transport_data(&msg_result).await;
         throw_error_with_self!(tmp, self);
@@ -105,10 +110,10 @@ impl Machine<Executing, ClientExecutingState> {
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
         let ClientExecutingState {
-            conn, working_dir, ..
+            conn, working_dir, cancel_addr, ..
         } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ClientUninitState { conn, working_dir };
+        let state = super::uninit::ClientUninitState { conn, working_dir, cancel_addr };
         debug!("moving client executing -> uninit");
         Machine::from_state(state)
     }
@@ -120,6 +125,7 @@ impl Machine<Executing, ClientExecutingState> {
             working_dir,
             job,
             folder_state,
+            cancel_addr
         } = self.state;
 
         #[allow(unused_mut)]
@@ -134,12 +140,13 @@ impl Machine<Executing, ClientExecutingState> {
             working_dir,
             job_name,
             folder_state,
+            cancel_addr
         }
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
         let ClientExecutingState {
-            conn, working_dir, ..
+            conn, working_dir, cancel_addr, ..
         } = self.state;
         debug!("moving client executing -> prepare build");
 
@@ -148,7 +155,7 @@ impl Machine<Executing, ClientExecutingState> {
 
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
-        super::prepare_build::ClientPrepareBuildState { conn, working_dir }
+        super::prepare_build::ClientPrepareBuildState { conn, working_dir, cancel_addr }
     }
 }
 
@@ -159,8 +166,26 @@ impl Machine<Executing, ServerExecutingState> {
         super::ServerEitherPrepareBuild<Machine<SendFiles, ServerSendFilesState>>,
         (Self, ServerError),
     > {
-        let msg = self.state.conn.receive_data().await;
-        let msg = throw_error_with_self!(msg, self);
+        let mut cancelled = false;
+
+        let cancel_checker = server::node::check_broadcast_for_matching_token(
+            &mut self.state.common.receive_cancellation, 
+            &self.state.common.cancel_addr, 
+            self.state.job_identifier, 
+            &mut cancelled
+        );
+
+        let msg_result = tokio::select!(
+            msg = self.state.conn.receive_data() => {
+                msg
+            }
+            _ = cancel_checker => {
+                // cancel_checker will never return
+                unreachable!()
+            }
+        );
+
+        let msg = throw_error_with_self!(msg_result, self);
 
         match msg {
             ClientMsg::CancelledJob => {
@@ -263,4 +288,111 @@ impl transport::AssociatedMessage for ServerMsg {
 
 impl transport::AssociatedMessage for ClientMsg {
     type Receive = ServerMsg;
+}
+
+struct CancelArbiter {
+    // message channel to halt the arbiter
+    stop_arbiter: oneshot::Sender<()>,
+}
+
+impl CancelArbiter {
+    fn new(cancel_addr: SocketAddr, tx_cancel: broadcast::Sender<()>, is_cancelled: Arc<AtomicBool>) -> Self {
+        let (tx, rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            tokio::select!(
+                // the first branch of the selection here just returns when we receive a 
+                // message from the head node that the current job should be shutdown
+                _ = client::return_on_cancellation(cancel_addr) => {
+                    info!("cancelling job from arbiter");
+
+                    // try to prevent any race conditions where the execution of the job finishes
+                    is_cancelled.store(true, Ordering::Relaxed);
+
+                    // ping the other process that we need to shutdown
+                    tx_cancel.send(()).ok();
+                }
+                // the second branch returns when we are told that the main process has finished
+                // the execution of the job, and we no longer need to monitor if this job is
+                // getting cancelled now, we just need to shutdown
+                //
+                // the oneshot channel `rx` implements `Future` so we dont need any additional
+                // methods
+                _ = rx => {
+                    // do nothing, the other branch of `select` will not be executed and this task
+                    // will end
+                }
+            );
+        });
+
+
+        Self { stop_arbiter: tx }
+    }
+
+    /// stop the arbiter so it does not continue to monitor the port indefinitely
+    async fn stop(self) {
+        // its possible for a race condition to occur if we cancel the task fast enough,
+        // lets just wait a short time just in case.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // .ok() here since we may have already dropped the corresponding receiver 
+        // in the task since it was cancelled already
+        self.stop_arbiter.send(()).ok();
+    }
+}
+
+#[tokio::test]
+/// ensure the cancel arbiter correctly ends the task and stores 
+/// an update to `is_cancelled`
+async fn cancel_arbiter_positive() {
+    //crate::logger();
+
+    let is_cancelled = Arc::new(AtomicBool::new(false));
+    let (tx_cancel, mut rx_cancel) = broadcast::channel(1);
+    
+    let port =  10_005;
+    let cancel_addr = SocketAddr::from(([0,0,0,0], port));
+
+    let arbiter = CancelArbiter::new(cancel_addr, tx_cancel, Arc::clone(&is_cancelled));
+
+    // allow tokio to bind to the port before making the request
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    // make a connection to the port the arbiter is listening to
+    let _conn = tokio::net::TcpStream::connect(&cancel_addr).await.unwrap();
+
+    arbiter.stop().await;
+
+    assert_eq!(is_cancelled.load(Ordering::Relaxed), true);
+
+    // rx_cancel here simulates what the job-executioner would receive while it is executing the
+    // job. This ensures that the job *will* get the signal to stop the execution as we expect
+    assert_eq!(rx_cancel.try_recv().is_ok(), true);
+}
+
+#[tokio::test]
+/// ensure the cancel arbiter does not send any signals that we dont expect
+/// when it is cancelled without receiving a TCP connection to the cancel port
+async fn cancel_arbiter_negative() {
+    //crate::logger();
+
+    let is_cancelled = Arc::new(AtomicBool::new(false));
+    let (tx_cancel, mut rx_cancel) = broadcast::channel(1);
+    
+    let port =  10_006;
+    let cancel_addr = SocketAddr::from(([0,0,0,0], port));
+
+    let arbiter = CancelArbiter::new(cancel_addr, tx_cancel, Arc::clone(&is_cancelled));
+
+    // allow tokio to bind to the port before making the request
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    arbiter.stop().await;
+
+    // we did not send any cancel message, so is_cancelled should be false
+    assert_eq!(is_cancelled.load(Ordering::Relaxed), false);
+
+    // the job executioner should /not/ have a message, since we never actually sent one to the TCP
+    // port
+    assert_eq!(rx_cancel.try_recv().is_ok(), false);
 }

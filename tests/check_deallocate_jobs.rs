@@ -22,6 +22,7 @@ async fn check_deallocate_jobs() {
     // this is the port in the corresponding distribute-nodes.yaml file for this job
     let client_port = 9967;
     let keepalive_port = 9968;
+    let cancel_port = 9969;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
     let dir: PathBuf = "./tests/check_deallocate_jobs/".into();
@@ -44,6 +45,7 @@ async fn check_deallocate_jobs() {
         client_workdir.clone(),
         client_port,
         keepalive_port,
+        cancel_port,
         "./output.log".into(),
     );
     tokio::spawn(async move {

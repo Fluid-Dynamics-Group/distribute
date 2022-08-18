@@ -21,6 +21,19 @@
 //!
 //! [`prepare_build::PrepareBuild`], [`compiling::Building`], [`built::Built`], [`executing::Executing`], [`send_files::SendFiles`] can all return to
 //! [`uninit::Uninit`] if the connection is dropped
+///
+///
+/// ## Cancellations
+///
+/// We do not need to worry about cancellation messages for the most part. This is because
+/// cancellation messages on the server node task have a type
+/// `tokio::sync::broadcast::Receiver<JobIdentifier>`, so reading through the cancellations later
+/// will still give us identical information as we have a full history of whats being cancelled.
+/// For example, we dont need to worry about cancellations in the compiling phase because once the 
+/// job is compiled, we will request jobs from the server and there will be none (as they were all 
+/// removed when the job was cancelled).
+/// 
+/// The only place we *do* need to worry about cancellations are in the execution phase.
 
 use crate::prelude::*;
 use crate::server::JobIdentifier;
@@ -164,6 +177,9 @@ pub(crate) struct Common {
     pub(crate) node_name: String,
     keepalive_addr: SocketAddr,
     pub(crate) main_transport_addr: SocketAddr,
+    /// address on the compute node to message if the job was
+    /// cancelled
+    pub(crate) cancel_addr: SocketAddr,
     errored_jobs: BTreeSet<server::JobIdentifier>,
 }
 
@@ -172,6 +188,7 @@ impl Common {
     fn test_configuration(
         transport_addr: SocketAddr,
         keepalive_addr: SocketAddr,
+        cancel_addr: SocketAddr,
     ) -> (broadcast::Sender<JobIdentifier>, Self) {
         let (tx, rx) = broadcast::channel(1);
 
@@ -190,6 +207,7 @@ impl Common {
             node_name,
             keepalive_addr,
             transport_addr,
+            cancel_addr,
             errored_jobs,
         );
 
@@ -197,23 +215,3 @@ impl Common {
     }
 }
 
-async fn check_broadcast_for_matching_token<ServerMsg, ClientMsg>(
-    cancel_rx: &mut broadcast::Receiver<JobIdentifier>,
-    conn: &mut transport::Connection<ServerMsg>,
-    msg_on_failure: ServerMsg,
-    job_id_to_monitor: JobIdentifier,
-    cancelled_marker: &mut bool,
-) -> !
-where
-    ServerMsg: Serialize + transport::AssociatedMessage<Receive = ClientMsg>,
-    ClientMsg: serde::de::DeserializeOwned,
-{
-    loop {
-        while let Ok(job_id) = cancel_rx.recv().await {
-            if job_id == job_id_to_monitor {
-                conn.transport_data(&msg_on_failure).await.ok();
-                *cancelled_marker = true;
-            }
-        }
-    }
-}

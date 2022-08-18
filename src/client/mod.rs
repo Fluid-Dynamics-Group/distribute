@@ -30,6 +30,8 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let keepalive_addr = SocketAddr::from(([0, 0, 0, 0], client.keepalive_port));
     start_keepalive_checker(keepalive_addr).await?;
 
+    let cancel_addr = SocketAddr::from(([0, 0, 0, 0], client.cancel_port));
+
     info!("starting client listener on port {}", addr);
     println!("starting client listener on port {}", addr);
 
@@ -41,7 +43,7 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         println!("new TCP connection from the server - preparing setup / run structures - STDOUT");
         info!("new TCP connection from the server - preparing setup / run structures");
 
-        run_job(tcp_conn, &base_path).await.ok();
+        run_job(tcp_conn, &base_path, cancel_addr).await.ok();
     }
 
     #[allow(unreachable_code)]
@@ -52,10 +54,11 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
 /// through that connection as possible.
 ///
 /// Only return from this function if there is a TcpConnection error
-async fn run_job(conn: tokio::net::TcpStream, working_dir: &Path) -> Result<(), ()> {
+async fn run_job(conn: tokio::net::TcpStream, working_dir: &Path, cancel_addr: SocketAddr) -> Result<(), ()> {
     let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(
         conn,
-        working_dir.to_owned(),
+        working_dir.to_owned(), 
+        cancel_addr
     );
 
     debug!("created uninitialized state machine for running job on client");
@@ -324,29 +327,13 @@ pub(crate) async fn return_on_cancellation(addr: SocketAddr) -> Result<(), error
     loop {
         // accept the connection
         let res = listener.accept().await;
+        debug!("accepted connection on cancellation port");
 
         match res {
-            Ok((conn, _addr)) => {
-                let mut connection: transport::Connection<transport::CancelResponse> =
-                    transport::Connection::from_connection(conn);
-
-                match connection.receive_data().await {
-                    Ok(req) => {
-                        let _: transport::CancelRequest = req;
-
-                        connection
-                            .transport_data(&transport::CancelResponse)
-                            .await
-                            .ok();
-                        return Ok(());
-                    }
-                    Err(e) => error!("failed to receive CancelRequest from head node. error: {e}"),
-                }
+            Ok(_) => {
+                return Ok(());
             }
-            Err(e) => {
-                error!("error while accepting cancellation connection: {}", e);
-                continue;
-            }
+            Err(e) => error!("error when accepting cancellation connection: {e}")
         }
     }
 }

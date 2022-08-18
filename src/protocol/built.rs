@@ -25,6 +25,7 @@ pub(crate) struct ClientBuiltState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
     pub(super) folder_state: client::BindingFolderState,
+    pub(super) cancel_addr: SocketAddr,
 }
 
 pub(crate) struct ServerBuiltState {
@@ -85,17 +86,17 @@ impl Machine<Built, ClientBuiltState> {
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
         let ClientBuiltState {
-            conn, working_dir, ..
+            conn, working_dir, cancel_addr, ..
         } = self.state;
         let conn = conn.update_state();
         debug!("moving client built -> uninit");
-        let state = super::uninit::ClientUninitState { conn, working_dir };
+        let state = super::uninit::ClientUninitState { conn, working_dir, cancel_addr};
         Machine::from_state(state)
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
         let ClientBuiltState {
-            conn, working_dir, ..
+            conn, working_dir, cancel_addr, ..
         } = self.state;
         debug!("moving client built -> prepare build");
         #[allow(unused_mut)]
@@ -103,7 +104,7 @@ impl Machine<Built, ClientBuiltState> {
 
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
-        super::prepare_build::ClientPrepareBuildState { conn, working_dir }
+        super::prepare_build::ClientPrepareBuildState { conn, working_dir, cancel_addr }
     }
 
     async fn into_executing_state(
@@ -114,6 +115,7 @@ impl Machine<Built, ClientBuiltState> {
             conn,
             working_dir,
             folder_state,
+            cancel_addr
         } = self.state;
         debug!("moving client built -> executing");
 
@@ -128,6 +130,7 @@ impl Machine<Built, ClientBuiltState> {
             working_dir,
             job,
             folder_state,
+            cancel_addr
         }
     }
 }

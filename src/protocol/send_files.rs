@@ -18,6 +18,7 @@ pub(crate) struct ClientSendFilesState {
     pub(super) working_dir: PathBuf,
     pub(super) job_name: String,
     pub(super) folder_state: client::BindingFolderState,
+    pub(super) cancel_addr: SocketAddr,
 }
 
 pub(crate) struct ServerSendFilesState {
@@ -168,11 +169,11 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
     pub(crate) fn to_uninit(self) -> super::UninitClient {
         let ClientSendFilesState {
-            conn, working_dir, ..
+            conn, working_dir, cancel_addr, ..
         } = self.state;
         let conn = conn.update_state();
         debug!("moving client send files -> uninit");
-        let state = super::uninit::ClientUninitState { conn, working_dir };
+        let state = super::uninit::ClientUninitState { conn, working_dir, cancel_addr};
         Machine::from_state(state)
     }
 
@@ -182,6 +183,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
             conn,
             working_dir,
             folder_state,
+            cancel_addr,
             ..
         } = self.state;
 
@@ -195,6 +197,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
             conn,
             working_dir,
             folder_state,
+            cancel_addr
         }
     }
 }
@@ -404,7 +407,7 @@ impl transport::AssociatedMessage for ClientMsg {
 
 #[tokio::test]
 async fn transport_files_with_large_file() {
-    if false {
+    if true {
         crate::logger()
     }
 
@@ -443,6 +446,9 @@ async fn transport_files_with_large_file() {
 
     let client_port = 10_000;
     let client_keepalive = 10_001;
+    let cancel_port = 10_004;
+
+    let cancel_addr = add_port(cancel_port);
 
     let client_listener = tokio::net::TcpListener::bind(add_port(client_port))
         .await
@@ -460,6 +466,7 @@ async fn transport_files_with_large_file() {
         working_dir: base_dir.clone(),
         job_name: "test job name".into(),
         folder_state: client::BindingFolderState::new(),
+        cancel_addr
     };
 
     let namespace = "namespace".into();
@@ -467,7 +474,7 @@ async fn transport_files_with_large_file() {
     let job_name = "job_name".into();
 
     let (_tx, common) =
-        super::Common::test_configuration(add_port(client_port), add_port(client_keepalive));
+        super::Common::test_configuration(add_port(client_port), add_port(client_keepalive), cancel_addr);
     let server_state = ServerSendFilesState {
         conn: server_conn,
         common,

@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use crate::config::{CLIENT_KEEPALIVE_PORT_STR, CLIENT_PORT_STR, SERVER_PORT_STR};
+use crate::config::{CLIENT_KEEPALIVE_PORT_STR, CLIENT_PORT_STR, SERVER_PORT_STR, CLIENT_CANCEL_PORT_STR};
 
 #[derive(StructOpt, PartialEq, Debug)]
 #[structopt(
@@ -53,12 +53,16 @@ pub struct Client {
     pub base_folder: PathBuf,
 
     #[structopt(long, default_value = CLIENT_PORT_STR, short="p")]
-    /// the port to bind the client to (default 8953)
+    /// the port to bind the client to
     pub transport_port: u16,
 
     #[structopt(long, default_value = CLIENT_KEEPALIVE_PORT_STR, short)]
-    /// the port for client to bind for keepalive checks (default 8954)
+    /// the port for client to bind for keepalive checks
     pub keepalive_port: u16,
+
+    #[structopt(long, default_value = CLIENT_CANCEL_PORT_STR, short)]
+    /// port to receive cancelation messages on
+    pub cancel_port: u16,
 
     #[structopt(long, default_value = "./output.log", short)]
     /// the port to bind the client to (default 8953)

@@ -91,6 +91,8 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     for node in nodes_config.nodes {
         let keepalive_addr = node.keepalive_addr();
         let transport_addr = node.transport_addr();
+        let cancel_addr = node.cancel_addr();
+
         let common = Common::new(
             tx_cancel.subscribe(),
             Arc::new(node.capabilities),
@@ -98,6 +100,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
             node.node_name,
             keepalive_addr,
             transport_addr,
+            cancel_addr,
             // btreeset is just empty
             Default::default(),
         );

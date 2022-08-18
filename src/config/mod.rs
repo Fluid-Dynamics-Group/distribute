@@ -104,6 +104,8 @@ pub struct Node {
     pub(crate) transport_port: u16,
     #[serde(default = "default_keepalive_port")]
     pub(crate) keepalive_port: u16,
+    #[serde(default = "default_cancel_port")]
+    pub(crate) cancel_port: u16,
     pub(crate) capabilities: requirements::Requirements<requirements::NodeProvidedCaps>,
 }
 
@@ -115,6 +117,10 @@ fn default_keepalive_port() -> u16 {
     CLIENT_KEEPALIVE_PORT
 }
 
+fn default_cancel_port() -> u16 {
+    CLIENT_CANCEL_PORT
+}
+
 impl Node {
     /// create the full address to the node's port at which they receive jobs
     pub(crate) fn transport_addr(&self) -> std::net::SocketAddr {
@@ -124,6 +130,11 @@ impl Node {
     /// create the full address to the node's port at which they check for keepalive connections
     pub(crate) fn keepalive_addr(&self) -> std::net::SocketAddr {
         std::net::SocketAddr::from((self.ip, self.keepalive_port))
+    }
+
+    /// create the full address to the node's port at which they cancel the executing jobs
+    pub(crate) fn cancel_addr(&self) -> std::net::SocketAddr {
+        std::net::SocketAddr::from((self.ip, self.cancel_port))
     }
 }
 

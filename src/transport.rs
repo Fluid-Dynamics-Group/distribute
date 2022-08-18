@@ -66,13 +66,13 @@ mod messages {
         const IS_KEEPALIVE: bool = true;
     }
 
-    impl AssociatedMessage for CancelRequest {
-        type Receive = CancelResponse;
-    }
+    //impl AssociatedMessage for CancelRequest {
+    //    type Receive = CancelResponse;
+    //}
 
-    impl AssociatedMessage for CancelResponse {
-        type Receive = CancelRequest;
-    }
+    //impl AssociatedMessage for CancelResponse {
+    //    type Receive = CancelRequest;
+    //}
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
@@ -441,6 +441,8 @@ async fn receive<T: DeserializeOwned>(
 }
 
 /// read a raw byte stream from a tcp connection to a reader
+///
+/// does **not** work for zero sized types!
 async fn receive_to_writer<W: AsyncWrite + Unpin>(
     conn: &mut TcpStream,
     mut writer: W,
@@ -493,6 +495,8 @@ async fn receive_to_writer<W: AsyncWrite + Unpin>(
 }
 
 /// a generic and useful function for pulling a fixed number of bytes from a [`TcpStream`]
+///
+/// does **not** work for zero sized types!
 async fn read_buffer_bytes(
     buffer: &mut [u8],
     conn: &mut TcpStream,
@@ -506,7 +510,7 @@ async fn read_buffer_bytes(
             .map_err(error::TcpConnection::from)?;
 
         // this should mean that the other party has closed the connection
-        if bytes_read == 0 {
+        if bytes_read == 0  {
             return Err(error::TcpConnection::ConnectionClosed);
         }
 

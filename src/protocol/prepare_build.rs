@@ -7,6 +7,7 @@ pub(crate) struct PrepareBuild;
 pub(crate) struct ClientPrepareBuildState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
+    pub(super) cancel_addr: SocketAddr,
 }
 
 pub(crate) struct ServerPrepareBuildState {
@@ -53,10 +54,10 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
 
     pub(crate) fn to_uninit(self) -> Machine<Uninit, ClientUninitState> {
         let ClientPrepareBuildState {
-            conn, working_dir, ..
+            conn, working_dir, cancel_addr, ..
         } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ClientUninitState { conn, working_dir };
+        let state = super::uninit::ClientUninitState { conn, working_dir, cancel_addr };
         debug!("moving client prepare build -> uninit");
         Machine::from_state(state)
     }
@@ -66,7 +67,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         build_opt: transport::BuildOpts,
     ) -> super::compiling::ClientBuildingState {
         debug!("moving client prepare build -> compiling");
-        let ClientPrepareBuildState { conn, working_dir } = self.state;
+        let ClientPrepareBuildState { conn, working_dir, cancel_addr } = self.state;
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
@@ -76,6 +77,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
             build_opt,
             conn,
             working_dir,
+            cancel_addr
         }
     }
 }
