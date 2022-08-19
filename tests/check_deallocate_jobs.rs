@@ -104,7 +104,7 @@ async fn check_deallocate_jobs() {
 
     assert_eq!(jobs.len(), 0);
 
-    //directory tree should be this:
+    // directory tree should be this:
     // check_deallocate_jobs
     //     ├── distribute-nodes.yaml
     //     ├── server_save_dir

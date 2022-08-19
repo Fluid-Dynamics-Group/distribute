@@ -49,48 +49,69 @@ impl Machine<Executing, ClientExecutingState> {
     > {
         // TODO: this broadcast can be made a oneshot
         let (tx_cancel, mut rx_cancel) = broadcast::channel(1);
-        let (tx_result, rx_result) = oneshot::channel();
         let is_cancelled = Arc::new(AtomicBool::new(false));
 
         let working_dir = self.state.working_dir.clone();
-        let mut folder_state = self.state.folder_state;
         let job = self.state.job.clone();
 
-        tokio::spawn(async move {
-            let msg = match job {
-                transport::JobOpt::Python(python_job) => {
-                    let run_result =
-                        client::run_python_job(python_job, &working_dir, &mut rx_cancel).await;
-                    ClientMsg::from_run_result(run_result)
-                }
-                transport::JobOpt::Apptainer(apptainer_job) => {
-                    let run_result = client::run_apptainer_job(
-                        apptainer_job,
-                        &working_dir,
-                        &mut rx_cancel,
-                        &mut folder_state,
-                    )
-                    .await;
-                    ClientMsg::from_run_result(run_result)
-                }
-            };
+        // start an arbiter to monitor the cancellation port and receive information 
+        // from the main compute process about our job.
+        // This will spawn a background task to constantly check the port so that we dont 
+        // block the execution of the current process.
+        let arbiter = CancelArbiter::new(self.state.cancel_addr, tx_cancel, Arc::clone(&is_cancelled));
 
-            tx_result.send((folder_state, msg)).ok().unwrap();
-        });
-
-        let (folder_state, msg_result) = rx_result.await.unwrap();
-        self.state.folder_state = folder_state;
-
-        let msg_result = if is_cancelled.load(Ordering::Relaxed) {
-            ClientMsg::CancelledJob
-        } else {
-            msg_result
+        // execute the job on the current task. Each client::run_(X)_job provices a 
+        // tokio::select call that will monitor the broadcast receiver (whose transmitter
+        // belongs on the arbiter task) for a cancellation from the port. 
+        //
+        // This is required because we cannot simultaneously run the task and cancel the 
+        // task with the same `tokio::select!` call
+        let msg = match job {
+            transport::JobOpt::Python(python_job) => {
+                let run_result =
+                    client::run_python_job(python_job, &working_dir, &mut rx_cancel).await;
+                ClientMsg::from_run_result(run_result)
+            }
+            transport::JobOpt::Apptainer(apptainer_job) => {
+                let run_result = client::run_apptainer_job(
+                    apptainer_job,
+                    &working_dir,
+                    &mut rx_cancel,
+                    &mut self.state.folder_state,
+                )
+                .await;
+                ClientMsg::from_run_result(run_result)
+            }
         };
 
-        let tmp = self.state.conn.transport_data(&msg_result).await;
+        // stop monitoring the cancellation port, the job is now done
+        arbiter.stop().await;
+
+        let msg = if is_cancelled.load(Ordering::Relaxed) {
+            ClientMsg::CancelledJob
+        } else {
+            msg 
+        };
+
+        let tmp = self.state.conn.transport_data(&msg).await;
         throw_error_with_self!(tmp, self);
 
-        match msg_result {
+        //
+        // after sending the head node what our state is, lets just one last time check
+        // that we are indeed working towards the correct state.
+        //
+        let tmp_state_confirm = self.state.conn.receive_data().await;
+        let state_confirm = throw_error_with_self!(tmp_state_confirm, self);
+
+        // if we are overriding to a cancellation state, then adjust the message,
+        // otherwise continue as normal
+        let msg = if matches!(state_confirm, ServerMsg::OverrideWithCancellation) {
+            ClientMsg::CancelledJob
+        } else {
+            msg
+        };
+
+        match msg {
             ClientMsg::CancelledJob => {
                 // go to Machine<PrepareBuild, _>
                 let prepare_build = self.into_prepare_build_state().await;
@@ -203,13 +224,32 @@ impl Machine<Executing, ServerExecutingState> {
 
         match msg {
             ClientMsg::CancelledJob => {
+                // tell the compute node to continue as scheduled
+                info!("instructing compute node to transition to PrepareBuild state as planned");
+                let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
+                throw_error_with_self!(tmp, self);
+
                 // go to Machine<PrepareBuild, _>
                 let prepare_build = self.into_prepare_build_state().await;
                 let machine = Machine::from_state(prepare_build);
                 let either = Either::Left(machine);
+
+
                 Ok(either)
             }
             ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
+                // first, make sure we are both syncing our state 
+                // and transitioning to the correct state machines
+                if cancelled {
+                    info!("telling the compute node to NOT move to {msg:?}, instead to move to cancelled state");
+                    let tmp = self.state.conn.transport_data(&ServerMsg::OverrideWithCancellation).await;
+                    throw_error_with_self!(tmp, self);
+                } else {
+                    info!("instructing compute node to transition to SendFiles state as planned");
+                    let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
+                    throw_error_with_self!(tmp, self);
+                }
+
                 // go to Machine<SendFiles, _>
                 let send_files = self.into_send_files_state().await;
                 let machine = Machine::from_state(send_files);
@@ -277,7 +317,14 @@ impl Machine<Executing, ServerExecutingState> {
 }
 
 #[derive(Serialize, Deserialize, Unwrap)]
-pub(crate) enum ServerMsg {}
+pub(crate) enum ServerMsg {
+    // passed to the client when a cancellation message was send to the client, but a 
+    // race condition has caused the client to miss
+    OverrideWithCancellation,
+    // confirm that the state the client is going to move to is correct, no need
+    // to adjust for a cancellation
+    Continue
+}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ClientMsg {

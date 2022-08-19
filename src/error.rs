@@ -1,5 +1,5 @@
 use crate::config;
-use derive_more::{Constructor, Display, From, Unwrap};
+use derive_more::{Constructor, Display, From};
 use std::io;
 use std::path::PathBuf;
 

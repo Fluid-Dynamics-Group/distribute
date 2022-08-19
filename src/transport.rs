@@ -34,12 +34,8 @@ pub(crate) enum ClientQueryAnswer {
     VersionResponse(Version),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct CancelRequest;
-
-#[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct CancelResponse;
-
+/// Helper trait to ensure that `Connection` types send and 
+/// receive the same expected type for each other
 pub(crate) trait AssociatedMessage {
     type Receive;
     const IS_KEEPALIVE: bool = false;
@@ -66,13 +62,6 @@ mod messages {
         const IS_KEEPALIVE: bool = true;
     }
 
-    //impl AssociatedMessage for CancelRequest {
-    //    type Receive = CancelResponse;
-    //}
-
-    //impl AssociatedMessage for CancelResponse {
-    //    type Receive = CancelRequest;
-    //}
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]

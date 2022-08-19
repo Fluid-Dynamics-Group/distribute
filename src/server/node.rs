@@ -1,4 +1,3 @@
-use super::ok_if_exists;
 use super::schedule::JobIdentifier;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
@@ -8,14 +7,11 @@ use crate::{error, error::Error, transport};
 use super::pool_data;
 use std::collections::BTreeSet;
 
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::io::AsyncWriteExt;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
-use tokio::task::JoinHandle;
 
 use crate::prelude::*;
 use crate::protocol;
