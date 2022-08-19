@@ -305,7 +305,7 @@ impl Schedule for GpuPriority {
                         removed_set,
                         super::matrix::Reason::BuildFailures,
                         Arc::clone(&self.matrix_client),
-                        self.matrix_id.clone()
+                        self.matrix_id.clone(),
                     )
                 }
             }

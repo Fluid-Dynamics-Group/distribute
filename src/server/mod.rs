@@ -86,8 +86,13 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     //
     // spawn off a job pool that we can query from different tasks
     //
-    let scheduler =
-        schedule::GpuPriority::new(Default::default(), Default::default(), server.temp_dir, Arc::new(client), config.matrix_id );
+    let scheduler = schedule::GpuPriority::new(
+        Default::default(),
+        Default::default(),
+        server.temp_dir,
+        Arc::new(client),
+        config.matrix_id,
+    );
 
     info!("starting job pool task");
     let (tx_cancel, _) = broadcast::channel(20);

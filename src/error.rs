@@ -161,11 +161,7 @@ pub struct NodesConfigError {
 }
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
-#[display(
-    fmt = "Failed to open file {} - error: {}",
-    "path.display()",
-    error,
-)]
+#[display(fmt = "Failed to open file {} - error: {}", "path.display()", error)]
 pub struct OpenFile {
     error: std::io::Error,
     path: PathBuf,
@@ -175,7 +171,7 @@ pub struct OpenFile {
 #[display(
     fmt = "Could not serialize config file at {} - error: {}",
     "path.display()",
-    error,
+    error
 )]
 pub struct SerializeConfig {
     error: serde_json::Error,

@@ -500,7 +500,7 @@ async fn cancel_run() {
         transport::Connection::from_connection(client_binding.accept().await.unwrap().0);
 
     //
-    // setup client state 
+    // setup client state
     //
     let job = transport::JobOpt::from(transport::PythonJob {
         python_file: file_bytes.to_vec(),
@@ -517,12 +517,13 @@ async fn cancel_run() {
         folder_state,
         cancel_addr,
     };
-    
+
     //
     // setup server state
     //
 
-    let (cancel_tx, common) = protocol::Common::test_configuration(transport_addr, keepalive_addr, cancel_addr);
+    let (cancel_tx, common) =
+        protocol::Common::test_configuration(transport_addr, keepalive_addr, cancel_addr);
     let job_identifier = server::JobIdentifier::Identity(1);
 
     let server_state = ServerExecutingState {
@@ -532,7 +533,7 @@ async fn cancel_run() {
         batch_name: "test_batchname".into(),
         job_identifier,
         job_name: "test_name".into(),
-        save_location: work_dir.join("server_backup")
+        save_location: work_dir.join("server_backup"),
     };
 
     // setup each machine
@@ -553,7 +554,7 @@ async fn cancel_run() {
         let next_server = server_machine.wait_job_execution().await;
         tx_server.send(next_server).ok().unwrap();
     });
-    
+
     // cancel the 30 second job after only 5 seconds
     tokio::time::sleep(Duration::from_secs(5)).await;
     cancel_tx.send(job_identifier).unwrap();

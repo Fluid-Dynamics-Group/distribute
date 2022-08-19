@@ -1,6 +1,6 @@
 use super::schedule::JobSet;
-use std::convert::TryFrom;
 use crate::prelude::*;
+use std::convert::TryFrom;
 
 pub(crate) fn send_matrix_message(
     matrix_id: matrix_notify::OwnedUserId,
