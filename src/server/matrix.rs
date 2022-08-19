@@ -1,26 +1,19 @@
 use super::schedule::JobSet;
 use std::convert::TryFrom;
+use crate::prelude::*;
 
 pub(crate) fn send_matrix_message(
-    matrix_id: matrix_notify::UserId,
+    matrix_id: matrix_notify::OwnedUserId,
     removed_set: JobSet,
     reason: Reason,
+    client: Arc<matrix_notify::Client>,
+    self_id: matrix_notify::OwnedUserId,
 ) {
     // spawn off so that we can use async
     tokio::task::spawn(async move {
-        let client = match matrix_notify::client(&matrix_notify::ConfigInfo::new().unwrap()).await {
-            Ok(c) => c,
-            Err(e) => {
-                error!("failed to create matrix client: {}", e);
-                return;
-            }
-        };
-
-        let self_id = matrix_notify::UserId::try_from("@compute-notify:matrix.org").unwrap();
-
         let msg = reason.to_message(removed_set.batch_name);
 
-        if let Err(e) = matrix_notify::send_text_message(&client, msg, matrix_id, self_id).await {
+        if let Err(e) = matrix_notify::send_text_message(&client, msg, &matrix_id, &self_id).await {
             error!("failed to send message to user on matrix: {}", e);
         }
     });

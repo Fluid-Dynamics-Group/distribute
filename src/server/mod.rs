@@ -70,10 +70,24 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         user_conn::handle_user_requests(port, req_clone, caps_clone, save_path).await;
     });
 
-    // spawn off a job pool that we can query from different tasks
+    //
+    // read the matrix configuration from a file
+    //
+    let config_file = std::fs::File::open(&server.matrix_config)
+        .map_err(|e| error::OpenFile::new(e, server.matrix_config.clone()))
+        .map_err(error::ServerError::from)?;
 
+    let config = serde_json::from_reader(config_file)
+        .map_err(|e| error::SerializeConfig::new(e, server.matrix_config.clone()))
+        .map_err(error::ServerError::from)?;
+
+    let client = matrix_notify::client(&config).await.unwrap();
+
+    //
+    // spawn off a job pool that we can query from different tasks
+    //
     let scheduler =
-        schedule::GpuPriority::new(Default::default(), Default::default(), server.temp_dir);
+        schedule::GpuPriority::new(Default::default(), Default::default(), server.temp_dir, Arc::new(client), config.matrix_id );
 
     info!("starting job pool task");
     let (tx_cancel, _) = broadcast::channel(20);

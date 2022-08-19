@@ -170,7 +170,7 @@ pub struct PythonConfig {
 pub struct Meta {
     pub batch_name: String,
     pub namespace: String,
-    pub matrix: Option<matrix_notify::UserId>,
+    pub matrix: Option<matrix_notify::OwnedUserId>,
     pub capabilities: requirements::Requirements<requirements::JobRequiredCaps>,
 }
 
@@ -230,7 +230,7 @@ impl Jobs {
         }
     }
 
-    pub fn matrix_user(&self) -> Option<matrix_notify::UserId> {
+    pub fn matrix_user(&self) -> Option<matrix_notify::OwnedUserId> {
         match self {
             Self::Python(py) => py.meta.matrix.clone(),
             Self::Apptainer(app) => app.meta.matrix.clone(),

@@ -93,6 +93,10 @@ pub struct Server {
     #[structopt(long, short)]
     /// clean and remove the entire output tree
     pub clean_output: bool,
+
+    #[structopt(long, short)]
+    /// api keys for matrix messages
+    pub matrix_config: std::path::PathBuf,
 }
 
 #[derive(StructOpt, PartialEq, Debug, Constructor)]

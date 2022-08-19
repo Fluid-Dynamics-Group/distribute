@@ -381,6 +381,6 @@ pub struct OwnedJobSet {
     pub(crate) remaining_jobs: config::JobOpts,
     pub(crate) currently_running_jobs: usize,
     pub(crate) batch_name: String,
-    pub(crate) matrix_user: Option<matrix_notify::UserId>,
+    pub(crate) matrix_user: Option<matrix_notify::OwnedUserId>,
     pub(crate) namespace: String,
 }

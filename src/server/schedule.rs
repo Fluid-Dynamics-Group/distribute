@@ -52,11 +52,13 @@ impl JobIdentifier {
     }
 }
 
-#[derive(Default, Constructor)]
+#[derive(Constructor)]
 pub(crate) struct GpuPriority {
     map: BTreeMap<JobIdentifier, JobSet>,
     last_identifier: u64,
     base_path: PathBuf,
+    matrix_client: Arc<matrix_notify::Client>,
+    matrix_id: matrix_notify::OwnedUserId,
 }
 
 impl GpuPriority {
@@ -244,6 +246,8 @@ impl Schedule for GpuPriority {
                         matrix_id,
                         removed_set,
                         super::matrix::Reason::FinishedAll,
+                        Arc::clone(&self.matrix_client),
+                        self.matrix_id.clone(),
                     )
                 }
             }
@@ -300,6 +304,8 @@ impl Schedule for GpuPriority {
                         matrix_id,
                         removed_set,
                         super::matrix::Reason::BuildFailures,
+                        Arc::clone(&self.matrix_client),
+                        self.matrix_id.clone()
                     )
                 }
             }
@@ -347,7 +353,7 @@ pub(crate) struct JobSet {
     currently_running_jobs: usize,
     pub(crate) batch_name: String,
     namespace: String,
-    matrix_user: Option<matrix_notify::UserId>,
+    matrix_user: Option<matrix_notify::OwnedUserId>,
     build_failures: usize,
 }
 

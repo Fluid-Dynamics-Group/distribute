@@ -143,6 +143,10 @@ pub enum ServerError {
     CreateDir(CreateDir),
     #[error("{0}")]
     RemoveDir(RemoveDirError),
+    #[error("{0}")]
+    OpenFile(OpenFile),
+    #[error("{0}")]
+    SerializeConfig(SerializeConfig),
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]
@@ -154,6 +158,28 @@ pub enum ServerError {
 pub struct NodesConfigError {
     configuration_error: config::ConfigurationError,
     path: String,
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
+    fmt = "Failed to open file {} - error: {}",
+    "path.display()",
+    error,
+)]
+pub struct OpenFile {
+    error: std::io::Error,
+    path: PathBuf,
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
+    fmt = "Could not serialize config file at {} - error: {}",
+    "path.display()",
+    error,
+)]
+pub struct SerializeConfig {
+    error: serde_json::Error,
+    path: PathBuf,
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]
