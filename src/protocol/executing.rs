@@ -54,17 +54,18 @@ impl Machine<Executing, ClientExecutingState> {
         let working_dir = self.state.working_dir.clone();
         let job = self.state.job.clone();
 
-        // start an arbiter to monitor the cancellation port and receive information 
+        // start an arbiter to monitor the cancellation port and receive information
         // from the main compute process about our job.
-        // This will spawn a background task to constantly check the port so that we dont 
+        // This will spawn a background task to constantly check the port so that we dont
         // block the execution of the current process.
-        let arbiter = CancelArbiter::new(self.state.cancel_addr, tx_cancel, Arc::clone(&is_cancelled));
+        let arbiter =
+            CancelArbiter::new(self.state.cancel_addr, tx_cancel, Arc::clone(&is_cancelled));
 
-        // execute the job on the current task. Each client::run_(X)_job provices a 
+        // execute the job on the current task. Each client::run_(X)_job provices a
         // tokio::select call that will monitor the broadcast receiver (whose transmitter
-        // belongs on the arbiter task) for a cancellation from the port. 
+        // belongs on the arbiter task) for a cancellation from the port.
         //
-        // This is required because we cannot simultaneously run the task and cancel the 
+        // This is required because we cannot simultaneously run the task and cancel the
         // task with the same `tokio::select!` call
         let msg = match job {
             transport::JobOpt::Python(python_job) => {
@@ -90,7 +91,7 @@ impl Machine<Executing, ClientExecutingState> {
         let msg = if is_cancelled.load(Ordering::Relaxed) {
             ClientMsg::CancelledJob
         } else {
-            msg 
+            msg
         };
 
         let tmp = self.state.conn.transport_data(&msg).await;
@@ -234,15 +235,18 @@ impl Machine<Executing, ServerExecutingState> {
                 let machine = Machine::from_state(prepare_build);
                 let either = Either::Left(machine);
 
-
                 Ok(either)
             }
             ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
-                // first, make sure we are both syncing our state 
+                // first, make sure we are both syncing our state
                 // and transitioning to the correct state machines
                 if cancelled {
                     info!("telling the compute node to NOT move to {msg:?}, instead to move to cancelled state");
-                    let tmp = self.state.conn.transport_data(&ServerMsg::OverrideWithCancellation).await;
+                    let tmp = self
+                        .state
+                        .conn
+                        .transport_data(&ServerMsg::OverrideWithCancellation)
+                        .await;
                     throw_error_with_self!(tmp, self);
                 } else {
                     info!("instructing compute node to transition to SendFiles state as planned");
@@ -318,12 +322,12 @@ impl Machine<Executing, ServerExecutingState> {
 
 #[derive(Serialize, Deserialize, Unwrap)]
 pub(crate) enum ServerMsg {
-    // passed to the client when a cancellation message was send to the client, but a 
+    // passed to the client when a cancellation message was send to the client, but a
     // race condition has caused the client to miss
     OverrideWithCancellation,
     // confirm that the state the client is going to move to is correct, no need
     // to adjust for a cancellation
-    Continue
+    Continue,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -459,4 +463,110 @@ async fn cancel_arbiter_negative() {
     // the job executioner should /not/ have a message, since we never actually sent one to the TCP
     // port
     assert_eq!(rx_cancel.try_recv().is_ok(), false);
+}
+
+#[tokio::test]
+async fn cancel_run() {
+    let folder_path = PathBuf::from("./tests/python_sleep/");
+    let file_to_execute = folder_path.join("sleep30s.py");
+
+    let file_bytes = include_bytes!("../../tests/python_sleep/sleep30s.py");
+
+    let work_dir = folder_path.join("run");
+
+    assert_eq!(folder_path.exists(), true);
+    assert_eq!(file_to_execute.exists(), true);
+
+    // set up the distribute environment
+    // this is a little frail depending on how APIs shift in the future
+    client::utils::clean_output_dir(&work_dir).await.unwrap();
+
+    let keepalive_port = 10_007;
+    let transport_port = 10_008;
+    let cancel_port = 10_009;
+
+    let keepalive_addr = add_port(keepalive_port);
+    let transport_addr = add_port(transport_port);
+    let cancel_addr = add_port(cancel_port);
+
+    //
+    // setup TCP connections
+    //
+    let client_binding = tokio::net::TcpListener::bind(transport_addr).await.unwrap();
+
+    let server_conn: transport::Connection<ServerMsg> =
+        transport::Connection::new(transport_addr).await.unwrap();
+    let client_conn: transport::Connection<ClientMsg> =
+        transport::Connection::from_connection(client_binding.accept().await.unwrap().0);
+
+    //
+    // setup client state 
+    //
+    let job = transport::JobOpt::from(transport::PythonJob {
+        python_file: file_bytes.to_vec(),
+        job_name: "test_job".into(),
+        job_files: vec![],
+    });
+
+    let folder_state = client::execute::BindingFolderState::new();
+
+    let client_state = ClientExecutingState {
+        conn: client_conn,
+        working_dir: work_dir.clone(),
+        job,
+        folder_state,
+        cancel_addr,
+    };
+    
+    //
+    // setup server state
+    //
+
+    let (cancel_tx, common) = protocol::Common::test_configuration(transport_addr, keepalive_addr, cancel_addr);
+    let job_identifier = server::JobIdentifier::Identity(1);
+
+    let server_state = ServerExecutingState {
+        conn: server_conn,
+        common,
+        namespace: "test_namespace".into(),
+        batch_name: "test_batchname".into(),
+        job_identifier,
+        job_name: "test_name".into(),
+        save_location: work_dir.join("server_backup")
+    };
+
+    // setup each machine
+    let client_machine = Machine::from_state(client_state);
+    let server_machine = Machine::from_state(server_state);
+
+    let (tx_client, rx_client) = oneshot::channel();
+    let (tx_server, rx_server) = oneshot::channel();
+
+    // spawn client proc
+    tokio::spawn(async move {
+        let next_client = client_machine.execute_job().await;
+        tx_client.send(next_client).ok().unwrap();
+    });
+
+    // spawn server proc
+    tokio::spawn(async move {
+        let next_server = server_machine.wait_job_execution().await;
+        tx_server.send(next_server).ok().unwrap();
+    });
+    
+    // cancel the 30 second job after only 5 seconds
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    cancel_tx.send(job_identifier).unwrap();
+
+    let client = rx_client.await.unwrap().ok().unwrap();
+    let server = rx_server.await.unwrap().ok().unwrap();
+
+    // ensure both the client and server are in `PrepareBuild` state,
+    // which implies that they were both cancelled
+    assert_eq!(matches!(client, Either::Left(_)), true);
+    assert_eq!(matches!(server, Either::Left(_)), true);
+
+    // clean up the folder after
+    assert_eq!(work_dir.exists(), true, "workdir does not exist somehow");
+    std::fs::remove_dir_all(work_dir).unwrap();
 }

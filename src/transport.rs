@@ -34,7 +34,7 @@ pub(crate) enum ClientQueryAnswer {
     VersionResponse(Version),
 }
 
-/// Helper trait to ensure that `Connection` types send and 
+/// Helper trait to ensure that `Connection` types send and
 /// receive the same expected type for each other
 pub(crate) trait AssociatedMessage {
     type Receive;
@@ -61,7 +61,6 @@ mod messages {
         type Receive = ServerQuery;
         const IS_KEEPALIVE: bool = true;
     }
-
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]

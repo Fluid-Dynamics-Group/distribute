@@ -408,6 +408,10 @@ async fn generalized_run(
            Ok(Some(()))
        }
        _ = cancel.recv() => {
+           if let Some(original_dir) = original_dir {
+               enter_output_dir(&original_dir);
+           }
+
            info!("run_job has been canceled for job name {}", name);
            Ok(None)
        }

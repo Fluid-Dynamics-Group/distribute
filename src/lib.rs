@@ -33,6 +33,8 @@ mod template;
 #[cfg(feature = "cli")]
 mod transport;
 
+use prelude::*;
+
 #[cfg(feature = "cli")]
 pub use error::{Error, LogError, RunErrorLocal};
 
@@ -94,4 +96,9 @@ pub fn logger() {
         .apply()
         .map_err(LogError::from)
         .unwrap();
+}
+
+#[cfg(test)]
+fn add_port(port: u16) -> SocketAddr {
+    SocketAddr::from(([0, 0, 0, 0], port))
 }
