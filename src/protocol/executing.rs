@@ -78,7 +78,7 @@ impl Machine<Executing, ClientExecutingState> {
                     apptainer_job,
                     &working_dir,
                     &mut rx_cancel,
-                    &mut self.state.folder_state,
+                    &self.state.folder_state,
                 )
                 .await;
                 ClientMsg::from_run_result(run_result)
@@ -89,7 +89,7 @@ impl Machine<Executing, ClientExecutingState> {
         arbiter.stop().await;
 
         let msg = if is_cancelled.load(Ordering::Relaxed) {
-            ClientMsg::CancelledJob
+            ClientMsg::Cancelled
         } else {
             msg
         };
@@ -107,20 +107,20 @@ impl Machine<Executing, ClientExecutingState> {
         // if we are overriding to a cancellation state, then adjust the message,
         // otherwise continue as normal
         let msg = if matches!(state_confirm, ServerMsg::OverrideWithCancellation) {
-            ClientMsg::CancelledJob
+            ClientMsg::Cancelled
         } else {
             msg
         };
 
         match msg {
-            ClientMsg::CancelledJob => {
+            ClientMsg::Cancelled => {
                 // go to Machine<PrepareBuild, _>
                 let prepare_build = self.into_prepare_build_state().await;
                 let machine = Machine::from_state(prepare_build);
                 let either = Either::Left(machine);
                 Ok(either)
             }
-            ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
+            ClientMsg::Successful | ClientMsg::Failed => {
                 // go to Machine<SendFiles, _>
                 let send_files = self.into_send_files_state().await;
                 let machine = Machine::from_state(send_files);
@@ -130,7 +130,7 @@ impl Machine<Executing, ClientExecutingState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitClient {
+    pub(crate) fn into_uninit(self) -> super::UninitClient {
         let ClientExecutingState {
             conn,
             working_dir,
@@ -224,7 +224,7 @@ impl Machine<Executing, ServerExecutingState> {
         let msg = throw_error_with_self!(msg_result, self);
 
         match msg {
-            ClientMsg::CancelledJob => {
+            ClientMsg::Cancelled => {
                 // tell the compute node to continue as scheduled
                 info!("instructing compute node to transition to PrepareBuild state as planned");
                 let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
@@ -237,7 +237,7 @@ impl Machine<Executing, ServerExecutingState> {
 
                 Ok(either)
             }
-            ClientMsg::SuccessfulJob | ClientMsg::FailedJob => {
+            ClientMsg::Successful | ClientMsg::Failed => {
                 // first, make sure we are both syncing our state
                 // and transitioning to the correct state machines
                 if cancelled {
@@ -263,7 +263,7 @@ impl Machine<Executing, ServerExecutingState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitServer {
+    pub(crate) fn into_uninit(self) -> super::UninitServer {
         let ServerExecutingState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
@@ -332,17 +332,17 @@ pub(crate) enum ServerMsg {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ClientMsg {
-    CancelledJob,
-    SuccessfulJob,
-    FailedJob,
+    Cancelled,
+    Successful,
+    Failed,
 }
 
 impl ClientMsg {
     fn from_run_result(execution_output: Result<Option<()>, crate::Error>) -> Self {
         match execution_output {
-            Ok(None) => Self::CancelledJob,
-            Ok(Some(_)) => Self::SuccessfulJob,
-            Err(_e) => Self::FailedJob,
+            Ok(None) => Self::Cancelled,
+            Ok(Some(_)) => Self::Successful,
+            Err(_e) => Self::Failed,
         }
     }
 }
@@ -466,6 +466,7 @@ async fn cancel_arbiter_negative() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn cancel_run() {
     let folder_path = PathBuf::from("./tests/python_sleep/");
     let file_to_execute = folder_path.join("sleep30s.py");

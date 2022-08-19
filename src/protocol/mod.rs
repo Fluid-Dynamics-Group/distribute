@@ -120,15 +120,15 @@ pub(crate) enum ClientError {
 
 impl ClientError {
     pub(crate) fn is_tcp_error(&self) -> bool {
-        match &self {
-            Self::Uninit(uninit::ClientError::TcpConnection(_)) => true,
-            Self::PrepareBuild(prepare_build::ClientError::TcpConnection(_)) => true,
-            Self::Building(compiling::ClientError::TcpConnection(_)) => true,
-            Self::Built(built::ClientError::TcpConnection(_)) => true,
-            Self::Executing(executing::ClientError::TcpConnection(_)) => true,
-            Self::SendFiles(send_files::ClientError::TcpConnection(_)) => true,
-            _ => false,
-        }
+        matches!(
+            &self,
+            Self::Uninit(uninit::ClientError::TcpConnection(_))
+                | Self::PrepareBuild(prepare_build::ClientError::TcpConnection(_))
+                | Self::Building(compiling::ClientError::TcpConnection(_))
+                | Self::Built(built::ClientError::TcpConnection(_))
+                | Self::Executing(executing::ClientError::TcpConnection(_))
+                | Self::SendFiles(send_files::ClientError::TcpConnection(_))
+        )
     }
 }
 
@@ -150,15 +150,15 @@ pub(crate) enum ServerError {
 
 impl ServerError {
     pub(crate) fn is_tcp_error(&self) -> bool {
-        match &self {
-            Self::Uninit(uninit::ServerError::TcpConnection(_)) => true,
-            Self::PrepareBuild(prepare_build::ServerError::TcpConnection(_)) => true,
-            Self::Building(compiling::ServerError::TcpConnection(_)) => true,
-            Self::Built(built::ServerError::TcpConnection(_)) => true,
-            Self::Executing(executing::ServerError::TcpConnection(_)) => true,
-            Self::SendFiles(send_files::ServerError::TcpConnection(_)) => true,
-            _ => false,
-        }
+        matches!(
+            &self,
+            Self::Uninit(uninit::ServerError::TcpConnection(_))
+                | Self::PrepareBuild(prepare_build::ServerError::TcpConnection(_))
+                | Self::Building(compiling::ServerError::TcpConnection(_))
+                | Self::Built(built::ServerError::TcpConnection(_))
+                | Self::Executing(executing::ServerError::TcpConnection(_))
+                | Self::SendFiles(send_files::ServerError::TcpConnection(_))
+        )
     }
 }
 type ClientEitherPrepareBuild<T> =

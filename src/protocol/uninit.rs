@@ -75,7 +75,7 @@ impl Machine<Uninit, ClientUninitState> {
                 error!("client asked for version information after we sent it. This is an unreachable state");
                 unreachable!()
             }
-            ServerMsg::VersionMismatch => return Err((self, ClientError::VersionMismatch)),
+            ServerMsg::VersionMismatch => Err((self, ClientError::VersionMismatch)),
             ServerMsg::VersionsMatched => {
                 debug!("versions matched - continuing to next step");
 
@@ -240,7 +240,6 @@ impl transport::AssociatedMessage for ClientMsg {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
     use crate::protocol::Common;
     use tokio::net::{TcpListener, TcpStream};
     use transport::Connection;

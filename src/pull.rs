@@ -186,7 +186,7 @@ fn save_file(save_location: &Path, file: transport::SendFile) -> Result<(), erro
 /// correctly
 fn validate_regex(exprs: &[String]) -> Result<(), error::PullErrorLocal> {
     for x in exprs {
-        regex::Regex::new(&x).map_err(|e| error::RegexError::new(x.to_string(), e))?;
+        regex::Regex::new(x).map_err(|e| error::RegexError::new(x.to_string(), e))?;
     }
 
     Ok(())

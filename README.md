@@ -43,3 +43,14 @@ cargo install --path . --locked
 
 systemctl restart distribute-compute
 ```
+
+## Running tests
+
+The tests in `./src/protocol/executing.rs` will run jobs, and since the execution of a job
+changes the current working directory of the process, this can affect the outcomes of other tests.
+Therefore, to run all tests in the repo, you must run:
+
+```
+cargo test
+cargo test -- --ignored
+```

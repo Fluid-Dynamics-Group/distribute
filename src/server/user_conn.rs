@@ -126,7 +126,7 @@ async fn add_job_set(
     });
 
     // if we were able to add the job set to the scheduler
-    if let Ok(_) = tx_result {
+    if tx_result.is_ok() {
         if let Err(e) = conn
             .transport_data(&transport::ServerResponseToUser::JobSetAdded)
             .await
@@ -161,7 +161,7 @@ async fn add_job_set(
 
 async fn query_capabilities(
     conn: &mut transport::Connection<transport::ServerResponseToUser>,
-    node_capabilities: &Vec<Arc<Requirements<NodeProvidedCaps>>>,
+    node_capabilities: &[Arc<Requirements<NodeProvidedCaps>>],
 ) {
     // clone all the data so that we have non-Arc'd data
     // this can be circumvented by
@@ -267,7 +267,7 @@ async fn pull_files(
         conn.transport_data(&error::PullError::MissingNamespace.into())
             .await
             .ok();
-        return ();
+        return;
     }
 
     let batch_path = namespace_path.join(pull_files.batch_name);
@@ -276,7 +276,7 @@ async fn pull_files(
         conn.transport_data(&error::PullError::MissingBatchname.into())
             .await
             .ok();
-        return ();
+        return;
     }
 
     // all the filters should be checked client side,
@@ -357,10 +357,8 @@ async fn pull_files(
                     }
                 }
                 // sending a regular file
-                else {
-                    if let Err(e) = send_regular_file(abs_path, relative_path, conn).await {
-                        error!("failed to send regular file: {}", e);
-                    }
+                else if let Err(e) = send_regular_file(abs_path, relative_path, conn).await {
+                    error!("failed to send regular file: {}", e);
                 }
             };
 
@@ -376,7 +374,7 @@ async fn pull_files(
             }
         }
 
-        conn.transport_data(&transport::ServerResponseToUser::FinishFiles.into())
+        conn.transport_data(&transport::ServerResponseToUser::FinishFiles)
             .await
             .ok();
     }
@@ -489,7 +487,7 @@ fn filter_path<'a>(
 ) -> FilterResult {
     for expr in filters {
         // if we have a match to the expression
-        if let Some(_) = expr.find(&path.to_string_lossy()) {
+        if expr.find(&path.to_string_lossy()).is_some() {
             if is_include_filter {
                 return FilterResult::include(path.to_owned(), prefix_to_strip);
             } else {

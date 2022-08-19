@@ -118,7 +118,7 @@ impl Machine<Building, ClientBuildingState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitClient {
+    pub(crate) fn into_uninit(self) -> super::UninitClient {
         let ClientBuildingState {
             conn,
             working_dir,
@@ -223,7 +223,7 @@ impl Machine<Building, ServerBuildingState> {
         Ok(out)
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitServer {
+    pub(crate) fn into_uninit(self) -> super::UninitServer {
         let ServerBuildingState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
@@ -292,7 +292,7 @@ impl ClientMsg {
                 // the process built perfectly
                 Self::SuccessfullCompilation
             }
-            Err(e) => {
+            Err(_) => {
                 // the job failed to build
                 Self::FailedCompilation
             }

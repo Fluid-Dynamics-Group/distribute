@@ -18,7 +18,7 @@ use crate::server;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 #[cfg(not(test))]
-const BUFFER_LEN: usize = 1000_000;
+const BUFFER_LEN: usize = 1_000_000;
 #[cfg(test)]
 const BUFFER_LEN: usize = 100;
 
@@ -135,27 +135,27 @@ pub struct PullFilesDryResponse {
     pub filtered_files: Vec<PathBuf>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct PythonJobInit {
     pub batch_name: String,
     pub python_setup_file: Vec<u8>,
     pub additional_build_files: Vec<File>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct File {
     pub file_name: String,
     pub file_bytes: Vec<u8>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct PythonJob {
     pub python_file: Vec<u8>,
     pub job_name: String,
     pub job_files: Vec<File>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct ApptainerJobInit {
     pub batch_name: String,
     pub sif_bytes: Vec<u8>,
@@ -163,20 +163,20 @@ pub struct ApptainerJobInit {
     pub container_bind_paths: Vec<PathBuf>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct ApptainerJob {
     pub job_name: String,
     pub job_files: Vec<File>,
 }
 
-#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[cfg(feature = "cli")]
 pub enum BuildOpts {
     Python(PythonJobInit),
     Apptainer(ApptainerJobInit),
 }
 
-#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize, Eq)]
 pub(crate) enum JobOpt {
     Apptainer(ApptainerJob),
     Python(PythonJob),
@@ -529,7 +529,6 @@ async fn read_buffer_bytes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
     use std::convert::TryInto;
     use std::net::SocketAddr;
     use std::time::{Duration, Instant};
@@ -668,6 +667,8 @@ mod tests {
         let length = 40732;
         let buffer = vec![0; length];
         let path = "./tests/buffer_check.binary";
+        dbg!(std::env::current_dir().unwrap());
+
         let mut f = std::fs::File::create(&path).unwrap();
 
         f.write_all(&buffer).unwrap();
