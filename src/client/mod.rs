@@ -13,11 +13,9 @@ use protocol::UninitClient;
 
 use crate::{cli, error, transport};
 
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::broadcast;
-
 pub async fn client_command(client: cli::Client) -> Result<(), Error> {
-    let base_path = PathBuf::from(client.base_folder);
+    let base_path = client.base_folder;
+
     utils::clean_output_dir(&base_path)
         .await
         .map_err(error::ClientInitError::from)?;
@@ -99,7 +97,7 @@ async fn inner_prepare_build_to_compile_result(
         Ok(building) => building,
         Err((prepare_build, err)) => {
             error!("error when trying to get a job to build : {}", err);
-            return Err((prepare_build.to_uninit(), err.into()));
+            return Err((prepare_build.into_uninit(), err.into()));
         }
     };
 
@@ -107,7 +105,7 @@ async fn inner_prepare_build_to_compile_result(
         Ok(built) => built,
         Err((prepare_build, err)) => {
             error!("error when trying to get a job to build: {}", err);
-            return Err((prepare_build.to_uninit(), err.into()));
+            return Err((prepare_build.into_uninit(), err.into()));
         }
     };
 
@@ -155,7 +153,7 @@ async fn execute_and_send_files(
         }
         Err((execute, err)) => {
             error!("error executing the job: {}", err);
-            return Err((execute.to_uninit(), err.into()));
+            return Err((execute.into_uninit(), err.into()));
         }
     };
 
@@ -163,7 +161,7 @@ async fn execute_and_send_files(
         Ok(built) => built,
         Err((send_files, err)) => {
             error!("error sending result files from the job: {}", err);
-            return Err((send_files.to_uninit(), err.into()));
+            return Err((send_files.into_uninit(), err.into()));
         }
     };
 
@@ -198,7 +196,7 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
             }
             Err((built, err)) => {
                 error!("error from built client: {}", err);
-                return Err((built.to_uninit(), err.into()));
+                return Err((built.into_uninit(), err.into()));
             }
         };
 
@@ -288,12 +286,9 @@ fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {
 ///
 /// returns true if the connection has been closed
 fn is_closed_connection(error: error::TcpConnection) -> bool {
-    match error {
-        // TODO: experiment with what exactly is the EOF on a TCP connection
-        // and what exactly constitutes waiting for more data
-        error::TcpConnection::ConnectionClosed => true,
-        _ => false,
-    }
+    // TODO: experiment with what exactly is the EOF on a TCP connection
+    // and what exactly constitutes waiting for more data
+    matches!(error, error::TcpConnection::ConnectionClosed)
 }
 
 pub(crate) async fn check_for_failure<ClientMsg, ServerMsg, F>(

@@ -1,7 +1,7 @@
 use super::schedule::JobIdentifier;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
-use super::pool_data::{BuildTaskInfo, JobRequest, JobResponse, NewJobRequest, RunTaskInfo};
+use super::pool_data::{JobRequest, JobResponse, NewJobRequest};
 use crate::{error, error::Error, transport};
 
 use super::pool_data;
@@ -82,7 +82,7 @@ async fn run_all_jobs(
                 built = prepare_build_to_built(prepare_build, scheduler_tx).await?;
                 continue;
             }
-            Err((built, err)) => return Err((built.to_uninit(), err.into())),
+            Err((built, err)) => return Err((built.into_uninit(), err.into())),
         };
 
         // fully execute the job and return back to the built state
@@ -115,7 +115,7 @@ async fn execute_and_send_files(
         }
         Err((execute, err)) => {
             error!("error executing the job: {}", err);
-            return Err((execute.to_uninit(), err.into()));
+            return Err((execute.into_uninit(), err.into()));
         }
     };
 
@@ -123,7 +123,7 @@ async fn execute_and_send_files(
         Ok(built) => built,
         Err((send_files, err)) => {
             error!("error sending result files from the job: {}", err);
-            return Err((send_files.to_uninit(), err.into()));
+            return Err((send_files.into_uninit(), err.into()));
         }
     };
 
@@ -171,12 +171,12 @@ async fn inner_prepare_build_to_compile_result(
 > {
     let building_state = match prepare_build.send_job(scheduler_tx).await {
         Ok(building) => building,
-        Err((prepare_build, err)) => return Err((prepare_build.to_uninit(), err.into())),
+        Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
     };
 
     let building_state_or_prepare = match building_state.prepare_for_execution().await {
         Ok(built) => built,
-        Err((prepare_build, err)) => return Err((prepare_build.to_uninit(), err.into())),
+        Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
     };
 
     Ok(building_state_or_prepare)
@@ -245,14 +245,14 @@ pub(crate) async fn fetch_new_job(
 }
 
 /// constantly polls a connection to ensure that
-async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> () {
+async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) {
     loop {
         if let Err(e) = check_keepalive(&address, name).await {
             error!(
                 "error checking the keepalive for node at {}: {}",
                 address, e
             );
-            return ();
+            return;
         }
 
         #[cfg(not(test))]

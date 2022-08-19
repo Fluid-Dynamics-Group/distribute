@@ -55,7 +55,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     let mut working_nodes = 0;
 
     for cap in &caps {
-        if cap.can_accept_job(&jobs.capabilities()) {
+        if cap.can_accept_job(jobs.capabilities()) {
             working_nodes += 1;
         }
     }

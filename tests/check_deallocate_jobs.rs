@@ -62,10 +62,11 @@ async fn check_deallocate_jobs() {
         server_temp_dir.clone(),
         server_port,
         false,
+        None,
     );
 
     // start the server
-    tokio::spawn(async move {
+    tokio::task::spawn_local(async move {
         println!("starting server");
         distribute::server_command(server).await.unwrap();
         println!("server has exited");

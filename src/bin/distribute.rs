@@ -3,8 +3,6 @@ use distribute::Error;
 
 use structopt::StructOpt;
 
-use log;
-
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     if let Err(e) = wrap_main().await {

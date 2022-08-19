@@ -73,15 +73,19 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     //
     // read the matrix configuration from a file
     //
-    let config_file = std::fs::File::open(&server.matrix_config)
-        .map_err(|e| error::OpenFile::new(e, server.matrix_config.clone()))
-        .map_err(error::ServerError::from)?;
+    let matrix_data = if let Some(matrix_config_path) = server.matrix_config {
+        let config_file = std::fs::File::open(&matrix_config_path)
+            .map_err(|e| error::OpenFile::new(e, matrix_config_path.clone()))
+            .map_err(error::ServerError::from)?;
 
-    let config = serde_json::from_reader(config_file)
-        .map_err(|e| error::SerializeConfig::new(e, server.matrix_config.clone()))
-        .map_err(error::ServerError::from)?;
+        let config = serde_json::from_reader(config_file)
+            .map_err(|e| error::SerializeConfig::new(e, matrix_config_path.clone()))
+            .map_err(error::ServerError::from)?;
 
-    let client = matrix_notify::client(&config).await.unwrap();
+        Some(matrix::MatrixData::from_config(config).await.unwrap())
+    } else {
+        None
+    };
 
     //
     // spawn off a job pool that we can query from different tasks
@@ -90,8 +94,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         Default::default(),
         Default::default(),
         server.temp_dir,
-        Arc::new(client),
-        config.matrix_id,
+        matrix_data,
     );
 
     info!("starting job pool task");

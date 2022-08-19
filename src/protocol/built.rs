@@ -99,7 +99,7 @@ impl Machine<Built, ClientBuiltState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitClient {
+    pub(crate) fn into_uninit(self) -> super::UninitClient {
         let ClientBuiltState {
             conn,
             working_dir,
@@ -257,7 +257,7 @@ impl Machine<Built, ServerBuiltState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitServer {
+    pub(crate) fn into_uninit(self) -> super::UninitServer {
         let ServerBuiltState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         debug!("moving server built -> uninit");

@@ -47,7 +47,9 @@ pub async fn pause(args: cli::Pause) -> Result<(), Error> {
 /// parse a duration string (like 1h30m10s) into a Duration
 fn parse_time_input(mut input_str: &str) -> Result<Duration, error::PauseError> {
     let mut duration = Duration::from_secs(0);
-    while input_str.len() > 0 {
+
+    // while the input is not empty...
+    while !input_str.is_empty() {
         let (num, unit, remaining) = slice_until_unit(input_str)?;
 
         let seconds = match unit {

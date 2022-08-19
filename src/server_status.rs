@@ -1,5 +1,5 @@
 use crate::{
-    cli, config,
+    cli,
     error::{self, Error},
     transport,
 };
@@ -36,7 +36,7 @@ pub async fn get_current_jobs(
 
     match conn.receive_data().await {
         Ok(transport::ServerResponseToUser::JobNames(x)) => Ok(x),
-        Ok(x) => return Err(Error::from(error::StatusError::NotQueryJobs(x))),
-        Err(e) => Err(e)?,
+        Ok(x) => Err(Error::from(error::StatusError::NotQueryJobs(x))),
+        Err(e) => Err(e).map_err(Error::from),
     }
 }

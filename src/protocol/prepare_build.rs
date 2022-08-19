@@ -52,7 +52,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         Ok(machine)
     }
 
-    pub(crate) fn to_uninit(self) -> Machine<Uninit, ClientUninitState> {
+    pub(crate) fn into_uninit(self) -> Machine<Uninit, ClientUninitState> {
         let ClientPrepareBuildState {
             conn,
             working_dir,
@@ -146,7 +146,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
     }
 
     /// convert back to the uninitialized state
-    pub(crate) fn to_uninit(self) -> Machine<Uninit, ServerUninitState> {
+    pub(crate) fn into_uninit(self) -> Machine<Uninit, ServerUninitState> {
         let ServerPrepareBuildState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };

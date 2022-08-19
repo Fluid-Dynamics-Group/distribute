@@ -1,3 +1,4 @@
+use super::matrix;
 use super::pool_data::{JobOrInit, JobResponse, TaskInfo};
 use super::storage::{self, StoredJob, StoredJobInit};
 
@@ -57,8 +58,7 @@ pub(crate) struct GpuPriority {
     map: BTreeMap<JobIdentifier, JobSet>,
     last_identifier: u64,
     base_path: PathBuf,
-    matrix_client: Arc<matrix_notify::Client>,
-    matrix_id: matrix_notify::OwnedUserId,
+    matrix: Option<matrix::MatrixData>,
 }
 
 impl GpuPriority {
@@ -78,8 +78,7 @@ impl GpuPriority {
             // make sure the capabilities of this node match the total capabilities
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
             // make sure that the job we are pulling has not failed to build on this node before
-            .filter(|(ident, _job_set)| !build_failures.contains(ident))
-            .next()
+            .find(|(ident, _job_set)| !build_failures.contains(ident))
         {
             // TODO: fix this unwrap - its not that good but i dont have a better way to handle
             // it right now
@@ -109,30 +108,27 @@ impl GpuPriority {
             return None;
         }
 
-        self.map
-            .get_mut(&identifier)
-            .map(|job_set| {
-                // check if the process with the current id has any jobs remaining
-                // if it has nothing return None instead of JobResponse::EmptyJobs
-                if job_set.has_remaining_jobs() {
-                    // TODO: this can panic
-                    //
-                    debug!(
-                        "fetching next job since there are jobs remaining in set {}",
-                        identifier
-                    );
-                    let job = job_set.next_job().unwrap();
-                    Some(JobResponse::SetupOrRun(TaskInfo::new(
-                        job_set.namespace.clone(),
-                        job_set.batch_name.clone(),
-                        identifier,
-                        JobOrInit::Job(job),
-                    )))
-                } else {
-                    None
-                }
-            })
-            .flatten()
+        self.map.get_mut(&identifier).and_then(|job_set| {
+            // check if the process with the current id has any jobs remaining
+            // if it has nothing return None instead of JobResponse::EmptyJobs
+            if job_set.has_remaining_jobs() {
+                // TODO: this can panic
+                //
+                debug!(
+                    "fetching next job since there are jobs remaining in set {}",
+                    identifier
+                );
+                let job = job_set.next_job().unwrap();
+                Some(JobResponse::SetupOrRun(TaskInfo::new(
+                    job_set.namespace.clone(),
+                    job_set.batch_name.clone(),
+                    identifier,
+                    JobOrInit::Job(job),
+                )))
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -154,8 +150,7 @@ impl Schedule for GpuPriority {
             // make sure the capabilities of this node can accept this job
             .filter(|(_ident, job_set)| node_caps.can_accept_job(&job_set.requirements))
             // make sure that the job we are pulling has not failed to build on this node before
-            .filter(|(ident, _job_set)| !build_failures.contains(ident))
-            .next()
+            .find(|(ident, _job_set)| !build_failures.contains(ident))
         {
             // if we are already working on this job - we dont need to recompile anything,
             // just send the next iteration of the job out
@@ -181,18 +176,15 @@ impl Schedule for GpuPriority {
         }
         // we dont have any gpu jobs to run, just pull the first item from the map that has some
         // jobs left and we will run those
-        else {
-            if let Some(job) = self.job_by_id(current_compiled_job, build_failures) {
-                job
-            } else {
-                self.take_first_job(node_caps, build_failures)
-            }
+        else if let Some(job) = self.job_by_id(current_compiled_job, build_failures) {
+            job
+        } else {
+            self.take_first_job(node_caps, build_failures)
         }
     }
 
     fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError> {
-        let jobs =
-            JobSet::from_owned(jobs, &self.base_path).map_err(|e| error::StoreSet::from(e))?;
+        let jobs = JobSet::from_owned(jobs, &self.base_path).map_err(error::StoreSet::from)?;
 
         self.last_identifier += 1;
         let ident = JobIdentifier::new(self.last_identifier);
@@ -234,21 +226,22 @@ impl Schedule for GpuPriority {
                 removed_set.build.delete().ok();
 
                 if let Some(matrix_id) = &removed_set.matrix_user {
-                    let matrix_id = matrix_id.clone();
+                    if let Some(matrix) = &self.matrix {
+                        let matrix_id = matrix_id.clone();
 
-                    info!(
-                        "sending message to matrix user {} for batch finish `{}`",
-                        matrix_id, removed_set.batch_name
-                    );
+                        info!(
+                            "sending message to matrix user {} for batch finish `{}`",
+                            matrix_id, removed_set.batch_name
+                        );
 
-                    // send the matrix message
-                    super::matrix::send_matrix_message(
-                        matrix_id,
-                        removed_set,
-                        super::matrix::Reason::FinishedAll,
-                        Arc::clone(&self.matrix_client),
-                        self.matrix_id.clone(),
-                    )
+                        // send the matrix message
+                        super::matrix::send_matrix_message(
+                            matrix_id,
+                            removed_set,
+                            super::matrix::Reason::FinishedAll,
+                            matrix.clone(),
+                        )
+                    }
                 }
             }
         } else {
@@ -293,20 +286,21 @@ impl Schedule for GpuPriority {
                 );
 
                 if let Some(matrix_id) = &removed_set.matrix_user {
-                    let matrix_id = matrix_id.clone();
+                    if let Some(matrix) = &self.matrix {
+                        let matrix_id = matrix_id.clone();
 
-                    info!(
-                        "sending message to matrix user {} for finish to `{}`",
-                        matrix_id, removed_set.batch_name
-                    );
+                        info!(
+                            "sending message to matrix user {} for finish to `{}`",
+                            matrix_id, removed_set.batch_name
+                        );
 
-                    super::matrix::send_matrix_message(
-                        matrix_id,
-                        removed_set,
-                        super::matrix::Reason::BuildFailures,
-                        Arc::clone(&self.matrix_client),
-                        self.matrix_id.clone(),
-                    )
+                        super::matrix::send_matrix_message(
+                            matrix_id,
+                            removed_set,
+                            super::matrix::Reason::BuildFailures,
+                            matrix.clone(),
+                        )
+                    }
                 }
             }
         } else {
@@ -359,7 +353,7 @@ pub(crate) struct JobSet {
 
 impl JobSet {
     fn has_remaining_jobs(&self) -> bool {
-        self.remaining_jobs.len() > 0
+        !self.remaining_jobs.is_empty()
     }
 
     fn next_job(&mut self) -> Option<transport::JobOpt> {
@@ -530,7 +524,12 @@ mod tests {
     }
 
     fn init(path: &Path) -> (OwnedJobSet, OwnedJobSet, GpuPriority) {
-        let scheduler = GpuPriority::new(Default::default(), Default::default(), path.to_owned());
+        let scheduler = GpuPriority::new(
+            Default::default(),
+            Default::default(),
+            path.to_owned(),
+            None,
+        );
 
         let jgpu = transport::PythonJob {
             python_file: vec![],

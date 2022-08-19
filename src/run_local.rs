@@ -26,7 +26,7 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
 
     for job in jobs {
         let name = job.job_name.clone();
-        client::execute::run_apptainer_job(job, &args.save_dir, &mut rx, &mut state).await?;
+        client::execute::run_apptainer_job(job, &args.save_dir, &mut rx, &state).await?;
         fs::rename(&distribute_save, archive.join(name))?;
         fs::create_dir(&distribute_save)?;
     }
@@ -53,7 +53,7 @@ async fn create_required_dirs(args: &cli::Run) -> Result<(), RunErrorLocal> {
 async fn load_config(
     path: &Path,
 ) -> Result<(transport::ApptainerJobInit, Vec<transport::ApptainerJob>), RunErrorLocal> {
-    let jobs = config::load_config::<config::Jobs>(&path)?;
+    let jobs = config::load_config::<config::Jobs>(path)?;
 
     debug!("loading job information from files");
     let loaded_jobs = match jobs.load_jobs().await? {

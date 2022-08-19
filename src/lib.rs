@@ -33,6 +33,7 @@ mod template;
 #[cfg(feature = "cli")]
 mod transport;
 
+#[cfg(test)]
 use prelude::*;
 
 #[cfg(feature = "cli")]

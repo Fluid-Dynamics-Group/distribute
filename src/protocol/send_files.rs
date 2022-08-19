@@ -167,7 +167,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
         Ok(machine)
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitClient {
+    pub(crate) fn into_uninit(self) -> super::UninitClient {
         let ClientSendFilesState {
             conn,
             working_dir,
@@ -381,7 +381,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitServer {
+    pub(crate) fn into_uninit(self) -> super::UninitServer {
         let ServerSendFilesState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
@@ -391,6 +391,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
 }
 
 #[derive(Serialize, Deserialize, Unwrap)]
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum ServerMsg {
     ReceivedFile,
     AwaitingLargeFile,
