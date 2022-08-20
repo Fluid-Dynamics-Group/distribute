@@ -36,7 +36,6 @@ job_2 = distribute.job("job_2", job_2_required_files)
 
 jobs = [job_1, job_2]
 
-
 #
 # then put together a full description of the jobs that we will run
 # and the container we will use to run then
