@@ -11,37 +11,6 @@ use distribute::apptainer::Job;
 use distribute::ApptainerConfig;
 use distribute::Meta;
 
-// construct the metadata ``Meta`` object for information about what this job batch will run
-//
-// ``namespace``
-//
-// the namespace is similar to the root directory where all your ``batch_name``-named folders will
-// reside. For this reason, the ``namespace`` variable will probably remain constant for all config
-// files in a given project.
-//
-// ``batch_name``
-//
-// the batch name is a description of all the :py:func:`job` in the batch that you are running. 
-//
-// Since completed batches are stored on disk at a directory ``$namespace/$batch_name``, 
-// your ``namespace`` and ``batch_name`` combination must be unique. Since ``namespace`` likely remains
-// constant throughout the project, this implies ``batch_name`` must be unique for every batch ran.
-//
-// ``capabilities``
-//
-// for an apptainer job, this is simply ``["apptainer"]``. If you need GPU capabilities, this this is
-// ``["apptainer", "gpu"]``. 
-//
-// ``matrix_username``
-//
-// a matrix username in the format ``@your_username:homeserver_url``. An example user is
-// ``"@karlik:matrix.org"``. Defaults to ``None``
-//
-// :param str namespace: the namespace is similar to the root directory where all your ``batch_name``-named folders will reside. For this reason, the ``namespace`` variable will probably remain constant for all config files in a given project.
-// :param str batch_name: the batch name is a description of all the :py:func:`job` in the batch that you are running. Since completed batches are stored on disk at a directory ``$namespace/$batch_name``, your ``namespace`` and ``batch_name`` combination must be unique. Since ``namespace`` likely remains constant throughout the project, this implies ``batch_name`` must be unique for every batch ran.
-// :param capabilities: for an apptainer job, this is simply ``["apptainer"]``. If you need GPU capabilities, this this is ``["apptainer", "gpu"]``. 
-// :param matrix_username: a matrix username in the format ``@your_username:homeserver_url``. An example user is ``"@karlik:matrix.org"``. Defaults to ``None``
-
 #[pyfunction(matrix_username="None")]
 /// construct the metadata ``Meta`` object for information about what this job batch will run
 ///
@@ -50,14 +19,14 @@ use distribute::Meta;
 /// :param List[str] capabilities: required capabilities for your job
 /// :param Optional[str] matrix_username: a matrix username in the format ``@your_username:homeserver_url``
 ///
-/// for an apptainer job the ``capabilities`` are is simply ``["apptainer"]``. If you need GPU capabilities, this this is ``["apptainer", "gpu"]``. 
+/// for an apptainer job the ``capabilities`` are is simply ``["apptainer"]``. If you need GPU capabilities, use ``["apptainer", "gpu"]``. 
 ///
 /// Example:
 ///
 /// .. code-block::
 ///
 ///     import distribute_compute_config as distribute 
-///     matrix_user = "@karik:matrix.org"
+///     matrix_user = "@matrx_id:matrix.org"
 ///     batch_name = "test_batch"
 ///     namespace = "test_namespace"
 ///     capabilities = ["apptainer"]
@@ -104,7 +73,11 @@ pub fn metadata(
 ///
 ///     sif_path = "./path/to/some/container.sif"
 ///
-///     initial_condition = distribute.file("./path/to/some/file.h5", relative=True, alias="initial_condition.h5")
+///     initial_condition = distribute.file(
+///         "./path/to/some/file.h5", 
+///         relative=True, 
+///         alias="initial_condition.h5"
+///     )
 ///     required_files = [initial_condition]
 ///
 ///     required_mounts = ["/solver/extra_mount"]
@@ -145,7 +118,11 @@ pub fn initialize(
 ///
 ///     import distribute_compute_config as distribute
 ///
-///     job_1_config_file = distribute.file("./path/to/config1.json", alias="config.json", relative=True)
+///     job_1_config_file = distribute.file(
+///         "./path/to/config1.json", 
+///         alias="config.json", 
+///         relative=True
+///     )
 ///     job_1_required_files = [job_1_config_file]
 ///
 ///     job_1 = distribute.job("job_1", job_1_required_files)
@@ -166,10 +143,20 @@ pub fn job(name: String, required_files: Vec<File>) -> Job {
 ///
 ///     import distribute_compute_config as distribute
 ///
-///     initialize = distribute.initialize(sif_path="./some/path/to/file.sif", required_files=[], required_mounts=[])
+///     initialize = distribute.initialize(
+///         sif_path="./some/path/to/file.sif", 
+///         required_files=[], 
+///         required_mounts=[]
+///     )
 ///
-///     job_1_config_file = distribute.file("./path/to/config1.json", alias="config.json", relative=True)
+///     job_1_config_file = distribute.file(
+///         "./path/to/config1.json", 
+///         alias="config.json", 
+///         relative=True
+///     )
+///
 ///     job_1 = distribute.job("job_1", [job_1_config_file])
+///
 ///     description = distribute.description(initialize, jobs=[job_1])
 pub fn description(initialize: Initialize, jobs: Vec<Job>) -> Description {
     distribute::apptainer::Description::new(initialize, jobs)
@@ -194,12 +181,20 @@ pub fn description(initialize: Initialize, jobs: Vec<Job>) -> Description {
 ///     import distribute_compute_config as config
 ///
 ///     # config1.json appears as `/input/config.json`
-///     config_file_1 = distribute.file("./path/to/config1.json", alias="config.json", relative=True)
-///     # config2.json appears as `/input/config2.json`
-///     config_file_2 = distribute.file("./path/to/config2.json", relative=True)
+///     config_file_1 = distribute.file(
+///         "./path/to/config1.json", 
+///         alias="config.json", 
+///         relative=True
+///     )
 ///
-///     # config3.json appears as `/input/config3.json`, folder structure `/root/path/to/` must already
-///     # exist
+///     # config2.json appears as `/input/config2.json`
+///     config_file_2 = distribute.file(
+///         "./path/to/config2.json", 
+///         relative=True
+///     )
+///
+///     # config3.json appears as `/input/config3.json`, folder structure 
+///     # `/root/path/to/` must already exist
 ///     config_file_3 = distribute.file("/root/path/to/config3.json")
 pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<distribute::common::File> {
     
