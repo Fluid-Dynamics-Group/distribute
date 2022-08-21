@@ -49,3 +49,33 @@ Example
 
     jobset = distribute.apptainer_config(meta, description)
     distribute.write_config_to_file(jobset,"./distribute-jobs.yaml")
+
+This generates:
+
+.. code-block::
+
+    ---
+    meta:
+      batch_name: test_batch
+      namespace: test_namespace
+      matrix: "@matrix_id:matrix.org"
+      capabilities:
+        - apptainer
+    apptainer:
+      initialize:
+        sif: "./path/to/some/container.sif"
+        required_files:
+          - path: "./path/to/some/file.h5"
+            alias: initial_condition.h5
+        required_mounts:
+          - /solver/extra_mount
+      jobs:
+        - name: job_1
+          required_files:
+            - path: "./path/to/config1.json"
+              alias: config.json
+        - name: job_2
+          required_files:
+            - path: "./path/to/config2.json"
+              alias: config.json
+

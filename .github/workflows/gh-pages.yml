@@ -12,16 +12,36 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
     steps:
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+          architecture: x64
       - uses: actions/checkout@v2
-
+      - name: install maturin and sphinx
+        run: |
+          pip3 install maturin sphinx sphinx_rtd_theme
+      - name: verify project compiles
+        run: |
+          cd pybind
+          cargo build
+          rustc --version
+          maturin --version
+      - name: build sphinx docs
+        run: |
+          ./update_python_version.sh
+          cd pybind
+          maturin build --sdist
+          pip3 install .
+          cd docs
+          make html
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
           mdbook-version: '0.4.10'
-          # mdbook-version: 'latest'
-
       - run: mdbook build docs
-
+      - name: copy sphinx docs into book directory
+        run: |
+          mv ./pybind/docs/build/html/ ./docs/book/python
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.ref == 'refs/heads/master' }}
