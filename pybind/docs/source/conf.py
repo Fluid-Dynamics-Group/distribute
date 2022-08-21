@@ -18,8 +18,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'distribute_compute_config'
-copyright = '2022, Brooks K'
-author = 'Brooks K'
+copyright = '2022, Brooks'
+author = 'Brooks'
 
 
 # -- General configuration ---------------------------------------------------
@@ -28,10 +28,7 @@ author = 'Brooks K'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    #'sphinx.ext.duration',
-    #'sphinx.ext.doctest',
     'sphinx.ext.autodoc',
-    #'sphinx.ext.autosummary',
 ]
 
 source_suffix = ['.rst', '.md']

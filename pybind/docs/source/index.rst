@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to distribute_compute_config's documentation!
+distribute_compute_config documentation
 =====================================================
 
 .. _installation:
@@ -16,6 +16,15 @@ Install with ``pip``:
 .. code-block:: console
 
    $ pip3 install distribute_compute_config 
+
+.. _usage:
+
+
+Main Documentation
+------------------
+
+This is the python api to the broader and more complex distributed computing system documented `Here <https://fluid-dynamics-group.github.io/distribute-docs>`_.
+If you have any questions about how components fit together, reading through the user guide will likely clarify them.
 
 Usage
 --------
@@ -33,4 +42,3 @@ Usage
 .. autofunction:: distribute_compute_config.job(name: str, required_files: List[File]) -> Job
 
 .. autofunction:: distribute_compute_config.write_config_to_file(config: ApptainerConfig, path: str)
-
