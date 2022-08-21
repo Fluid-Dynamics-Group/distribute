@@ -11,32 +11,46 @@ use distribute::apptainer::Job;
 use distribute::ApptainerConfig;
 use distribute::Meta;
 
+// construct the metadata ``Meta`` object for information about what this job batch will run
+//
+// ``namespace``
+//
+// the namespace is similar to the root directory where all your ``batch_name``-named folders will
+// reside. For this reason, the ``namespace`` variable will probably remain constant for all config
+// files in a given project.
+//
+// ``batch_name``
+//
+// the batch name is a description of all the :py:func:`job` in the batch that you are running. 
+//
+// Since completed batches are stored on disk at a directory ``$namespace/$batch_name``, 
+// your ``namespace`` and ``batch_name`` combination must be unique. Since ``namespace`` likely remains
+// constant throughout the project, this implies ``batch_name`` must be unique for every batch ran.
+//
+// ``capabilities``
+//
+// for an apptainer job, this is simply ``["apptainer"]``. If you need GPU capabilities, this this is
+// ``["apptainer", "gpu"]``. 
+//
+// ``matrix_username``
+//
+// a matrix username in the format ``@your_username:homeserver_url``. An example user is
+// ``"@karlik:matrix.org"``. Defaults to ``None``
+//
+// :param str namespace: the namespace is similar to the root directory where all your ``batch_name``-named folders will reside. For this reason, the ``namespace`` variable will probably remain constant for all config files in a given project.
+// :param str batch_name: the batch name is a description of all the :py:func:`job` in the batch that you are running. Since completed batches are stored on disk at a directory ``$namespace/$batch_name``, your ``namespace`` and ``batch_name`` combination must be unique. Since ``namespace`` likely remains constant throughout the project, this implies ``batch_name`` must be unique for every batch ran.
+// :param capabilities: for an apptainer job, this is simply ``["apptainer"]``. If you need GPU capabilities, this this is ``["apptainer", "gpu"]``. 
+// :param matrix_username: a matrix username in the format ``@your_username:homeserver_url``. An example user is ``"@karlik:matrix.org"``. Defaults to ``None``
+
 #[pyfunction(matrix_username="None")]
 /// construct the metadata ``Meta`` object for information about what this job batch will run
 ///
-/// ``namespace``
+/// :param str namespace: namespace where several ``batch_name`` runs may live
+/// :param str batch_name: the name of this batch of jobs
+/// :param List[str] capabilities: required capabilities for your job
+/// :param Optional[str] matrix_username: a matrix username in the format ``@your_username:homeserver_url``
 ///
-/// the namespace is similar to the root directory where all your ``batch_name``-named folders will
-/// reside. For this reason, the ``namespace`` variable will probably remain constant for all config
-/// files in a given project.
-///
-/// ``batch_name``
-///
-/// the batch name is a description of all the :py:func:`job` in the batch that you are running. 
-///
-/// Since completed batches are stored on disk at a directory ``$namespace/$batch_name``, 
-/// your ``namespace`` and ``batch_name`` combination must be unique. Since ``namespace`` likely remains
-/// constant throughout the project, this implies ``batch_name`` must be unique for every batch ran.
-///
-/// ``capabilities``
-///
-/// for an apptainer job, this is simply ``["apptainer"]``. If you need GPU capabilities, this this is
-/// ``["apptainer", "gpu"]``. 
-///
-/// ``matrix_username``
-///
-/// a matrix username in the format ``@your_username:homeserver_url``. An example user is
-/// ``"@karlik:matrix.org"``. Defaults to ``None``
+/// for an apptainer job the ``capabilities`` are is simply ``["apptainer"]``. If you need GPU capabilities, this this is ``["apptainer", "gpu"]``. 
 ///
 /// Example:
 ///
@@ -78,21 +92,11 @@ pub fn metadata(
 ///
 /// Also see the documentation for creating a ``File`` with the :func:`file` function
 ///
-/// ``sif_path``
-///
-/// The path to the ``.sif`` file produced by your ``apptainer build``
-///
-/// ``required_files``
-///
-/// These files appear in the ``/input`` directory of every job, in addition to the ``File``s
-/// specified in each ``Job``
-///
-/// ``required_mounts``
-///
-/// a list of strings to paths *inside* the container that should be mutable.
+/// :param sif_path: The path to the ``.sif`` file produced by ``apptainer build``
+/// :param required_files: These files appear in the ``/input`` directory of every job, in addition to the ``File`` specified in each ``Job``
+/// :param required_mounts: a list of strings to paths *inside* the container that should be mutable.
 ///
 /// Example:
-///
 /// 
 /// .. code-block::
 ///
@@ -126,20 +130,14 @@ pub fn initialize(
 ///
 /// Also see the documentation for creating a ``File`` with the :func:`file()` function
 ///
-/// ``name``
+/// :param name: the name of the job. It should be unique in combination with the ``batch_name`` of this job.
+/// :param required_files: a python list of files that should appear in the ``/input`` directory when this job is run, along with the ``required_files`` specified in :func:`initialize()`.
 ///
-/// the name of the job. It should be unique in combination with the ``batch_name`` of this job,
-/// implying uniqueness among all :func:`job` ``name`` in this batch.
-///
-/// the job name should be slightly descriptive of the content of what the job will be running.
+/// ``name`` should therefore be unique to this batch since ``batch_name`` remains constant.
+/// the ``name`` should be slightly descriptive of the content of what the job will be running.
 /// This will make it easier to use ``distribute pull`` to download the files later
 ///
-/// ``required_files``
-///
-/// a python list of files that should appear in the ``/input`` directory when this job is run, along
-/// with the ``required_files`` specified in :func:`initialize()`.
-///
-/// ``File`` can be constructed with the :func:`file` function
+/// ``File`` types can be constructed with the :func:`file` function
 ///
 /// Example:
 ///
@@ -159,14 +157,8 @@ pub fn job(name: String, required_files: Vec<File>) -> Job {
 /// combines initialization information with a list of jobs to describe the solver files,
 /// how they should be started, and what they will run
 ///
-/// ``initialize``
-///
-/// You can create an [`Initialize`] struct with [`initialize()`]
-///
-/// ``jobs``
-///
-/// information for each job can be created from the [`job()`] function. `jobs` is simply a python
-/// list of all job objects
+/// :param initialize: You can create an ``Initialize`` struct with :func:`initialize`
+/// :param jobs: information for each job can be created from the :func:`job` function. 
 ///
 /// Example:
 ///
@@ -184,28 +176,15 @@ pub fn description(initialize: Initialize, jobs: Vec<Job>) -> Description {
 }
 
 #[pyfunction(relative="false", alias="None")]
-/// create a file to appear in the `/input` directory of the solver
+/// create a file to appear in the ``/input`` directory of the solver
 ///
-/// ``path``
-///
-/// a path to the file on disk. ``path`` should be an absolute, unless ``relative=True`` is also
-/// specified. If ``relative=True`` is not speficied, the full directory structure to the file *must*
-/// already exist.
-///
-/// ``relative``
-///
-/// a flag for if the ``path`` specified is a relative path or not. Defaults to `False`
-///
-/// ``alias``
-///
-/// how the file should be renamed when it appears in the `/input` directory of your solver.
-/// If no `alias` is specified, the current name of the file will be used. 
+/// :param path: a path to the file on disk. ``path`` should be an absolute, unless ``relative=True`` is also specified. If ``relative=True`` is not speficied, the full directory structure to the file *must* already exist.
+/// :param relative: a flag for if the ``path`` specified is a relative path or not. Defaults to `False`
+/// :param alias: how the file should be renamed when it appears in the ``/input`` directory of your solver. If no ``alias`` is specified, the current name of the file will be used. 
 ///
 /// For example, a file with a ``path`` ``./path/to/config_1.json`` will appear as
 /// ``/input/config_1.json``. with ``alias="config.json"``, this file will appear as
 /// ``/input/config.json``
-///
-/// defaults to `None`
 ///
 /// Example
 ///
@@ -243,17 +222,13 @@ pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<di
 }
 
 #[pyfunction]
-/// assemble the [`metadata()`] and [`description()`] into a config file that can be written
+/// assemble the :func:`metadata` and :func:`description` into a config file that can be written
 /// to disk
 ///
+/// :param meta: output of :func:`metadata` function
+/// :param description: output of :func:`description` function
 ///
-/// ``meta``
-///
-/// output of [`metadata()`] function
-///
-/// ``description``
-///
-/// output of [`description()`] function
+/// You can write this description object to disk with :func:`write_config_to_file`
 pub fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig {
     ApptainerConfig::new(meta, description)
 }
@@ -261,14 +236,8 @@ pub fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig
 #[pyfunction]
 /// write an :func:`apptainer_config()` to a path
 ///
-/// ``config``
-///
-/// output of :func:`apptainer_config()` function
-///
-/// ``path``
-///
-/// the path that the config file should be written to, usually with the name
-/// ``distribute-jobs.yaml``
+/// :param config: output of :func:`apptainer_config()` function
+/// :param path: the path that the config file should be written to, usually with the name ``distribute-jobs.yaml``
 ///
 /// Example:
 ///
@@ -283,9 +252,10 @@ pub fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<
     Ok(())
 }
 
-/// A Python module implemented in Rust. The name of this function must match
-/// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
-/// import the module.
+/// This python package provides compile-time checked functions to create ``distribute`` compute
+/// configuration files. The recommended way to read this documentation is to start with the final
+/// function :func:`write_config_to_file` and work backwards recursively until you have all the 
+/// constituent parts of the config file.
 #[pymodule]
 fn distribute_compute_config(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(metadata, m)?)?;

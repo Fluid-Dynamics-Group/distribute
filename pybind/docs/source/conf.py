@@ -28,12 +28,10 @@ author = 'Brooks K'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.duration',
-    'sphinx.ext.doctest',
+    #'sphinx.ext.duration',
+    #'sphinx.ext.doctest',
     'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.intersphinx',
-    'myst_parser'
+    #'sphinx.ext.autosummary',
 ]
 
 source_suffix = ['.rst', '.md']
@@ -59,5 +57,4 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-
-import sys
+autodoc_typehints = 'both'
