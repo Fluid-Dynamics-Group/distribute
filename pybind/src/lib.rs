@@ -12,50 +12,26 @@ use distribute::ApptainerConfig;
 use distribute::Meta;
 
 #[pyfunction(matrix_username="None")]
-/// construct the metadata `Meta` object for information about what this job batch will run
+/// construct the metadata ``Meta`` object for information about what this job batch will run
 ///
-/// ## Arguments
+/// :param str namespace: namespace where several ``batch_name`` runs may live
+/// :param str batch_name: the name of this batch of jobs
+/// :param List[str] capabilities: required capabilities for your job
+/// :param Optional[str] matrix_username: a matrix username in the format ``@your_username:homeserver_url``
 ///
-/// ### `namespace`
+/// for an apptainer job the ``capabilities`` are is simply ``["apptainer"]``. If you need GPU capabilities, use ``["apptainer", "gpu"]``. 
 ///
-/// the namespace is similar to the root directory where all your `batch_name`-named folders will
-/// reside. For this reason, the `namespace` variable will probably remain constant for all config
-/// files in a given project.
+/// Example:
 ///
-/// ### `batch_name`
+/// .. code-block::
 ///
-/// the batch name is a description of all the [`job()`]s in the batch that you are running. 
-///
-/// Since completed batches are stored on disk at a directory `$namespace/$batch_name`, 
-/// your `namespace` and `batch_name` combination must be unique. Since `namespace` likely remains
-/// constant throughout the project, this implies `batch_name` must be unique for every batch ran.
-///
-/// ### `capabilities`
-///
-/// for an apptainer job, this is simply ["apptainer"]. If you need GPU capabilities, this this is
-/// `["apptainer", "gpu"]`. 
-///
-/// ## Keyword Arguments
-///
-/// ### `matrix_username`
-///
-/// a matrix username in the format `@your_username:homeserver_url`. An example user is
-/// `"@karlik:matrix.org"`. Defaults to `None`
-///
-/// ## Example
-///
-/// in python:
-///
-/// ```python
-/// import distribute_compute_config as distribute 
-///
-/// matrix_user = "@karik:matrix.org"
-/// batch_name = "test_batch"
-/// namespace = "test_namespace"
-/// capabilities = ["apptainer"]
+///     import distribute_compute_config as distribute 
+///     matrix_user = "@matrx_id:matrix.org"
+///     batch_name = "test_batch"
+///     namespace = "test_namespace"
+///     capabilities = ["apptainer"]
 /// 
-/// meta = distribute.metadata(namespace, batch_name, capabilities, matrix_user)
-/// ```
+///     meta = distribute.metadata(namespace, batch_name, capabilities, matrix_user)
 pub fn metadata(
     namespace: String,
     batch_name: String,
@@ -80,40 +56,33 @@ pub fn metadata(
 }
 
 #[pyfunction]
-/// create the `initialize` section for loading `apptainer` `.sif` files, required container
+/// create the `initialize` section for loading ``apptainer`` ``.sif`` files, required container
 /// mounts, and input files present in all runs.
 ///
-/// Also see the documentation for creating a [`File`] with the [`file()`] function
+/// Also see the documentation for creating a ``File`` with the :func:`file` function
 ///
-/// ## Arguments
+/// :param sif_path: The path to the ``.sif`` file produced by ``apptainer build``
+/// :param required_files: These files appear in the ``/input`` directory of every job, in addition to the ``File`` specified in each ``Job``
+/// :param required_mounts: a list of strings to paths *inside* the container that should be mutable.
 ///
-/// ### `sif_path`
+/// Example:
+/// 
+/// .. code-block::
 ///
-/// The path to the `.sif` file produced by your `apptainer build`
+///     import distribute_compute_config as distribute 
 ///
-/// ### `required_files`
+///     sif_path = "./path/to/some/container.sif"
 ///
-/// These files appear in the `/input` directory of every job, in addition to the [`File`]'s
-/// specified in each [`Job`]
+///     initial_condition = distribute.file(
+///         "./path/to/some/file.h5", 
+///         relative=True, 
+///         alias="initial_condition.h5"
+///     )
+///     required_files = [initial_condition]
 ///
-/// ### `required_mounts`
+///     required_mounts = ["/solver/extra_mount"]
 ///
-/// a list of strings to paths *inside* the container that should be mutable.
-///
-/// ## Example
-///
-/// ```python
-/// import distribute_compute_config as distribute 
-///
-/// sif_path = "./path/to/some/container.sif"
-///
-/// initial_condition = distribute.file("./path/to/some/file.h5", relative=True, alias="initial_condition.h5")
-/// required_files = [initial_condition]
-///
-/// required_mounts = ["/solver/extra_mount"]
-///
-/// initialize = distribute.initialize(sif_path, required_files, required_mounts)
-/// ```
+///     initialize = distribute.initialize(sif_path, required_files, required_mounts)
 pub fn initialize(
     sif_path: String,
     required_files: Vec<File>,
@@ -130,39 +99,33 @@ pub fn initialize(
 /// creates a job from its name and the required input files
 ///
 /// once you have a list of jobs that should be run in the batch, move on to creating a
-/// [`description()`]
+/// :func:`description()`
 ///
-/// Also see the documentation for creating a [`File`] with the [`file`](`file()`) function
+/// Also see the documentation for creating a ``File`` with the :func:`file()` function
 ///
-/// ## Arguments
+/// :param name: the name of the job. It should be unique in combination with the ``batch_name`` of this job.
+/// :param required_files: a python list of files that should appear in the ``/input`` directory when this job is run, along with the ``required_files`` specified in :func:`initialize()`.
 ///
-/// ### `name`
+/// ``name`` should therefore be unique to this batch since ``batch_name`` remains constant.
+/// the ``name`` should be slightly descriptive of the content of what the job will be running.
+/// This will make it easier to use ``distribute pull`` to download the files later
 ///
-/// the name of the job. It should be unique in combination with the `batch_name` of this job,
-/// implying uniqueness among all [`job()`] `name`s in this batch.
+/// ``File`` types can be constructed with the :func:`file` function
 ///
-/// the job name should be slightly descriptive of the content of what the job will be running.
-/// This will make it easier to use `distribute pull` to download the files later
+/// Example:
 ///
-/// ### `required_files` 
+/// .. code-block::
 ///
-/// a python list of files that should appear in the `/input` directory when this job is run, along
-/// with the `required_files` specified in [`initialize()`]. 
+///     import distribute_compute_config as distribute
 ///
-/// [`File`]s can be constructed with the [`file()`] function
+///     job_1_config_file = distribute.file(
+///         "./path/to/config1.json", 
+///         alias="config.json", 
+///         relative=True
+///     )
+///     job_1_required_files = [job_1_config_file]
 ///
-/// ## Example
-///
-/// in python:
-///
-/// ```python
-/// import distribute_compute_config as distribute
-///
-/// job_1_config_file = distribute.file("./path/to/config1.json", alias="config.json", relative=True)
-/// job_1_required_files = [job_1_config_file]
-///
-/// job_1 = distribute.job("job_1", job_1_required_files)
-/// ```
+///     job_1 = distribute.job("job_1", job_1_required_files)
 pub fn job(name: String, required_files: Vec<File>) -> Job {
     distribute::apptainer::Job::new(name, required_files)
 }
@@ -171,77 +134,68 @@ pub fn job(name: String, required_files: Vec<File>) -> Job {
 /// combines initialization information with a list of jobs to describe the solver files,
 /// how they should be started, and what they will run
 ///
-/// ## Variables
+/// :param initialize: You can create an ``Initialize`` struct with :func:`initialize`
+/// :param jobs: information for each job can be created from the :func:`job` function. 
 ///
-/// ### `initialize`
+/// Example:
 ///
-/// You can create an [`Initialize`] struct with [`initialize()`]
+/// .. code-block::
 ///
-/// ### `jobs`
+///     import distribute_compute_config as distribute
 ///
-/// information for each job can be created from the [`job()`] function. `jobs` is simply a python
-/// list of all job objects
+///     initialize = distribute.initialize(
+///         sif_path="./some/path/to/file.sif", 
+///         required_files=[], 
+///         required_mounts=[]
+///     )
 ///
-/// ## Example
-/// 
-/// ```
-/// import distribute_compute_config as distribute
+///     job_1_config_file = distribute.file(
+///         "./path/to/config1.json", 
+///         alias="config.json", 
+///         relative=True
+///     )
 ///
-/// initialize = distribute.initialize(sif_path="./some/path/to/file.sif", required_files=[], required_mounts=[])
+///     job_1 = distribute.job("job_1", [job_1_config_file])
 ///
-/// job_1_config_file = distribute.file("./path/to/config1.json", alias="config.json", relative=True)
-/// job_1 = distribute.job("job_1", [job_1_config_file])
-///
-/// description = distribute.description(initialize, jobs=[job_1])
-/// ```
+///     description = distribute.description(initialize, jobs=[job_1])
 pub fn description(initialize: Initialize, jobs: Vec<Job>) -> Description {
     distribute::apptainer::Description::new(initialize, jobs)
 }
 
 #[pyfunction(relative="false", alias="None")]
-/// create a file to appear in the `/input` directory of the solver
+/// create a file to appear in the ``/input`` directory of the solver
 ///
-/// ## Arguments
+/// :param path: a path to the file on disk. ``path`` should be an absolute, unless ``relative=True`` is also specified. If ``relative=True`` is not speficied, the full directory structure to the file *must* already exist.
+/// :param relative: a flag for if the ``path`` specified is a relative path or not. Defaults to `False`
+/// :param alias: how the file should be renamed when it appears in the ``/input`` directory of your solver. If no ``alias`` is specified, the current name of the file will be used. 
 ///
-/// ### `path`
+/// For example, a file with a ``path`` ``./path/to/config_1.json`` will appear as
+/// ``/input/config_1.json``. with ``alias="config.json"``, this file will appear as
+/// ``/input/config.json``
 ///
-/// a path to the file on disk. `path` should be an absolute, unless `relative=True` is also
-/// specified. If `relative=True` is not speficied, the full directory structure to the file *must*
-/// already exist.
+/// Example
 ///
-/// ## Keyword Arguments
 ///
-/// ### `relative`
+/// .. code-block::
 ///
-/// a flag for if the `path` specified is a relative path or not. Defaults to `False`
+///     import distribute_compute_config as config
 ///
-/// ### `alias`
+///     # config1.json appears as `/input/config.json`
+///     config_file_1 = distribute.file(
+///         "./path/to/config1.json", 
+///         alias="config.json", 
+///         relative=True
+///     )
 ///
-/// how the file should be renamed when it appears in the `/input` directory of your solver.
-/// If no `alias` is specified, the current name of the file will be used. 
+///     # config2.json appears as `/input/config2.json`
+///     config_file_2 = distribute.file(
+///         "./path/to/config2.json", 
+///         relative=True
+///     )
 ///
-/// For example, a file with a `path` `./path/to/config_1.json` will appear as
-/// `/input/config_1.json`. with `alias="config.json"`, this file will appear as
-/// `/input/config.json`
-///
-/// defaults to `None`
-///
-/// ## Example
-///
-/// in python:
-///
-/// ```python
-/// import distribute_compute_config as config
-///
-/// ## config1.json appears as `/input/config.json`
-/// config_file_1 = distribute.file("./path/to/config1.json", alias="config.json", relative=True)
-/// ## config2.json appears as `/input/config2.json`
-/// config_file_2 = distribute.file("./path/to/config2.json", relative=True)
-///
-/// ## config3.json appears as `/input/config3.json`, folder structure `/root/path/to/` must already
-/// ## exist
-/// config_file_3 = distribute.file("/root/path/to/config3.json")
-/// ```
+///     # config3.json appears as `/input/config3.json`, folder structure 
+///     # `/root/path/to/` must already exist
+///     config_file_3 = distribute.file("/root/path/to/config3.json")
 pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<distribute::common::File> {
     
     let file = match (relative, alias) {
@@ -263,43 +217,26 @@ pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<di
 }
 
 #[pyfunction]
-/// assemble the [`metadata()`] and [`description()`] into a config file that can be written
+/// assemble the :func:`metadata` and :func:`description` into a config file that can be written
 /// to disk
 ///
-/// ## Arguments
+/// :param meta: output of :func:`metadata` function
+/// :param description: output of :func:`description` function
 ///
-/// ### `meta`
-///
-/// output of [`metadata()`] function
-///
-/// ### `description`
-///
-/// output of [`description()`] function
-///
-/// ## Example
-///
-/// See the [user documentation](https://fluid-dynamics-group.github.io/distribute-docs/python_api.html) page in on the python api for a worked example
+/// You can write this description object to disk with :func:`write_config_to_file`
 pub fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig {
     ApptainerConfig::new(meta, description)
 }
 
 #[pyfunction]
-/// write an [`apptainer_config()`] to a path
+/// write an :func:`apptainer_config()` to a path
 ///
-/// ## Arguments
+/// :param config: output of :func:`apptainer_config()` function
+/// :param path: the path that the config file should be written to, usually with the name ``distribute-jobs.yaml``
 ///
-/// ### `config`
+/// Example:
 ///
-/// output of [`apptainer_config()`] function
-///
-/// ### `path`
-///
-/// the path that the config file should be written to, usually with the name
-/// `distribute-jobs.yaml`
-///
-/// ## Example
-///
-/// See the [user documentation](https://fluid-dynamics-group.github.io/distribute-docs/python_api.html) page in on the python api for a worked example
+/// See the `User Documentation <https://fluid-dynamics-group.github.io/distribute-docs/python_api.html>`_ page in on the python api for a worked example
 pub fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<()> {
     let file = std::fs::File::create(&path)
         .map_err(|e| PyValueError::new_err(format!("failed to create file at {}. Full error: {e}", path.display())))?;
@@ -310,9 +247,10 @@ pub fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<
     Ok(())
 }
 
-/// A Python module implemented in Rust. The name of this function must match
-/// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
-/// import the module.
+/// This python package provides compile-time checked functions to create ``distribute`` compute
+/// configuration files. The recommended way to read this documentation is to start with the final
+/// function :func:`write_config_to_file` and work backwards recursively until you have all the 
+/// constituent parts of the config file.
 #[pymodule]
 fn distribute_compute_config(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(metadata, m)?)?;

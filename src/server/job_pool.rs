@@ -78,7 +78,7 @@ where
                             .identifier_by_name(&cancel_query.batch_name);
 
                         if let Some(found_identifier) = identifier {
-                            if let Ok(_) = self.broadcast_cancel.send(found_identifier) {
+                            if self.broadcast_cancel.send(found_identifier).is_ok() {
                                 debug!(
                                     "successfully sent cancellation message for batch name {}",
                                     &cancel_query.batch_name

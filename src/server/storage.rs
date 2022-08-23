@@ -20,9 +20,9 @@ impl StoredJob {
     ) -> Result<Self, io::Error> {
         let mut sha = sha1::Sha1::new();
         sha.update(&x.python_file);
-        sha.update(&x.job_name.as_bytes());
+        sha.update(x.job_name.as_bytes());
         for file in &x.job_files {
-            sha.update(&file.file_name.as_bytes());
+            sha.update(file.file_name.as_bytes());
             sha.update(&file.file_bytes);
         }
 
@@ -36,8 +36,7 @@ impl StoredJob {
         // write the required files
         let mut required_files = vec![];
 
-        let mut i = 0;
-        for file in x.job_files {
+        for (i, file) in x.job_files.into_iter().enumerate() {
             let path = output_dir.join(&format!("{}_{}_job.dist", hash, i));
 
             std::fs::write(&path, file.file_bytes)?;
@@ -46,8 +45,6 @@ impl StoredJob {
                 file_name: file.file_name,
                 path,
             });
-
-            i += 1
         }
 
         let job = LazyPythonJob {
@@ -65,9 +62,9 @@ impl StoredJob {
     ) -> Result<Self, io::Error> {
         // compute the hash
         let mut sha = sha1::Sha1::new();
-        sha.update(&x.job_name.as_bytes());
+        sha.update(x.job_name.as_bytes());
         for file in &x.job_files {
-            sha.update(&file.file_name.as_bytes());
+            sha.update(file.file_name.as_bytes());
             sha.update(&file.file_bytes);
         }
 
@@ -76,8 +73,7 @@ impl StoredJob {
         // write the required files
         let mut required_files = vec![];
 
-        let mut i = 0;
-        for file in x.job_files {
+        for (i, file) in x.job_files.into_iter().enumerate() {
             let path = output_dir.join(&format!("{}_{}_job.distribute", hash, i));
 
             std::fs::write(&path, file.file_bytes)?;
@@ -86,8 +82,6 @@ impl StoredJob {
                 file_name: file.file_name,
                 path,
             });
-
-            i += 1
         }
 
         let job = LazyApptainerJob {
@@ -179,9 +173,9 @@ impl StoredJobInit {
         // compute the hash
         let mut sha = sha1::Sha1::new();
         sha.update(&x.python_setup_file);
-        sha.update(&x.batch_name.as_bytes());
+        sha.update(x.batch_name.as_bytes());
         for file in &x.additional_build_files {
-            sha.update(&file.file_name.as_bytes());
+            sha.update(file.file_name.as_bytes());
             sha.update(&file.file_bytes);
         }
 
@@ -195,8 +189,7 @@ impl StoredJobInit {
         // write the required files
         let mut required_files = vec![];
 
-        let mut i = 0;
-        for file in x.additional_build_files {
+        for (i, file) in x.additional_build_files.into_iter().enumerate() {
             let path = output_dir.join(&format!("{}_{}_setup.distribute", hash, i));
 
             std::fs::write(&path, file.file_bytes)?;
@@ -205,8 +198,6 @@ impl StoredJobInit {
                 file_name: file.file_name,
                 path,
             });
-
-            i += 1
         }
 
         let job = LazyPythonInit {
@@ -224,9 +215,9 @@ impl StoredJobInit {
     ) -> Result<Self, io::Error> {
         // compute the hash
         let mut sha = sha1::Sha1::new();
-        sha.update(&x.batch_name.as_bytes());
+        sha.update(x.batch_name.as_bytes());
         for file in &x.build_files {
-            sha.update(&file.file_name.as_bytes());
+            sha.update(file.file_name.as_bytes());
             sha.update(&file.file_bytes);
         }
 
@@ -239,8 +230,7 @@ impl StoredJobInit {
         // write the required files
         let mut required_files = vec![];
 
-        let mut i = 0;
-        for file in x.build_files {
+        for (i, file) in x.build_files.into_iter().enumerate() {
             let path = output_dir.join(&format!("{}_{}_setup.distribute", hash, i));
 
             std::fs::write(&path, file.file_bytes)?;
@@ -249,8 +239,6 @@ impl StoredJobInit {
                 file_name: file.file_name,
                 path,
             });
-
-            i += 1
         }
 
         let job = LazyApptainerInit {
@@ -381,6 +369,6 @@ pub struct OwnedJobSet {
     pub(crate) remaining_jobs: config::JobOpts,
     pub(crate) currently_running_jobs: usize,
     pub(crate) batch_name: String,
-    pub(crate) matrix_user: Option<matrix_notify::UserId>,
+    pub(crate) matrix_user: Option<matrix_notify::OwnedUserId>,
     pub(crate) namespace: String,
 }

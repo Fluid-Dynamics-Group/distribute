@@ -79,7 +79,7 @@ impl File {
             let out = self
                 .path
                 .file_name()
-                .ok_or(MissingFileNameError::from(self.path.clone()))?
+                .ok_or_else(|| MissingFileNameError::from(self.path.clone()))?
                 .to_string_lossy()
                 .to_string();
             Ok(out)

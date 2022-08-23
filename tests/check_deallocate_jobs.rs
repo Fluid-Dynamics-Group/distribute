@@ -22,6 +22,7 @@ async fn check_deallocate_jobs() {
     // this is the port in the corresponding distribute-nodes.yaml file for this job
     let client_port = 9967;
     let keepalive_port = 9968;
+    let cancel_port = 9969;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
     let dir: PathBuf = "./tests/check_deallocate_jobs/".into();
@@ -44,6 +45,7 @@ async fn check_deallocate_jobs() {
         client_workdir.clone(),
         client_port,
         keepalive_port,
+        cancel_port,
         "./output.log".into(),
     );
     tokio::spawn(async move {
@@ -60,10 +62,11 @@ async fn check_deallocate_jobs() {
         server_temp_dir.clone(),
         server_port,
         false,
+        None,
     );
 
     // start the server
-    tokio::spawn(async move {
+    tokio::task::spawn_local(async move {
         println!("starting server");
         distribute::server_command(server).await.unwrap();
         println!("server has exited");
@@ -102,7 +105,7 @@ async fn check_deallocate_jobs() {
 
     assert_eq!(jobs.len(), 0);
 
-    //directory tree should be this:
+    // directory tree should be this:
     // check_deallocate_jobs
     //     ├── distribute-nodes.yaml
     //     ├── server_save_dir
@@ -116,16 +119,40 @@ async fn check_deallocate_jobs() {
     //     │               └── simulated_output.txt
 
     let batch = server_save_dir.join("some_namespace/some_batch");
-    assert_eq!(batch.join("job_1/simulated_output.txt").exists(), true, "missing job 1 simulation output");
-    assert_eq!(batch.join("job_2/simulated_output.txt").exists(), true, "missing job 2 simulation output");
+    assert_eq!(
+        batch.join("job_1/simulated_output.txt").exists(),
+        true,
+        "missing job 1 simulation output"
+    );
+    assert_eq!(
+        batch.join("job_2/simulated_output.txt").exists(),
+        true,
+        "missing job 2 simulation output"
+    );
 
     // we should also have output files for the jobs that we ran
-    assert_eq!(batch.join("job_1/job_1_output.txt").exists(), true, "missing job 1 output file");
-    assert_eq!(batch.join("job_2/job_2_output.txt").exists(), true, "missing job 2 output file");
+    assert_eq!(
+        batch.join("job_1/job_1_output.txt").exists(),
+        true,
+        "missing job 1 output file"
+    );
+    assert_eq!(
+        batch.join("job_2/job_2_output.txt").exists(),
+        true,
+        "missing job 2 output file"
+    );
 
     // we should not have output files from jobs we did not run
-    assert_eq!(batch.join("job_1/job_2_output.txt").exists(), false, "output for job 2 exists in job 1");
-    assert_eq!(batch.join("job_2/job_1_output.txt").exists(), false, "output for job 1 exists in job 2");
+    assert_eq!(
+        batch.join("job_1/job_2_output.txt").exists(),
+        false,
+        "output for job 2 exists in job 1"
+    );
+    assert_eq!(
+        batch.join("job_2/job_1_output.txt").exists(),
+        false,
+        "output for job 1 exists in job 2"
+    );
 
     fs::remove_dir_all(&server_save_dir).ok();
     fs::remove_dir_all(&server_temp_dir).ok();

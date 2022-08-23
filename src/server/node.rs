@@ -1,21 +1,16 @@
-use super::ok_if_exists;
 use super::schedule::JobIdentifier;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
-use super::pool_data::{BuildTaskInfo, JobRequest, JobResponse, NewJobRequest, RunTaskInfo};
+use super::pool_data::{JobRequest, JobResponse, NewJobRequest};
 use crate::{error, error::Error, transport};
 
 use super::pool_data;
 use std::collections::BTreeSet;
 
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::io::AsyncWriteExt;
-
 use tokio::sync::{broadcast, mpsc, oneshot};
-use tokio::task::JoinHandle;
 
 use crate::prelude::*;
 use crate::protocol;
@@ -87,7 +82,7 @@ async fn run_all_jobs(
                 built = prepare_build_to_built(prepare_build, scheduler_tx).await?;
                 continue;
             }
-            Err((built, err)) => return Err((built.to_uninit(), err.into())),
+            Err((built, err)) => return Err((built.into_uninit(), err.into())),
         };
 
         // fully execute the job and return back to the built state
@@ -120,7 +115,7 @@ async fn execute_and_send_files(
         }
         Err((execute, err)) => {
             error!("error executing the job: {}", err);
-            return Err((execute.to_uninit(), err.into()));
+            return Err((execute.into_uninit(), err.into()));
         }
     };
 
@@ -128,7 +123,7 @@ async fn execute_and_send_files(
         Ok(built) => built,
         Err((send_files, err)) => {
             error!("error sending result files from the job: {}", err);
-            return Err((send_files.to_uninit(), err.into()));
+            return Err((send_files.into_uninit(), err.into()));
         }
     };
 
@@ -176,12 +171,12 @@ async fn inner_prepare_build_to_compile_result(
 > {
     let building_state = match prepare_build.send_job(scheduler_tx).await {
         Ok(building) => building,
-        Err((prepare_build, err)) => return Err((prepare_build.to_uninit(), err.into())),
+        Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
     };
 
     let building_state_or_prepare = match building_state.prepare_for_execution().await {
         Ok(built) => built,
-        Err((prepare_build, err)) => return Err((prepare_build.to_uninit(), err.into())),
+        Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
     };
 
     Ok(building_state_or_prepare)
@@ -249,161 +244,15 @@ pub(crate) async fn fetch_new_job(
     }
 }
 
-// /// return a job that failed to execute (for valid reasons) back to the queue
-// /// this is a broken-out function since mutable borrowing rules
-// async fn return_job_to_queue(common: &mut Common, info: RunTaskInfo) {
-//     let response = common.request_job_tx.send(JobRequest::DeadNode(info)).await;
-//
-//     match response {
-//         Ok(_) => (),
-//         Err(_) => {
-//             error!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", common.conn.addr);
-//             panic!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", common.conn.addr);
-//         }
-//     }
-// }
-
-//struct BuildingNode<'a> {
-//    common: &'a mut Common,
-//    task_info: BuildTaskInfo,
-//}
-
-//impl<'a> BuildingNode<'a> {
-//    async fn run_build(self) -> Result<WaitingExecutableNode, LocalOrClientError> {
-//        let save_path: PathBuf = self
-//            .task_info
-//            .batch_save_path(&self.common.save_path)
-//            .await
-//            .map_err(|(error, path)| error::CreateDirError::new(error, path))
-//            .map_err(error::BuildJobError::from)
-//            .map_err(Error::from)?;
-//
-//        let req = transport::RequestFromServer::from(self.task_info.task);
-//        self.common.conn.transport_data(&req).await?;
-//
-//        let keepalive_check = complete_on_ping_failure(self.common.conn.addr.clone());
-//
-//        let handle =
-//            handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
-//
-//        let _execution = execute_with_cancellation(
-//            handle,
-//            &mut self.common.receive_cancellation,
-//            self.task_info.identifier,
-//            keepalive_check,
-//        )
-//        .await?;
-//
-//        Ok(WaitingExecutableNode {
-//            initialized_job: self.task_info.identifier,
-//        })
-//    }
-//}
-
-//struct WaitingExecutableNode {
-//    initialized_job: JobIdentifier,
-//}
-//
-//struct RunningNode<'a> {
-//    task_info: RunTaskInfo,
-//    common: &'a mut Common,
-//}
-//
-//impl<'a> RunningNode<'a> {
-//    fn new(
-//        waiting_node: &WaitingExecutableNode,
-//        task_info: RunTaskInfo,
-//        common: &'a mut Common,
-//    ) -> Option<Self> {
-//        if waiting_node.initialized_job != task_info.identifier {
-//            error!("run task on {} scheduled from the job pool did not have the same identifier as us: {} (us) {} (given). This job will be lost",
-//                common.conn.addr, waiting_node.initialized_job, task_info.identifier);
-//            return None;
-//        }
-//
-//        Some(Self { common, task_info })
-//    }
-//
-//    async fn execute_task(&mut self) -> Result<(), LocalOrClientError> {
-//        let save_path: PathBuf = self
-//            .task_info
-//            .batch_save_path(&self.common.save_path)
-//            .await
-//            .map_err(|(error, path)| error::CreateDirError::new(error, path))
-//            .map_err(error::RunningNodeError::from)
-//            .map_err(Error::from)?;
-//
-//        let req = transport::RequestFromServer::from(self.task_info.task.clone());
-//        self.common.conn.transport_data(&req).await?;
-//
-//        let keepalive_check = complete_on_ping_failure(self.common.conn.addr.clone());
-//
-//        let handle =
-//            handle_client_response::<LocalOrClientError>(&mut self.common.conn, &save_path);
-//
-//        execute_with_cancellation(
-//            handle,
-//            &mut self.common.receive_cancellation,
-//            self.task_info.identifier,
-//            keepalive_check,
-//        )
-//        .await?;
-//
-//        Ok(())
-//    }
-//}
-
-// // monitor the broadcast queue to see if a cancellation message is received
-// //
-// // this is broken out into a separate function since the tokio::select! requires
-// // two mutable borrows to &mut self
-// async fn check_cancellation(
-//     current_job: JobIdentifier,
-//     rx_cancel: &mut broadcast::Receiver<JobIdentifier>,
-// ) {
-//     loop {
-//         if let Ok(identifier) = rx_cancel.recv().await {
-//             if current_job == identifier {
-//                 return;
-//             }
-//         }
-//     }
-// }
-
-// /// execute a generic future returning a result while also checking for possible cancellations
-// /// from the job pool
-// async fn execute_with_cancellation<E>(
-//     fut: impl std::future::Future<Output = Result<(), E>>,
-//     cancel: &mut broadcast::Receiver<JobIdentifier>,
-//     current_ident: JobIdentifier,
-//     check_keepalive: impl std::future::Future<Output = ()>,
-// ) -> Result<(), E>
-// where
-//     E: From<KeepaliveError>,
-// {
-//     tokio::select!(
-//         response = fut => {
-//             response
-//         }
-//         _cancel_result = check_cancellation(current_ident, cancel) => {
-//             Ok(())
-//         }
-//         _keepalive_result = check_keepalive => {
-//             error!("execute_with_cancellation ending due to keepalive failure");
-//             Ok(())
-//         }
-//     )
-// }
-
 /// constantly polls a connection to ensure that
-async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> () {
+async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) {
     loop {
         if let Err(e) = check_keepalive(&address, name).await {
             error!(
                 "error checking the keepalive for node at {}: {}",
                 address, e
             );
-            return ();
+            return;
         }
 
         #[cfg(not(test))]
@@ -414,7 +263,9 @@ async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) -> 
     }
 }
 
-/// ping an address and make sure it responsds to a keepalive check
+/// ping keepalive address to ensure that the node responds within 10 seconds. If
+/// the node does not respond, it means that it has silently gone offline and the
+/// job needs to be returned to the scheduler to be allocated to a functioning node.
 async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(), Error> {
     trace!("making keepalive check to {}", address);
     // TODO: this connection might be able to stall, im not sure
@@ -434,5 +285,39 @@ async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(
             }
         },
         Err(_elapsed) => Err(error::TimeoutError::new(*address, name.to_string()).into()),
+    }
+}
+
+/// monitor the receiver pipeline in the background and
+///
+/// this function must never return because there are `unreachable!()` calls
+/// at the call sites.
+pub(crate) async fn check_broadcast_for_matching_token(
+    cancel_rx: &mut broadcast::Receiver<JobIdentifier>,
+    cancel_address: &SocketAddr,
+    job_id_to_monitor: JobIdentifier,
+    cancelled_marker: &mut bool,
+) -> ! {
+    loop {
+        while let Ok(job_id) = cancel_rx.recv().await {
+            if job_id == job_id_to_monitor {
+                let conn = tokio::net::TcpStream::connect(cancel_address).await;
+
+                match conn {
+                    Ok(_) => {
+                        // if we successfully made the connection, that is all thats required
+                        // for the compute node to know that the connection has been cancelled.
+                        //
+                        // See the corresponding compute implementation in
+                        // `crate::client::return_on_cancellation`
+                        *cancelled_marker = true;
+                    }
+                    Err(e) => {
+                        error!("failed to connect to node's cancellation address {cancel_address}. It is currently running a job that should be cancelled. Error: {e}");
+                        continue;
+                    }
+                };
+            }
+        }
     }
 }

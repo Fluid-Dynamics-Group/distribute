@@ -1,12 +1,11 @@
 import distribute_compute_config as distribute 
 
-matrix_user = "@karik:matrix.org"
+matrix_user = "@matrix_id:matrix.org"
 batch_name = "test_batch"
 namespace = "test_namespace"
 capabilities = ["apptainer"]
 
-#meta = distribute.metadata(namespace, batch_name, capabilities, matrix_user)
-meta = distribute.metadata(namespace, batch_name, capabilities)
+meta = distribute.metadata(namespace, batch_name, capabilities, matrix_user)
 
 sif_path = "./path/to/some/container.sif"
 # the contents of file.h5 will appear in the /input directory under the name `initial_condition.h5`
@@ -35,7 +34,6 @@ job_1 = distribute.job("job_1", job_1_required_files)
 job_2 = distribute.job("job_2", job_2_required_files)
 
 jobs = [job_1, job_2]
-
 
 #
 # then put together a full description of the jobs that we will run

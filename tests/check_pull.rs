@@ -73,12 +73,13 @@ async fn check_pull() {
         server_temp.clone(),
         server_port,
         false,
+        None,
     );
 
     dbg!(&server);
 
     // start the server
-    tokio::spawn(async move {
+    tokio::task::spawn_local(async move {
         println!("starting server");
         distribute::server_command(server).await.unwrap();
         println!("server has exited");
@@ -173,12 +174,13 @@ async fn pull_large_file() {
         server_temp.clone(),
         server_port,
         false,
+        None,
     );
 
     dbg!(&server);
 
     // start the server
-    tokio::spawn(async move {
+    tokio::task::spawn_local(async move {
         println!("starting server");
         distribute::server_command(server).await.unwrap();
         println!("server has exited");

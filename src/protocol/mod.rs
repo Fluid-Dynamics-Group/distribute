@@ -1,3 +1,39 @@
+//! Lays out the flow of how jobs are executed between a server and the client
+//!
+//! See SVG graphic in general user documentation for a flowchart
+//!
+//! [`uninit::Uninit`] can move to [`prepare_build::PrepareBuild`]
+//!
+//! [`prepare_build::PrepareBuild`] can move to [`compiling::Building`]
+//!
+//! [`compiling::Building`] can move to [`built::Built`] (in the case that everything compiled
+//! correctly and we await jobs to execute) or [`prepare_build::PrepareBuild`] (in the case that
+//! compilation failed or the compilation was cancelled)
+//!
+//! [`built::Built`] can move to [`executing::Executing`] (if a job was assigned to the node) or
+//! [`prepare_build::PrepareBuild`] (if the job was cancelled)
+//!
+//! [`executing::Executing`] can move to [`send_files::SendFiles`] (if the job finished, transport
+//! all results to head node)
+//!
+//! [`send_files::SendFiles`] can move (back) to [`built::Built`] after all files have been
+//! transported
+//!
+//! [`prepare_build::PrepareBuild`], [`compiling::Building`], [`built::Built`], [`executing::Executing`], [`send_files::SendFiles`] can all return to
+//! [`uninit::Uninit`] if the connection is dropped
+///
+///
+/// ## Cancellations
+///
+/// We do not need to worry about cancellation messages for the most part. This is because
+/// cancellation messages on the server node task have a type
+/// `tokio::sync::broadcast::Receiver<JobIdentifier>`, so reading through the cancellations later
+/// will still give us identical information as we have a full history of whats being cancelled.
+/// For example, we dont need to worry about cancellations in the compiling phase because once the
+/// job is compiled, we will request jobs from the server and there will be none (as they were all
+/// removed when the job was cancelled).
+///
+/// The only place we *do* need to worry about cancellations are in the execution phase.
 use crate::prelude::*;
 use crate::server::JobIdentifier;
 use std::collections::BTreeSet;
@@ -84,15 +120,15 @@ pub(crate) enum ClientError {
 
 impl ClientError {
     pub(crate) fn is_tcp_error(&self) -> bool {
-        match &self {
-            Self::Uninit(uninit::ClientError::TcpConnection(_)) => true,
-            Self::PrepareBuild(prepare_build::ClientError::TcpConnection(_)) => true,
-            Self::Building(compiling::ClientError::TcpConnection(_)) => true,
-            Self::Built(built::ClientError::TcpConnection(_)) => true,
-            Self::Executing(executing::ClientError::TcpConnection(_)) => true,
-            Self::SendFiles(send_files::ClientError::TcpConnection(_)) => true,
-            _ => false,
-        }
+        matches!(
+            &self,
+            Self::Uninit(uninit::ClientError::TcpConnection(_))
+                | Self::PrepareBuild(prepare_build::ClientError::TcpConnection(_))
+                | Self::Building(compiling::ClientError::TcpConnection(_))
+                | Self::Built(built::ClientError::TcpConnection(_))
+                | Self::Executing(executing::ClientError::TcpConnection(_))
+                | Self::SendFiles(send_files::ClientError::TcpConnection(_))
+        )
     }
 }
 
@@ -114,15 +150,15 @@ pub(crate) enum ServerError {
 
 impl ServerError {
     pub(crate) fn is_tcp_error(&self) -> bool {
-        match &self {
-            Self::Uninit(uninit::ServerError::TcpConnection(_)) => true,
-            Self::PrepareBuild(prepare_build::ServerError::TcpConnection(_)) => true,
-            Self::Building(compiling::ServerError::TcpConnection(_)) => true,
-            Self::Built(built::ServerError::TcpConnection(_)) => true,
-            Self::Executing(executing::ServerError::TcpConnection(_)) => true,
-            Self::SendFiles(send_files::ServerError::TcpConnection(_)) => true,
-            _ => false,
-        }
+        matches!(
+            &self,
+            Self::Uninit(uninit::ServerError::TcpConnection(_))
+                | Self::PrepareBuild(prepare_build::ServerError::TcpConnection(_))
+                | Self::Building(compiling::ServerError::TcpConnection(_))
+                | Self::Built(built::ServerError::TcpConnection(_))
+                | Self::Executing(executing::ServerError::TcpConnection(_))
+                | Self::SendFiles(send_files::ServerError::TcpConnection(_))
+        )
     }
 }
 type ClientEitherPrepareBuild<T> =
@@ -131,7 +167,6 @@ type ServerEitherPrepareBuild<T> =
     Either<Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>, T>;
 
 #[derive(Constructor)]
-// copy pasted from node.rs
 pub(crate) struct Common {
     receive_cancellation: broadcast::Receiver<JobIdentifier>,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
@@ -141,6 +176,9 @@ pub(crate) struct Common {
     pub(crate) node_name: String,
     keepalive_addr: SocketAddr,
     pub(crate) main_transport_addr: SocketAddr,
+    /// address on the compute node to message if the job was
+    /// cancelled
+    pub(crate) cancel_addr: SocketAddr,
     errored_jobs: BTreeSet<server::JobIdentifier>,
 }
 
@@ -149,6 +187,7 @@ impl Common {
     fn test_configuration(
         transport_addr: SocketAddr,
         keepalive_addr: SocketAddr,
+        cancel_addr: SocketAddr,
     ) -> (broadcast::Sender<JobIdentifier>, Self) {
         let (tx, rx) = broadcast::channel(1);
 
@@ -167,6 +206,7 @@ impl Common {
             node_name,
             keepalive_addr,
             transport_addr,
+            cancel_addr,
             errored_jobs,
         );
 

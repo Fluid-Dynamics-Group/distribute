@@ -70,10 +70,32 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         user_conn::handle_user_requests(port, req_clone, caps_clone, save_path).await;
     });
 
-    // spawn off a job pool that we can query from different tasks
+    //
+    // read the matrix configuration from a file
+    //
+    let matrix_data = if let Some(matrix_config_path) = server.matrix_config {
+        let config_file = std::fs::File::open(&matrix_config_path)
+            .map_err(|e| error::OpenFile::new(e, matrix_config_path.clone()))
+            .map_err(error::ServerError::from)?;
 
-    let scheduler =
-        schedule::GpuPriority::new(Default::default(), Default::default(), server.temp_dir);
+        let config = serde_json::from_reader(config_file)
+            .map_err(|e| error::SerializeConfig::new(e, matrix_config_path.clone()))
+            .map_err(error::ServerError::from)?;
+
+        Some(matrix::MatrixData::from_config(config).await.unwrap())
+    } else {
+        None
+    };
+
+    //
+    // spawn off a job pool that we can query from different tasks
+    //
+    let scheduler = schedule::GpuPriority::new(
+        Default::default(),
+        Default::default(),
+        server.temp_dir,
+        matrix_data,
+    );
 
     info!("starting job pool task");
     let (tx_cancel, _) = broadcast::channel(20);
@@ -91,6 +113,8 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     for node in nodes_config.nodes {
         let keepalive_addr = node.keepalive_addr();
         let transport_addr = node.transport_addr();
+        let cancel_addr = node.cancel_addr();
+
         let common = Common::new(
             tx_cancel.subscribe(),
             Arc::new(node.capabilities),
@@ -98,6 +122,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
             node.node_name,
             keepalive_addr,
             transport_addr,
+            cancel_addr,
             // btreeset is just empty
             Default::default(),
         );

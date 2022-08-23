@@ -12,15 +12,20 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
 
-#[allow(dead_code)]
-pub const SERVER_PORT: u16 = 8952;
-pub const SERVER_PORT_STR: &'static str = "8952";
+macro_rules! const_port {
+    ($NUMERIC:ident, $STR:ident, $value:expr) => {
+        pub const $NUMERIC: u16 = $value;
+        pub const $STR: &'static str = stringify!($value);
+    };
+}
 
-pub const CLIENT_PORT: u16 = 8953;
-pub const CLIENT_PORT_STR: &'static str = "8953";
-
-pub const CLIENT_KEEPALIVE_PORT: u16 = 8954;
-pub const CLIENT_KEEPALIVE_PORT_STR: &'static str = "8954";
+//
+// ports for different communication channels
+//
+const_port!(SERVER_PORT, SERVER_PORT_STR, 8952);
+const_port!(CLIENT_PORT, CLIENT_PORT_STR, 8953);
+const_port!(CLIENT_KEEPALIVE_PORT, CLIENT_KEEPALIVE_PORT_STR, 8954);
+const_port!(CLIENT_CANCEL_PORT, CLIENT_CANCEL_PORT_STR, 8955);
 
 #[derive(Debug, Display, thiserror::Error, From)]
 #[display(
@@ -99,6 +104,8 @@ pub struct Node {
     pub(crate) transport_port: u16,
     #[serde(default = "default_keepalive_port")]
     pub(crate) keepalive_port: u16,
+    #[serde(default = "default_cancel_port")]
+    pub(crate) cancel_port: u16,
     pub(crate) capabilities: requirements::Requirements<requirements::NodeProvidedCaps>,
 }
 
@@ -110,6 +117,10 @@ fn default_keepalive_port() -> u16 {
     CLIENT_KEEPALIVE_PORT
 }
 
+fn default_cancel_port() -> u16 {
+    CLIENT_CANCEL_PORT
+}
+
 impl Node {
     /// create the full address to the node's port at which they receive jobs
     pub(crate) fn transport_addr(&self) -> std::net::SocketAddr {
@@ -119,6 +130,11 @@ impl Node {
     /// create the full address to the node's port at which they check for keepalive connections
     pub(crate) fn keepalive_addr(&self) -> std::net::SocketAddr {
         std::net::SocketAddr::from((self.ip, self.keepalive_port))
+    }
+
+    /// create the full address to the node's port at which they cancel the executing jobs
+    pub(crate) fn cancel_addr(&self) -> std::net::SocketAddr {
+        std::net::SocketAddr::from((self.ip, self.cancel_port))
     }
 }
 
@@ -154,7 +170,7 @@ pub struct PythonConfig {
 pub struct Meta {
     pub batch_name: String,
     pub namespace: String,
-    pub matrix: Option<matrix_notify::UserId>,
+    pub matrix: Option<matrix_notify::OwnedUserId>,
     pub capabilities: requirements::Requirements<requirements::JobRequiredCaps>,
 }
 
@@ -214,7 +230,7 @@ impl Jobs {
         }
     }
 
-    pub fn matrix_user(&self) -> Option<matrix_notify::UserId> {
+    pub fn matrix_user(&self) -> Option<matrix_notify::OwnedUserId> {
         match self {
             Self::Python(py) => py.meta.matrix.clone(),
             Self::Apptainer(app) => app.meta.matrix.clone(),
@@ -325,5 +341,10 @@ mod tests {
     fn serialize_apptainer() {
         let bytes = include_str!("../../static/example-jobs-apptainer.yaml");
         let _out: ApptainerConfiguration = serde_yaml::from_str(bytes).unwrap();
+    }
+
+    #[test]
+    fn strings_match() {
+        assert_eq!(SERVER_PORT.to_string(), SERVER_PORT_STR.to_string());
     }
 }

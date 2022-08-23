@@ -1,3 +1,8 @@
+//! Compile a job so that we can execute multiple jobs from it
+//!
+//! These functions do not attempt to receive cancellation signals
+//! since any compilation will simply receive no jobs later, at the cost
+//! of possibly some minimal computational time lost
 use super::Either;
 use super::Machine;
 use crate::prelude::*;
@@ -9,6 +14,7 @@ pub(crate) struct ClientBuildingState {
     pub(super) build_opt: transport::BuildOpts,
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
+    pub(super) cancel_addr: SocketAddr,
 }
 
 pub(crate) struct ServerBuildingState {
@@ -55,13 +61,11 @@ impl Machine<Building, ClientBuildingState> {
         Either<Machine<Built, ClientBuiltState>, Machine<PrepareBuild, ClientPrepareBuildState>>,
         (Self, ClientError),
     > {
-        // TODO: should probably wipe the folder and instantiate the folders here
         if self.state.working_dir.exists() {
-            let tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
+            let _tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
         }
 
         // TODO: monitor for cancellation
-        let (tx_cancel, rx_cancel) = broadcast::channel(10);
         let (tx_result, rx_result) = oneshot::channel();
 
         let mut folder_state = crate::client::execute::BindingFolderState::new();
@@ -73,13 +77,10 @@ impl Machine<Building, ClientBuildingState> {
         // spawn off a worker to perform the compilation so that we can monitor
         // for cancellation signals from the master node
         tokio::spawn(async move {
-            let mut cancel = rx_cancel;
-
             match build_opt {
                 transport::BuildOpts::Python(python_job) => {
                     let build_result =
-                        crate::client::initialize_python_job(python_job, &working_dir, &mut cancel)
-                            .await;
+                        crate::client::initialize_python_job(python_job, &working_dir).await;
                     let msg = ClientMsg::from_build_result(build_result);
                     tx_result.send((folder_state, msg)).ok().unwrap();
                 }
@@ -87,7 +88,6 @@ impl Machine<Building, ClientBuildingState> {
                     let build_result = crate::client::initialize_apptainer_job(
                         apptainer_job,
                         &working_dir,
-                        &mut cancel,
                         &mut folder_state,
                     )
                     .await;
@@ -109,7 +109,7 @@ impl Machine<Building, ClientBuildingState> {
                 let machine = Machine::from_state(built_state);
                 Ok(Either::Left(machine))
             }
-            ClientMsg::FailedCompilation | ClientMsg::CancelledCompilation => {
+            ClientMsg::FailedCompilation => {
                 // go to Machine<PrepareBuild, _>
                 let prepare_build = self.into_prepare_build().await;
                 let machine = Machine::from_state(prepare_build);
@@ -118,12 +118,19 @@ impl Machine<Building, ClientBuildingState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitClient {
+    pub(crate) fn into_uninit(self) -> super::UninitClient {
         let ClientBuildingState {
-            conn, working_dir, ..
+            conn,
+            working_dir,
+            cancel_addr,
+            ..
         } = self.state;
         let conn = conn.update_state();
-        let state = super::uninit::ClientUninitState { conn, working_dir };
+        let state = super::uninit::ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        };
         debug!("moving client compiling -> uninit");
         Machine::from_state(state)
     }
@@ -134,7 +141,10 @@ impl Machine<Building, ClientBuildingState> {
     ) -> super::built::ClientBuiltState {
         debug!("moving client compiling -> built");
         let ClientBuildingState {
-            conn, working_dir, ..
+            conn,
+            working_dir,
+            cancel_addr,
+            ..
         } = self.state;
 
         #[allow(unused_mut)]
@@ -147,12 +157,16 @@ impl Machine<Building, ClientBuildingState> {
             conn,
             working_dir,
             folder_state,
+            cancel_addr,
         }
     }
 
     pub(crate) async fn into_prepare_build(self) -> super::prepare_build::ClientPrepareBuildState {
         let ClientBuildingState {
-            conn, working_dir, ..
+            conn,
+            working_dir,
+            cancel_addr,
+            ..
         } = self.state;
 
         #[allow(unused_mut)]
@@ -160,7 +174,11 @@ impl Machine<Building, ClientBuildingState> {
 
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
-        super::prepare_build::ClientPrepareBuildState { conn, working_dir }
+        super::prepare_build::ClientPrepareBuildState {
+            conn,
+            working_dir,
+            cancel_addr,
+        }
     }
 }
 
@@ -179,6 +197,7 @@ impl Machine<Building, ServerBuildingState> {
         (Self, ServerError),
     > {
         let tmp = self.state.conn.receive_data().await;
+
         let msg = throw_error_with_self!(tmp, self);
 
         let out = match msg {
@@ -199,21 +218,12 @@ impl Machine<Building, ServerBuildingState> {
                 let machine = Machine::from_state(prepare_build);
                 Either::Right(machine)
             }
-            ClientMsg::CancelledCompilation => {
-                // we dont need to mark the job as cancelled since the job
-                // should no longer exist in the system (it was cancelled everywhere)
-
-                // return to Machine<PrepareBuild, _> here
-                let prepare_build = self.into_prepare_build().await;
-                let machine = Machine::from_state(prepare_build);
-                Either::Right(machine)
-            }
         };
 
         Ok(out)
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitServer {
+    pub(crate) fn into_uninit(self) -> super::UninitServer {
         let ServerBuildingState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
@@ -265,29 +275,24 @@ impl Machine<Building, ServerBuildingState> {
     }
 }
 
-#[derive(Serialize, Deserialize, Unwrap)]
+#[derive(Serialize, Deserialize, Unwrap, Debug)]
 pub(crate) enum ServerMsg {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) enum ClientMsg {
     SuccessfullCompilation,
     FailedCompilation,
-    CancelledCompilation,
 }
 
 impl ClientMsg {
-    fn from_build_result(result: Result<Option<()>, error::Error>) -> Self {
+    fn from_build_result(result: Result<(), error::Error>) -> Self {
         // check what the build result was
         match result {
-            Ok(None) => {
-                // The build process was cancelled since the job was cancelled
-                Self::CancelledCompilation
-            }
-            Ok(Some(_)) => {
+            Ok(_) => {
                 // the process built perfectly
                 Self::SuccessfullCompilation
             }
-            Err(e) => {
+            Err(_) => {
                 // the job failed to build
                 Self::FailedCompilation
             }

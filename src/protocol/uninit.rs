@@ -8,6 +8,7 @@ pub(crate) struct Uninit;
 pub(crate) struct ClientUninitState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
+    pub(super) cancel_addr: SocketAddr,
 }
 
 pub(crate) struct ServerUninitState {
@@ -74,7 +75,7 @@ impl Machine<Uninit, ClientUninitState> {
                 error!("client asked for version information after we sent it. This is an unreachable state");
                 unreachable!()
             }
-            ServerMsg::VersionMismatch => return Err((self, ClientError::VersionMismatch)),
+            ServerMsg::VersionMismatch => Err((self, ClientError::VersionMismatch)),
             ServerMsg::VersionsMatched => {
                 debug!("versions matched - continuing to next step");
 
@@ -86,10 +87,18 @@ impl Machine<Uninit, ClientUninitState> {
         }
     }
 
-    pub(crate) fn new(conn: tokio::net::TcpStream, working_dir: PathBuf) -> Self {
+    pub(crate) fn new(
+        conn: tokio::net::TcpStream,
+        working_dir: PathBuf,
+        cancel_addr: SocketAddr,
+    ) -> Self {
         debug!("constructing uninitialized client");
         let conn = transport::Connection::from_connection(conn);
-        let state = ClientUninitState { conn, working_dir };
+        let state = ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        };
 
         Self {
             state,
@@ -98,7 +107,11 @@ impl Machine<Uninit, ClientUninitState> {
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
-        let ClientUninitState { conn, working_dir } = self.state;
+        let ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        } = self.state;
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
@@ -106,7 +119,11 @@ impl Machine<Uninit, ClientUninitState> {
         assert!(conn.bytes_left().await == 0);
 
         debug!("moving client uninit -> prepare build");
-        super::prepare_build::ClientPrepareBuildState { conn, working_dir }
+        super::prepare_build::ClientPrepareBuildState {
+            conn,
+            working_dir,
+            cancel_addr,
+        }
     }
 }
 
@@ -223,7 +240,6 @@ impl transport::AssociatedMessage for ClientMsg {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
     use crate::protocol::Common;
     use tokio::net::{TcpListener, TcpStream};
     use transport::Connection;
@@ -238,6 +254,8 @@ mod tests {
         let keepalive_port = 9998;
         let client_transport_addr = add_port(transport_port);
         let client_keepalive_addr = add_port(keepalive_port);
+        // other addrs taken elsewhere
+        let cancel_addr = add_port(10_003);
 
         let working_dir = PathBuf::from("./tests/unittests");
         let client_listener = TcpListener::bind(client_transport_addr).await.unwrap();
@@ -249,11 +267,12 @@ mod tests {
         let server_connection = Connection::from_connection(raw_server_connection);
 
         let (_tx_cancel, common) =
-            Common::test_configuration(client_transport_addr, client_keepalive_addr);
+            Common::test_configuration(client_transport_addr, client_keepalive_addr, cancel_addr);
 
         let client_state = ClientUninitState {
             conn: client_connection,
             working_dir,
+            cancel_addr,
         };
         let server_state = ServerUninitState {
             conn: server_connection,

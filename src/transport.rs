@@ -18,7 +18,7 @@ use crate::server;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 #[cfg(not(test))]
-const BUFFER_LEN: usize = 1000_000;
+const BUFFER_LEN: usize = 1_000_000;
 #[cfg(test)]
 const BUFFER_LEN: usize = 100;
 
@@ -34,6 +34,8 @@ pub(crate) enum ClientQueryAnswer {
     VersionResponse(Version),
 }
 
+/// Helper trait to ensure that `Connection` types send and
+/// receive the same expected type for each other
 pub(crate) trait AssociatedMessage {
     type Receive;
     const IS_KEEPALIVE: bool = false;
@@ -133,27 +135,27 @@ pub struct PullFilesDryResponse {
     pub filtered_files: Vec<PathBuf>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct PythonJobInit {
     pub batch_name: String,
     pub python_setup_file: Vec<u8>,
     pub additional_build_files: Vec<File>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct File {
     pub file_name: String,
     pub file_bytes: Vec<u8>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct PythonJob {
     pub python_file: Vec<u8>,
     pub job_name: String,
     pub job_files: Vec<File>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct ApptainerJobInit {
     pub batch_name: String,
     pub sif_bytes: Vec<u8>,
@@ -161,20 +163,20 @@ pub struct ApptainerJobInit {
     pub container_bind_paths: Vec<PathBuf>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct ApptainerJob {
     pub job_name: String,
     pub job_files: Vec<File>,
 }
 
-#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[cfg(feature = "cli")]
 pub enum BuildOpts {
     Python(PythonJobInit),
     Apptainer(ApptainerJobInit),
 }
 
-#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize, Eq)]
 pub(crate) enum JobOpt {
     Apptainer(ApptainerJob),
     Python(PythonJob),
@@ -241,22 +243,6 @@ pub struct FileMarker {
     pub file_path: PathBuf,
 }
 
-#[derive(Deserialize, Serialize, Debug, Constructor, Clone, PartialEq)]
-pub struct PauseExecution {
-    pub duration: std::time::Duration,
-}
-
-#[derive(Deserialize, Serialize, Debug, Constructor, Clone, PartialEq)]
-pub struct ResumeExecution;
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct NewJobRequest;
-
-#[derive(Deserialize, Serialize, Debug)]
-pub enum ClientError {
-    NotReady,
-}
-
 fn serialization_options() -> bincode::config::DefaultOptions {
     bincode::config::DefaultOptions::new()
 }
@@ -294,7 +280,12 @@ where
         &mut self,
         request: &TX,
     ) -> Result<(), error::TcpConnection> {
-        transport(&mut self.conn, request, <TX as AssociatedMessage>::IS_KEEPALIVE).await
+        transport(
+            &mut self.conn,
+            request,
+            <TX as AssociatedMessage>::IS_KEEPALIVE,
+        )
+        .await
     }
 
     pub(crate) async fn transport_from_reader<R: AsyncRead + Unpin>(
@@ -336,10 +327,11 @@ where
     #[cfg(test)]
     /// determine how many bytes are remaining in the connection
     pub(crate) async fn bytes_left(&mut self) -> usize {
-        let mut buffer = vec![0;100];
+        let mut buffer = vec![0; 100];
         //let fut = read_buffer_bytes(&mut buffer, &mut self.conn);
         let fut = self.conn.read(&mut buffer[0..]);
-        let buffer_length : Result<Result<usize, _>, _> = tokio::time::timeout(Duration::from_millis(500), fut).await;
+        let buffer_length: Result<Result<usize, _>, _> =
+            tokio::time::timeout(Duration::from_millis(500), fut).await;
         buffer_length.map(|x| x.unwrap_or(0)).unwrap_or(0)
     }
 }
@@ -356,7 +348,11 @@ async fn transport<T: Serialize>(
         .map_err(error::Serialization::from)?;
 
     if is_keepalive {
-        debug!("keepalive - sending buffer of length {} to {:?}", bytes.len(), tcp_connection.peer_addr());
+        debug!(
+            "keepalive - sending buffer of length {} to {:?}",
+            bytes.len(),
+            tcp_connection.peer_addr()
+        );
     } else {
         debug!("sending buffer of length {}", bytes.len());
     }
@@ -426,7 +422,11 @@ async fn receive<T: DeserializeOwned>(
     let content_length = u64::from_le_bytes(buf);
 
     if is_keepalive {
-        debug!("keepalive - receiving buffer with length {} to {:?}", content_length, tcp_connection.peer_addr());
+        debug!(
+            "keepalive - receiving buffer with length {} to {:?}",
+            content_length,
+            tcp_connection.peer_addr()
+        );
     } else {
         debug!("receiving buffer with length {}", content_length);
     }
@@ -443,6 +443,8 @@ async fn receive<T: DeserializeOwned>(
 }
 
 /// read a raw byte stream from a tcp connection to a reader
+///
+/// does **not** work for zero sized types!
 async fn receive_to_writer<W: AsyncWrite + Unpin>(
     conn: &mut TcpStream,
     mut writer: W,
@@ -495,6 +497,8 @@ async fn receive_to_writer<W: AsyncWrite + Unpin>(
 }
 
 /// a generic and useful function for pulling a fixed number of bytes from a [`TcpStream`]
+///
+/// does **not** work for zero sized types!
 async fn read_buffer_bytes(
     buffer: &mut [u8],
     conn: &mut TcpStream,
@@ -525,7 +529,6 @@ async fn read_buffer_bytes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
     use std::convert::TryInto;
     use std::net::SocketAddr;
     use std::time::{Duration, Instant};
@@ -664,6 +667,8 @@ mod tests {
         let length = 40732;
         let buffer = vec![0; length];
         let path = "./tests/buffer_check.binary";
+        dbg!(std::env::current_dir().unwrap());
+
         let mut f = std::fs::File::create(&path).unwrap();
 
         f.write_all(&buffer).unwrap();

@@ -1,12 +1,11 @@
 use super::utils;
-
 use crate::{error, error::Error, transport};
 
-use tokio::io::AsyncWriteExt;
-
-use tokio::sync::broadcast;
-
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+
+use tokio::io::AsyncWriteExt;
+use tokio::sync::broadcast;
 
 pub(crate) struct BindingFolderState {
     counter: usize,
@@ -135,7 +134,7 @@ pub(crate) async fn run_python_job(
     utils::clear_input_files(base_path)
         .await
         .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
-        .map_err(|e| error::RunJobError::CreateDir(e))?;
+        .map_err(error::RunJobError::CreateDir)?;
 
     // write all of _our_ job files to the output directory
     write_all_init_files(&base_path.join("input"), &job.job_files).await?;
@@ -149,12 +148,11 @@ pub(crate) async fn run_python_job(
 
     let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
 
-    command_with_cancellation(
+    generalized_run(
         Some(&original_dir),
         command,
         output_file_path,
         &job.job_name,
-        false,
         cancel,
     )
     .await
@@ -186,8 +184,7 @@ async fn write_init_file<T: AsRef<Path>>(
 pub(crate) async fn initialize_python_job(
     init: transport::PythonJobInit,
     base_path: &Path,
-    cancel: &mut broadcast::Receiver<()>,
-) -> Result<Option<()>, Error> {
+) -> Result<(), Error> {
     info!("running initialization for new job");
     write_init_file(base_path, "run.py", &init.python_setup_file).await?;
 
@@ -212,23 +209,14 @@ pub(crate) async fn initialize_python_job(
         init.batch_name
     ));
 
-    command_with_cancellation(
-        Some(&original_dir),
-        command,
-        output_file_path,
-        &init.batch_name,
-        true,
-        cancel,
-    )
-    .await
+    generalized_init(&original_dir, command, output_file_path).await
 }
 
 pub(crate) async fn initialize_apptainer_job(
     init: transport::ApptainerJobInit,
     base_path: &Path,
-    _cancel: &mut broadcast::Receiver<()>,
     folder_state: &mut BindingFolderState,
-) -> Result<Option<()>, Error> {
+) -> Result<(), Error> {
     // write the .sif file to the root
     write_init_file(base_path, "apptainer.sif", &init.sif_bytes).await?;
     // write any included files for the initialization to the `initial_files` directory
@@ -240,10 +228,7 @@ pub(crate) async fn initialize_apptainer_job(
     folder_state
         .update_binded_paths(init.container_bind_paths, base_path)
         .await;
-
-    // TODO: I think we can ignore the cancel signal here since after initializing we are going to
-    // ask for a new job anyway
-    Ok(Some(()))
+    Ok(())
 }
 
 /// execute a job after the build file has already been built
@@ -261,7 +246,7 @@ pub(crate) async fn run_apptainer_job(
     utils::clear_input_files(base_path)
         .await
         .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
-        .map_err(|e| error::RunJobError::CreateDir(e))?;
+        .map_err(error::RunJobError::CreateDir)?;
 
     // copy all the files for this job to the directory
     write_all_init_files(&base_path.join("input"), &job.job_files).await?;
@@ -293,12 +278,11 @@ pub(crate) async fn run_apptainer_job(
 
     let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
 
-    command_with_cancellation(
+    generalized_run(
         None,
         command_output,
         output_file_path,
         &job.job_name,
-        false,
         cancel,
     )
     .await
@@ -323,11 +307,14 @@ fn create_bind_argument(base_path: &Path, folder_state: &BindingFolderState) -> 
         // we know that we have previous folders
         // so we can always add a comma
         bind_arg.push(',');
-        bind_arg.push_str(&format!(
+
+        write!(
+            bind_arg,
             "{}:{}:rw",
             folder.host_path.display(),
             folder.container_path.display()
-        ));
+        )
+        .unwrap();
     }
 
     bind_arg
@@ -360,12 +347,38 @@ fn enter_output_dir(base_path: &Path) -> PathBuf {
 
 /// run a future producing a command till completion while also
 /// checking for a cancellation signal from the host
-async fn command_with_cancellation(
+async fn generalized_init(
+    original_dir: &Path,
+    command: impl std::future::Future<Output = Result<std::process::Output, std::io::Error>>,
+    output_file_path: PathBuf,
+) -> Result<(), Error> {
+    let output = command.await;
+
+    // command has finished -> return to the original dir so we dont accidentally
+    // bubble the error up with `?` before we have fixed the directory
+    enter_output_dir(original_dir);
+
+    debug!("current file path is {:?}", std::env::current_dir());
+
+    let output = output
+        .map_err(error::CommandExecutionError::from)
+        .map_err(error::RunJobError::ExecuteProcess)?;
+
+    debug!("job successfully finished - returning to main process");
+
+    // write the stdout and stderr to a file
+    command_output_to_file(output, output_file_path).await;
+
+    Ok(())
+}
+
+/// run a future producing a command till completion while also
+/// checking for a cancellation signal from the host
+async fn generalized_run(
     original_dir: Option<&Path>,
     command: impl std::future::Future<Output = Result<std::process::Output, std::io::Error>>,
     output_file_path: PathBuf,
     name: &str,
-    is_job_init: bool,
     cancel: &mut broadcast::Receiver<()>,
 ) -> Result<Option<()>, Error> {
     tokio::select!(
@@ -373,13 +386,13 @@ async fn command_with_cancellation(
            // command has finished -> return to the original dir so we dont accidentally
            // bubble the error up with `?` before we have fixed the directory
            if let Some(original_dir) = original_dir {
-               enter_output_dir(&original_dir);
+               enter_output_dir(original_dir);
            }
             debug!("current file path is {:?}", std::env::current_dir());
 
            let output = output
-               .map_err(|e| error::CommandExecutionError::from(e))
-               .map_err(|e| error::RunJobError::ExecuteProcess(e))?;
+               .map_err(error::CommandExecutionError::from)
+               .map_err(error::RunJobError::ExecuteProcess)?;
 
            debug!("job successfully finished - returning to main process");
 
@@ -389,11 +402,11 @@ async fn command_with_cancellation(
            Ok(Some(()))
        }
        _ = cancel.recv() => {
-           if is_job_init {
-               info!("initialize_job has been canceled for batch name {}", name);
-           } else {
-               info!("run_job has been canceled for job name {}", name);
+           if let Some(original_dir) = original_dir {
+               enter_output_dir(original_dir);
            }
+
+           info!("run_job has been canceled for job name {}", name);
            Ok(None)
        }
     )
@@ -415,7 +428,7 @@ async fn command_output_to_file(output: std::process::Output, path: PathBuf) {
 
     match tokio::fs::File::create(&path).await {
         Ok(mut file) => {
-            if let Err(e) = file.write_all(&output.as_bytes()).await {
+            if let Err(e) = file.write_all(output.as_bytes()).await {
                 print_err(e)
             }
         }

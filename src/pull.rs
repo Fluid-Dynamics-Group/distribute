@@ -3,8 +3,8 @@ use crate::config;
 use crate::error;
 use crate::error::Error;
 use crate::prelude::*;
-use crate::transport;
 use crate::server::ok_if_exists;
+use crate::transport;
 
 use std::io::Write;
 use std::net::SocketAddr;
@@ -173,7 +173,8 @@ fn save_file(save_location: &Path, file: transport::SendFile) -> Result<(), erro
     let path = save_location.join(file.file_path);
 
     if file.is_file {
-        ok_if_exists(std::fs::write(&path, file.bytes)).map_err(|e| error::WriteFile::new(e, path))?;
+        ok_if_exists(std::fs::write(&path, file.bytes))
+            .map_err(|e| error::WriteFile::new(e, path))?;
     } else {
         ok_if_exists(std::fs::create_dir(&path)).map_err(|e| error::CreateDir::new(e, path))?;
     }
@@ -185,7 +186,7 @@ fn save_file(save_location: &Path, file: transport::SendFile) -> Result<(), erro
 /// correctly
 fn validate_regex(exprs: &[String]) -> Result<(), error::PullErrorLocal> {
     for x in exprs {
-        regex::Regex::new(&x).map_err(|e| error::RegexError::new(x.to_string(), e))?;
+        regex::Regex::new(x).map_err(|e| error::RegexError::new(x.to_string(), e))?;
     }
 
     Ok(())

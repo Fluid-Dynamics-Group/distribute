@@ -3,9 +3,11 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use crate::config::{CLIENT_KEEPALIVE_PORT_STR, CLIENT_PORT_STR, SERVER_PORT_STR};
+use crate::config::{
+    CLIENT_CANCEL_PORT_STR, CLIENT_KEEPALIVE_PORT_STR, CLIENT_PORT_STR, SERVER_PORT_STR,
+};
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Eq)]
 #[structopt(
     name = "distribute", 
     about = "A utility for scheduling jobs on a cluster", 
@@ -22,7 +24,7 @@ pub struct ArgsWrapper {
     pub command: Arguments,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Eq)]
 pub enum Arguments {
     Client(Client),
     Server(Server),
@@ -45,7 +47,7 @@ impl Arguments {
     }
 }
 
-#[derive(StructOpt, PartialEq, Debug, Constructor)]
+#[derive(StructOpt, PartialEq, Debug, Constructor, Eq)]
 /// start this workstation as a node and prepare it for a server connection
 pub struct Client {
     /// location where all compilation and running takes place. all
@@ -53,19 +55,23 @@ pub struct Client {
     pub base_folder: PathBuf,
 
     #[structopt(long, default_value = CLIENT_PORT_STR, short="p")]
-    /// the port to bind the client to (default 8953)
+    /// the port to bind the client to
     pub transport_port: u16,
 
     #[structopt(long, default_value = CLIENT_KEEPALIVE_PORT_STR, short)]
-    /// the port for client to bind for keepalive checks (default 8954)
+    /// the port for client to bind for keepalive checks
     pub keepalive_port: u16,
+
+    #[structopt(long, default_value = CLIENT_CANCEL_PORT_STR, short)]
+    /// port to receive cancelation messages on
+    pub cancel_port: u16,
 
     #[structopt(long, default_value = "./output.log", short)]
     /// the port to bind the client to (default 8953)
     pub log_file: PathBuf,
 }
 
-#[derive(StructOpt, PartialEq, Debug, Constructor)]
+#[derive(StructOpt, PartialEq, Debug, Constructor, Eq)]
 /// start serving jobs out to nodes using the provied configuration file
 pub struct Server {
     #[structopt(long, default_value = "distribute-nodes.yaml")]
@@ -87,9 +93,13 @@ pub struct Server {
     #[structopt(long, short)]
     /// clean and remove the entire output tree
     pub clean_output: bool,
+
+    #[structopt(long, short)]
+    /// api keys for matrix messages
+    pub matrix_config: Option<std::path::PathBuf>,
 }
 
-#[derive(StructOpt, PartialEq, Debug, Constructor)]
+#[derive(StructOpt, PartialEq, Debug, Constructor, Eq)]
 /// check the status of all the nodes
 pub struct ServerStatus {
     #[structopt(long, short, default_value = SERVER_PORT_STR)]
@@ -101,7 +111,7 @@ pub struct ServerStatus {
     pub ip: IpAddr,
 }
 
-#[derive(StructOpt, PartialEq, Debug, Constructor)]
+#[derive(StructOpt, PartialEq, Debug, Constructor, Eq)]
 /// check the status of all the nodes
 pub struct NodeStatus {
     #[structopt(long, default_value = "distribute-nodes.yaml")]
@@ -109,7 +119,7 @@ pub struct NodeStatus {
     pub nodes_file: PathBuf,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Eq)]
 /// terminate any running jobs of a given batch name and remove the batch from the queue
 pub struct Kill {
     #[structopt(long, short, default_value = SERVER_PORT_STR)]
@@ -124,7 +134,7 @@ pub struct Kill {
     pub job_name: String,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Eq)]
 /// pause all currently running processes on this node for a specified amount of time
 pub struct Pause {
     #[structopt(long, default_value = "1h")]
@@ -135,7 +145,7 @@ pub struct Pause {
     pub duration: String,
 }
 
-#[derive(StructOpt, PartialEq, Debug, Constructor)]
+#[derive(StructOpt, PartialEq, Debug, Constructor, Eq)]
 /// add a job set to the queue
 pub struct Add {
     #[structopt(default_value = "distribute-jobs.yaml")]
@@ -158,7 +168,7 @@ pub struct Add {
     pub dry: bool,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Eq)]
 /// generate a template file to fill for executing with `distribute add`
 pub struct Template {
     #[structopt(subcommand)]
@@ -170,13 +180,13 @@ pub struct Template {
     pub output: PathBuf,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Eq)]
 pub(crate) enum TemplateType {
     Apptainer,
     Python,
 }
 
-#[derive(StructOpt, PartialEq, Debug, Constructor)]
+#[derive(StructOpt, PartialEq, Debug, Constructor, Eq)]
 /// Pull files from the server to your machine
 pub struct Pull {
     #[structopt(long)]
@@ -202,7 +212,7 @@ pub struct Pull {
     pub(crate) filter: Option<RegexFilter>,
 }
 
-#[derive(StructOpt, PartialEq, Debug)]
+#[derive(StructOpt, PartialEq, Debug, Eq)]
 pub enum RegexFilter {
     /// files to include in the pulling operation
     Include {
@@ -216,7 +226,7 @@ pub enum RegexFilter {
     },
 }
 
-#[derive(StructOpt, PartialEq, Debug, Constructor)]
+#[derive(StructOpt, PartialEq, Debug, Constructor, Eq)]
 /// run a apptainer configuration file locally (without sending it off to a server)
 pub struct Run {
     #[structopt(default_value = "distribute-jobs.yaml")]

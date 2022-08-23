@@ -25,6 +25,7 @@ pub(crate) struct ClientBuiltState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
     pub(super) folder_state: client::BindingFolderState,
+    pub(super) cancel_addr: SocketAddr,
 }
 
 pub(crate) struct ServerBuiltState {
@@ -47,15 +48,27 @@ impl Machine<Built, ClientBuiltState> {
         info!("now in built state");
 
         if let Err(e) = client::utils::clean_distribute_save(&self.state.working_dir).await {
-            error!("could not clean distribute save located inside {}, error: {e}", self.state.working_dir.display());
+            error!(
+                "could not clean distribute save located inside {}, error: {e}",
+                self.state.working_dir.display()
+            );
             #[cfg(test)]
-            panic!("could not clean distribute save located inside {}, error: {e}", self.state.working_dir.display());
+            panic!(
+                "could not clean distribute save located inside {}, error: {e}",
+                self.state.working_dir.display()
+            );
         }
 
         if let Err(e) = client::utils::clear_input_files(&self.state.working_dir).await {
-            error!("could not clean input files located inside {}, error: {e}", self.state.working_dir.display());
+            error!(
+                "could not clean input files located inside {}, error: {e}",
+                self.state.working_dir.display()
+            );
             #[cfg(test)]
-            panic!("could not clean input files located inside {}, error: {e}", self.state.working_dir.display());
+            panic!(
+                "could not clean input files located inside {}, error: {e}",
+                self.state.working_dir.display()
+            );
         }
 
         let msg = self.state.conn.receive_data().await;
@@ -64,8 +77,11 @@ impl Machine<Built, ClientBuiltState> {
         match msg {
             ServerMsg::ExecuteJob(job) => {
                 // return Machine<Executing, _>
-                
-                debug!("got executing instructions from the server for {}", job.name());
+
+                debug!(
+                    "got executing instructions from the server for {}",
+                    job.name()
+                );
 
                 let executing_state = self.into_executing_state(job).await;
                 let machine = Machine::from_state(executing_state);
@@ -73,7 +89,7 @@ impl Machine<Built, ClientBuiltState> {
             }
             ServerMsg::ReturnPrepareBuild => {
                 // return Machine<PrepareBuild, _>
-                
+
                 debug!("got build instructions from the server");
 
                 let prepare_build_state = self.into_prepare_build_state().await;
@@ -83,19 +99,29 @@ impl Machine<Built, ClientBuiltState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitClient {
+    pub(crate) fn into_uninit(self) -> super::UninitClient {
         let ClientBuiltState {
-            conn, working_dir, ..
+            conn,
+            working_dir,
+            cancel_addr,
+            ..
         } = self.state;
         let conn = conn.update_state();
         debug!("moving client built -> uninit");
-        let state = super::uninit::ClientUninitState { conn, working_dir };
+        let state = super::uninit::ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        };
         Machine::from_state(state)
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
         let ClientBuiltState {
-            conn, working_dir, ..
+            conn,
+            working_dir,
+            cancel_addr,
+            ..
         } = self.state;
         debug!("moving client built -> prepare build");
         #[allow(unused_mut)]
@@ -103,7 +129,11 @@ impl Machine<Built, ClientBuiltState> {
 
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
-        super::prepare_build::ClientPrepareBuildState { conn, working_dir }
+        super::prepare_build::ClientPrepareBuildState {
+            conn,
+            working_dir,
+            cancel_addr,
+        }
     }
 
     async fn into_executing_state(
@@ -114,6 +144,7 @@ impl Machine<Built, ClientBuiltState> {
             conn,
             working_dir,
             folder_state,
+            cancel_addr,
         } = self.state;
         debug!("moving client built -> executing");
 
@@ -128,6 +159,7 @@ impl Machine<Built, ClientBuiltState> {
             working_dir,
             job,
             folder_state,
+            cancel_addr,
         }
     }
 }
@@ -160,12 +192,18 @@ impl Machine<Built, ServerBuiltState> {
                 // we need to compile a different job and transition to the PrepareBuild state
                 //
 
-                debug!("{} got build instructions from the job pool", self.state.common.node_name);
+                debug!(
+                    "{} got build instructions from the job pool",
+                    self.state.common.node_name
+                );
                 if build.identifier == self.state.job_identifier {
                     error!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                     panic!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
                 } else {
-                    debug!("{} notifying compute node to transition states to prepare build", self.state.common.node_name);
+                    debug!(
+                        "{} notifying compute node to transition states to prepare build",
+                        self.state.common.node_name
+                    );
 
                     // notify the compute machine that we are transitioning states
                     let tmp = self
@@ -187,8 +225,12 @@ impl Machine<Built, ServerBuiltState> {
                 //
                 // We have been assigned to run a job that we have already compiled
                 //
-                
-                debug!("{} got execute instructions from the job pool, job name is {}", self.state.common.node_name, run.task.name());
+
+                debug!(
+                    "{} got execute instructions from the job pool, job name is {}",
+                    self.state.common.node_name,
+                    run.task.name()
+                );
 
                 let job_name = run.task.name().to_string();
 
@@ -215,7 +257,7 @@ impl Machine<Built, ServerBuiltState> {
         }
     }
 
-    pub(crate) fn to_uninit(self) -> super::UninitServer {
+    pub(crate) fn into_uninit(self) -> super::UninitServer {
         let ServerBuiltState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         debug!("moving server built -> uninit");

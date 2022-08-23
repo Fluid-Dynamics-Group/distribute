@@ -13,11 +13,9 @@ use protocol::UninitClient;
 
 use crate::{cli, error, transport};
 
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::broadcast;
-
 pub async fn client_command(client: cli::Client) -> Result<(), Error> {
-    let base_path = PathBuf::from(client.base_folder);
+    let base_path = client.base_folder;
+
     utils::clean_output_dir(&base_path)
         .await
         .map_err(error::ClientInitError::from)?;
@@ -30,6 +28,8 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let keepalive_addr = SocketAddr::from(([0, 0, 0, 0], client.keepalive_port));
     start_keepalive_checker(keepalive_addr).await?;
 
+    let cancel_addr = SocketAddr::from(([0, 0, 0, 0], client.cancel_port));
+
     info!("starting client listener on port {}", addr);
     println!("starting client listener on port {}", addr);
 
@@ -41,7 +41,7 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         println!("new TCP connection from the server - preparing setup / run structures - STDOUT");
         info!("new TCP connection from the server - preparing setup / run structures");
 
-        run_job(tcp_conn, &base_path).await.ok();
+        run_job(tcp_conn, &base_path, cancel_addr).await.ok();
     }
 
     #[allow(unreachable_code)]
@@ -52,10 +52,15 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
 /// through that connection as possible.
 ///
 /// Only return from this function if there is a TcpConnection error
-async fn run_job(conn: tokio::net::TcpStream, working_dir: &Path) -> Result<(), ()> {
+async fn run_job(
+    conn: tokio::net::TcpStream,
+    working_dir: &Path,
+    cancel_addr: SocketAddr,
+) -> Result<(), ()> {
     let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(
         conn,
         working_dir.to_owned(),
+        cancel_addr,
     );
 
     debug!("created uninitialized state machine for running job on client");
@@ -92,7 +97,7 @@ async fn inner_prepare_build_to_compile_result(
         Ok(building) => building,
         Err((prepare_build, err)) => {
             error!("error when trying to get a job to build : {}", err);
-            return Err((prepare_build.to_uninit(), err.into()));
+            return Err((prepare_build.into_uninit(), err.into()));
         }
     };
 
@@ -100,7 +105,7 @@ async fn inner_prepare_build_to_compile_result(
         Ok(built) => built,
         Err((prepare_build, err)) => {
             error!("error when trying to get a job to build: {}", err);
-            return Err((prepare_build.to_uninit(), err.into()));
+            return Err((prepare_build.into_uninit(), err.into()));
         }
     };
 
@@ -148,7 +153,7 @@ async fn execute_and_send_files(
         }
         Err((execute, err)) => {
             error!("error executing the job: {}", err);
-            return Err((execute.to_uninit(), err.into()));
+            return Err((execute.into_uninit(), err.into()));
         }
     };
 
@@ -156,7 +161,7 @@ async fn execute_and_send_files(
         Ok(built) => built,
         Err((send_files, err)) => {
             error!("error sending result files from the job: {}", err);
-            return Err((send_files.to_uninit(), err.into()));
+            return Err((send_files.into_uninit(), err.into()));
         }
     };
 
@@ -191,7 +196,7 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
             }
             Err((built, err)) => {
                 error!("error from built client: {}", err);
-                return Err((built.to_uninit(), err.into()));
+                return Err((built.into_uninit(), err.into()));
             }
         };
 
@@ -281,10 +286,53 @@ fn kill_job(tx_cancel: &mut broadcast::Sender<()>) {
 ///
 /// returns true if the connection has been closed
 fn is_closed_connection(error: error::TcpConnection) -> bool {
-    match error {
-        // TODO: experiment with what exactly is the EOF on a TCP connection
-        // and what exactly constitutes waiting for more data
-        error::TcpConnection::ConnectionClosed => true,
-        _ => false,
+    // TODO: experiment with what exactly is the EOF on a TCP connection
+    // and what exactly constitutes waiting for more data
+    matches!(error, error::TcpConnection::ConnectionClosed)
+}
+
+pub(crate) async fn check_for_failure<ClientMsg, ServerMsg, F>(
+    conn: &mut transport::Connection<ClientMsg>,
+    is_cancellation: F,
+    send_on_cancel: broadcast::Sender<()>,
+    did_cancel: &mut bool,
+) -> !
+where
+    ClientMsg: transport::AssociatedMessage<Receive = ServerMsg> + Serialize,
+    ServerMsg: serde::de::DeserializeOwned + std::fmt::Debug,
+    F: Fn(&ServerMsg) -> bool,
+{
+    loop {
+        let rx: Result<ServerMsg, _> = conn.receive_data().await;
+        if let Ok(msg) = rx {
+            if is_cancellation(&msg) {
+                *did_cancel = true;
+                send_on_cancel.send(()).ok();
+            } else {
+                warn!("received non-cancel message from the server: {:?}", msg);
+            }
+        }
+    }
+}
+
+/// binds to cancellation port and waits for a connection to the port. After receiving a
+/// connection, this will contain a cancellation request from the head node dictating that our
+/// current job ID matches a request to kill the jobs.
+pub(crate) async fn return_on_cancellation(addr: SocketAddr) -> Result<(), error::TcpConnection> {
+    let listener = TcpListener::bind(addr)
+        .await
+        .map_err(error::TcpConnection::from)?;
+
+    loop {
+        // accept the connection
+        let res = listener.accept().await;
+        debug!("accepted connection on cancellation port");
+
+        match res {
+            Ok(_) => {
+                return Ok(());
+            }
+            Err(e) => error!("error when accepting cancellation connection: {e}"),
+        }
     }
 }

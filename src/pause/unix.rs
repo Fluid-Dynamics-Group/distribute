@@ -12,11 +12,11 @@ use std::path::Path;
 type Error = crate::error::UnixError;
 
 pub(crate) fn pause_procs(active_procs: &[RunningProcess]) {
-    send_signal_to_procs(&active_procs, signal::Signal::SIGSTOP);
+    send_signal_to_procs(active_procs, signal::Signal::SIGSTOP);
 }
 
-pub(crate) fn resume_procs(paused_procs: &[RunningProcess]) -> () {
-    send_signal_to_procs(&paused_procs, signal::Signal::SIGCONT);
+pub(crate) fn resume_procs(paused_procs: &[RunningProcess]) {
+    send_signal_to_procs(paused_procs, signal::Signal::SIGCONT);
 }
 
 /// send a chosen signal to a set of processes
@@ -154,7 +154,7 @@ pub(crate) fn find_all_child_procs(procs: ProcessGroups) -> Vec<RunningProcess> 
 /// iterate through a vector and check if there are any process
 /// with a PID that match a given processes' PPID
 fn check_parent_pid(ppid: u32, parent_procs: &[RunningProcess]) -> bool {
-    parent_procs.iter().find(|x| x.pid == ppid).is_some()
+    parent_procs.iter().any(|x| x.pid == ppid)
 }
 
 /// Pull the parent PID from a process
@@ -173,7 +173,7 @@ fn parse_ppid_from_stat(stat: &str) -> u32 {
         .take_while(|c| c.is_ascii_digit())
         .collect::<String>()
         .parse()
-        .expect(&format!("4th argument of /proc/pid/stat was not a number, or we have a bad bad parsing case. Full stat line: {}", stat))
+        .unwrap_or_else(|_| panic!("4th argument of /proc/pid/stat was not a number, or we have a bad bad parsing case. Full stat line: {}", stat))
 }
 
 /// removes the null characters in `/proc/{pid}/` files and replaces them
