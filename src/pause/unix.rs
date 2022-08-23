@@ -25,7 +25,7 @@ fn send_signal_to_procs(procs_to_pause: &[RunningProcess], signal: signal::Signa
         let pid = nix::unistd::Pid::from_raw(proc.pid.try_into().unwrap());
         if let Err(e) = signal::kill(pid, signal) {
             println!(
-                "Could not send signal to PID {} (error: {}) - command: {}",
+                "Could not send signal to PID {}, are you root? (error: {}) - command: {}",
                 proc.pid, e, proc.cmd
             );
         }

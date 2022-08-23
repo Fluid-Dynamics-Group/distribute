@@ -129,7 +129,9 @@ pub struct Kill {
 pub struct Pause {
     #[structopt(long, default_value = "1h")]
     /// duration to pause the processes for.  Maximum allowable
-    /// pause time is 4 hours. (Examples: 1h, 90m, 1h30m).
+    /// pause time is 4 hours. (Examples: 1h, 90m, 1h30m, 1m30s).
+    ///
+    /// This command requires sudo.
     pub duration: String,
 }
 
