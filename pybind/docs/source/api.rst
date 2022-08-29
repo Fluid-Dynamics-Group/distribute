@@ -6,7 +6,7 @@ to all the constituent functions.
 
 .. autofunction:: distribute_compute_config.apptainer_config(meta: Meta, description: Description) -> ApptainerConfig
 
-.. autofunction:: distribute_compute_config.metadata(namespace: str, batch_name: str, capabilities: List[str], matrix_username=None) -> Meta
+.. autofunction:: distribute_compute_config.metadata(namespace: str, batch_name: str, capabilities: List[str], matrix_username:Optional[str]=None) -> Meta
 
 .. autofunction:: distribute_compute_config.description(initialize: Initialize, jobs: List[Job]) -> Description
 
