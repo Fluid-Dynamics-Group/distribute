@@ -147,15 +147,15 @@ and all processes will be automatically resumed.
 some examples of this command:
 
 ```bash
-distribute pause 4h
+sudo distribute pause 4h
 ```
 
 ```bash
-distribute pause 1h30m10s
+sudo distribute pause 1h30m10s
 ```
 
 ```bash
-distribute pause 60s
+sudo distribute pause 60s
 ```
 
 ## server-status
