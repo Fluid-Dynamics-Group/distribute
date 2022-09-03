@@ -79,7 +79,7 @@ async fn check_pull() {
     dbg!(&server);
 
     // start the server
-    tokio::task::spawn_local(async move {
+    tokio::task::spawn(async move {
         println!("starting server");
         distribute::server_command(server).await.unwrap();
         println!("server has exited");
@@ -180,10 +180,19 @@ async fn pull_large_file() {
     dbg!(&server);
 
     // start the server
-    tokio::task::spawn_local(async move {
+    tokio::task::spawn(async move {
         println!("starting server");
         distribute::server_command(server).await.unwrap();
         println!("server has exited");
+    });
+
+    tokio::spawn(async move {
+        let matrix_config_path = PathBuf::from("./config.json");
+        let config_file = std::fs::File::open(&matrix_config_path).unwrap();
+
+        let config = serde_json::from_reader(config_file).unwrap();
+
+        matrix::MatrixData::from_config(config).await.unwrap();
     });
 
     // let the server start up for a few seconds

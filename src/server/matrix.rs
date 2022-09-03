@@ -54,7 +54,8 @@ impl MatrixData {
     pub(crate) async fn from_config(
         config: matrix_notify::ConfigInfo,
     ) -> Result<Self, matrix_notify::Error> {
-        let client = Arc::new(matrix_notify::client(&config).await?);
+        let client = matrix_notify::client(&config).await?;
+        let client = Arc::new(client);
 
         Ok(Self {
             client,

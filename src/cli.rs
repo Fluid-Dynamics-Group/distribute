@@ -242,3 +242,10 @@ pub struct Run {
     /// of it before executing the code
     pub(crate) clean_save: bool,
 }
+
+fn check_send<T: Send>() {}
+
+fn other_send() {
+
+    check_send::<Server>();
+}

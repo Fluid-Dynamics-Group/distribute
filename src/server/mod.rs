@@ -70,6 +70,10 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         user_conn::handle_user_requests(port, req_clone, caps_clone, save_path).await;
     });
 
+    /*
+     * NON SPAWNABLE START
+     */
+
     //
     // read the matrix configuration from a file
     //
@@ -82,10 +86,16 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
             .map_err(|e| error::SerializeConfig::new(e, matrix_config_path.clone()))
             .map_err(error::ServerError::from)?;
 
-        Some(matrix::MatrixData::from_config(config).await.unwrap())
+        //Some(matrix::MatrixData::from_config(config).await.unwrap())
+
+        None
     } else {
         None
     };
+
+    /*
+     * NON SPAWNABLE END
+     */
 
     //
     // spawn off a job pool that we can query from different tasks
@@ -163,4 +173,15 @@ where
         Ok(_) => Ok(()),
         Err(e) => Err(T::from((path.to_owned(), e))),
     }
+}
+
+fn asdf() {
+    tokio::spawn(async move {
+        let matrix_config_path = std::path::PathBuf::from("./config.json");
+        let config_file = std::fs::File::open(&matrix_config_path).unwrap();
+
+        let config = serde_json::from_reader(config_file).unwrap();
+
+        server::matrix::MatrixData::from_config(config).await.unwrap();
+    });
 }
