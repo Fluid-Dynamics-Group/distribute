@@ -186,15 +186,6 @@ async fn pull_large_file() {
         println!("server has exited");
     });
 
-    tokio::spawn(async move {
-        let matrix_config_path = PathBuf::from("./config.json");
-        let config_file = std::fs::File::open(&matrix_config_path).unwrap();
-
-        let config = serde_json::from_reader(config_file).unwrap();
-
-        matrix::MatrixData::from_config(config).await.unwrap();
-    });
-
     // let the server start up for a few seconds
     thread::sleep(Duration::from_secs(3));
 
