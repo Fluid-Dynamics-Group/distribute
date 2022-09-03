@@ -70,14 +70,12 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         user_conn::handle_user_requests(port, req_clone, caps_clone, save_path).await;
     });
 
-    /*
-     * NON SPAWNABLE START
-     */
-
     //
     // read the matrix configuration from a file
     //
     let matrix_data = if let Some(matrix_config_path) = server.matrix_config {
+        info!("including matrix client in job run");
+
         let config_file = std::fs::File::open(&matrix_config_path)
             .map_err(|e| error::OpenFile::new(e, matrix_config_path.clone()))
             .map_err(error::ServerError::from)?;
@@ -90,10 +88,6 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     } else {
         None
     };
-
-    /*
-     * NON SPAWNABLE END
-     */
 
     //
     // spawn off a job pool that we can query from different tasks
