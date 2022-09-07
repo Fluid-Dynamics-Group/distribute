@@ -3,7 +3,7 @@
 | name       | physical core count | address        | role      |
 |------------|---------------------|----------------|-----------|
 | lab1       | 16                  | 134.197.94.134 | compute   |
-| lab2       | 16                  | 134.197.95.127 | compute   |
+| lab2       | 16                  | 134.197.27.105 | compute   |
 | lab3       | 32                  | 134.197.94.179 | compute   |
 | lab4       | 12                  | 134.197.95.37  | storage   |
 | distserver | 12                  | 134.197.95.21  | head node |
