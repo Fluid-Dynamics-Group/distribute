@@ -148,15 +148,15 @@ you have canceled it with `Ctrl-C` as the job on your machine will never resume.
 some examples of this command:
 
 ```bash
-sudo distribute pause 4h
+sudo distribute pause --duration 4h
 ```
 
 ```bash
-sudo distribute pause 1h30m10s
+sudo distribute pause --duration 1h30m10s
 ```
 
 ```bash
-sudo distribute pause 60s
+sudo distribute pause --duration 60s
 ```
 
 ## server-status
