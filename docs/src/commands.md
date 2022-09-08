@@ -142,7 +142,8 @@ upper bound is just present to remove any chance of you accidentally leaving the
 period of time.
 
 If you decide that you no longer need the tasks paused, you can simply `Ctrl-C` to quit the hanging command
-and all processes will be automatically resumed.
+and all processes will be automatically resumed. **Do not close your terminal** before the pausing finishes or
+you have canceled it with `Ctrl-C` as the job on your machine will never resume.
 
 some examples of this command:
 
