@@ -1,12 +1,11 @@
 /// simulate a node going offline and ensure that jobs are properly
 /// added back to the queue
-
 use distribute::cli::Add;
 use distribute::cli::Client;
 use distribute::cli::Server;
 use distribute::cli::ServerStatus;
 
-use log::{info, error};
+use log::{error, info};
 
 use std::fs;
 use std::net::IpAddr;
@@ -68,10 +67,10 @@ async fn failed_keepalive() {
             // since these tasks share environment variables, the client has not cleaned up their
             // execution model, and therefore the python script is still in the wrong directory
             //
-            // here, we just set the directory to the correct value 
+            // here, we just set the directory to the correct value
             //
-            // we normally would not need to do this since the client and server would be 
-            // separate programs with separate environment variables (also likely on 
+            // we normally would not need to do this since the client and server would be
+            // separate programs with separate environment variables (also likely on
             // separate computers)
             std::env::set_current_dir(&current_dir).unwrap();
         } else {
@@ -132,7 +131,7 @@ async fn failed_keepalive() {
 
     //
     // ensure the job set is running right now
-    // 
+    //
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 

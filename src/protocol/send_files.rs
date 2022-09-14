@@ -374,7 +374,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
 
         let namespace = task_info.namespace;
         let batch_name = task_info.batch_name;
-        let job_identifier= task_info.identifier;
+        let job_identifier = task_info.identifier;
 
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
@@ -395,22 +395,24 @@ impl Machine<SendFiles, ServerSendFilesState> {
     }
 
     pub(crate) fn into_uninit(self) -> (super::UninitServer, server::pool_data::RunTaskInfo) {
-        let ServerSendFilesState { conn, common, task_info, .. } = self.state;
+        let ServerSendFilesState {
+            conn,
+            common,
+            task_info,
+            ..
+        } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
         debug!("moving server send files -> uninit");
 
-        (
-            Machine::from_state(state),
-            task_info
-        )
+        (Machine::from_state(state), task_info)
     }
 
     pub(crate) fn node_name(&self) -> &str {
         &self.state.common.node_name
     }
 
-    pub(crate) fn job_name (&self) -> &str {
+    pub(crate) fn job_name(&self) -> &str {
         &self.state.job_name
     }
 }
@@ -511,7 +513,7 @@ async fn transport_files_with_large_file() {
         namespace: namespace.clone(),
         batch_name: batch_name.clone(),
         identifier: server::JobIdentifier::none(),
-        task: transport::JobOpt::placeholder_test_data()
+        task: transport::JobOpt::placeholder_test_data(),
     };
 
     let (_tx, common) = super::Common::test_configuration(

@@ -1,10 +1,9 @@
-/// cancel a simple set of python python jobs and ensure that 
-/// the `currently running jobs` counter on the scheduler
-/// is decremented as we would expect
-
-use distribute::cli::Kill;
 use distribute::cli::Add;
 use distribute::cli::Client;
+/// cancel a simple set of python python jobs and ensure that
+/// the `currently running jobs` counter on the scheduler
+/// is decremented as we would expect
+use distribute::cli::Kill;
 use distribute::cli::Server;
 use distribute::cli::ServerStatus;
 
@@ -105,7 +104,7 @@ async fn cancel_job() {
 
     //
     // ensure the job set is running right now
-    // 
+    //
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
@@ -115,10 +114,14 @@ async fn cancel_job() {
     // cancel the job set then
     //
     // `job_name` comes from distribute-jobs.yaml file
-    let kill_msg = Kill { port: server_port, ip: addr, job_name: "python_sleep_job".into() };
+    let kill_msg = Kill {
+        port: server_port,
+        ip: addr,
+        job_name: "python_sleep_job".into(),
+    };
     distribute::kill(kill_msg).await.unwrap();
 
-    // sleep a bit after the notice to cancel the jobs to give 
+    // sleep a bit after the notice to cancel the jobs to give
     // the message queues ample time
     thread::sleep(Duration::from_secs(5));
 

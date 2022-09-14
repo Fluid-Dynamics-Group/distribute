@@ -22,7 +22,7 @@ pub(crate) struct ServerExecutingState {
     pub(super) common: super::Common,
     pub(super) job_name: String,
     pub(super) save_location: PathBuf,
-    // pub(crate) here so we can pull this out of the state if we need to 
+    // pub(crate) here so we can pull this out of the state if we need to
     pub(super) task_info: server::pool_data::RunTaskInfo,
 }
 
@@ -217,13 +217,11 @@ impl Machine<Executing, ClientExecutingState> {
 impl Machine<Executing, ServerExecutingState> {
     pub(crate) async fn wait_job_execution(
         mut self,
-        // the handler to the job scheduler that we can use 
+        // the handler to the job scheduler that we can use
         // to notify if any issues arise
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
-    ) -> Result<
-        Either<super::PrepareBuildServer, super::SendFilesServer>,
-        (Self, ServerError),
-    > {
+    ) -> Result<Either<super::PrepareBuildServer, super::SendFilesServer>, (Self, ServerError)>
+    {
         let mut cancelled = false;
 
         let job_identifier = self.state.job_identifier();
@@ -235,8 +233,10 @@ impl Machine<Executing, ServerExecutingState> {
             &mut cancelled,
         );
 
-        let keepalive_checker = 
-            server::node::complete_on_ping_failure(self.state.common.keepalive_addr, &self.state.common.node_name);
+        let keepalive_checker = server::node::complete_on_ping_failure(
+            self.state.common.keepalive_addr,
+            &self.state.common.node_name,
+        );
 
         let msg_result = tokio::select!(
             msg = self.state.conn.receive_data() => {
@@ -262,25 +262,34 @@ impl Machine<Executing, ServerExecutingState> {
                 let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
                 throw_error_with_self!(tmp, self);
 
-                // we dont need to message the scheduler about anything, deallocation 
+                // we dont need to message the scheduler about anything, deallocation
                 // of the job will happen at the call site
 
-                // return self, the transition to uninitialized state will happen 
+                // return self, the transition to uninitialized state will happen
                 // for us at the call site
                 Err((self, ServerError::FailedKeepalive))
             }
             ClientMsg::Cancelled => {
-                info!("{} job was cancelled (job name {}, batch name {})", self.state.common.node_name, self.state.job_name, self.state.batch_name());
+                info!(
+                    "{} job was cancelled (job name {}, batch name {})",
+                    self.state.common.node_name,
+                    self.state.job_name,
+                    self.state.batch_name()
+                );
                 let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
                 throw_error_with_self!(tmp, self);
 
                 // tell the server the job is finished
                 // since the jobs have all been dequeued this doesnt really
-                // have any practical effect on anything - nothing in this jobset 
+                // have any practical effect on anything - nothing in this jobset
                 // really matters anymore so we dont need to create a special cancellation notice
                 info!("sending scheduler message that the job has been finished");
                 let mark_finished_msg = server::JobRequest::FinishJob(self.state.job_identifier());
-                scheduler_tx.send(mark_finished_msg).await.ok().expect("message to the job scheduler paniced - unrecoverable error");
+                scheduler_tx
+                    .send(mark_finished_msg)
+                    .await
+                    .ok()
+                    .expect("message to the job scheduler paniced - unrecoverable error");
 
                 // go to Machine<PrepareBuild, _>
                 let prepare_build = self.into_prepare_build_state().await;
@@ -317,7 +326,12 @@ impl Machine<Executing, ServerExecutingState> {
     }
 
     pub(crate) fn into_uninit(self) -> (super::UninitServer, server::pool_data::RunTaskInfo) {
-        let ServerExecutingState { conn, common, task_info, .. } = self.state;
+        let ServerExecutingState {
+            conn,
+            common,
+            task_info,
+            ..
+        } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
         debug!("moving client executing -> uninit");
@@ -335,7 +349,7 @@ impl Machine<Executing, ServerExecutingState> {
             common,
             job_name,
             save_location,
-            task_info
+            task_info,
         } = self.state;
 
         #[allow(unused_mut)]
@@ -526,7 +540,7 @@ async fn cancel_arbiter_negative() {
 #[tokio::test]
 #[serial_test::serial]
 /// this test cannot be run at the same time as other tests
-/// since it changes the current working directory which can severely 
+/// since it changes the current working directory which can severely
 /// affect the IO tests of other procs
 async fn cancel_run() {
     //crate::logger();
@@ -596,7 +610,7 @@ async fn cancel_run() {
         namespace: "test_namespace".into(),
         batch_name: "test_batchname".into(),
         identifier: job_identifier,
-        task: transport::JobOpt::placeholder_test_data()
+        task: transport::JobOpt::placeholder_test_data(),
     };
 
     let server_state = ServerExecutingState {
@@ -608,11 +622,13 @@ async fn cancel_run() {
     };
 
     //
-    // setup client keepalive checer 
+    // setup client keepalive checer
     //
 
-    client::start_keepalive_checker(keepalive_addr).await.unwrap();
-    
+    client::start_keepalive_checker(keepalive_addr)
+        .await
+        .unwrap();
+
     //
     // put it all together
     //
@@ -650,7 +666,7 @@ async fn cancel_run() {
     assert_eq!(matches!(client, Either::Left(_)), true);
     assert_eq!(matches!(server, Either::Left(_)), true);
 
-    // check the scheduler receiving pipe to ensure that it has been informed that 
+    // check the scheduler receiving pipe to ensure that it has been informed that
     // a job was cancelled
     let scheduler_msg = scheduler_rx.recv().await.unwrap();
     if let server::pool_data::JobRequest::FinishJob(job_ident) = scheduler_msg {
@@ -658,10 +674,9 @@ async fn cancel_run() {
     } else {
         panic!("server did not correctly mark job as finished when it was cancelled")
     }
-    
 
     // ensure the current working directory did not change
-    let ending_dir= std::env::current_dir().unwrap();
+    let ending_dir = std::env::current_dir().unwrap();
     assert_eq!(starting_dir, ending_dir);
 
     // clean up the folder after

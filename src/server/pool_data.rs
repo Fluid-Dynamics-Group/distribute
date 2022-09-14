@@ -14,8 +14,8 @@ pub(crate) enum JobResponse {
 #[derive(derive_more::From)]
 pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
-    /// a client failed a keepalive check while it was 
-    /// executing 
+    /// a client failed a keepalive check while it was
+    /// executing
     DeadNode(RunTaskInfo),
     AddJobSet(storage::OwnedJobSet),
     QueryRemainingJobs(RemainingJobsQuery),

@@ -32,7 +32,11 @@ impl StoredJob {
 
         let python_setup_file_path = output_dir.join(&format!("{}_py_job.dist", hash));
 
-        trace!("saving python lazy file to {}, current working directory is {}", python_setup_file_path.display(), std::env::current_dir().unwrap().display());
+        trace!(
+            "saving python lazy file to {}, current working directory is {}",
+            python_setup_file_path.display(),
+            std::env::current_dir().unwrap().display()
+        );
 
         std::fs::write(&python_setup_file_path, x.python_file)?;
 

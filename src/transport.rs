@@ -192,7 +192,11 @@ impl JobOpt {
 
     #[cfg(test)]
     pub(crate) fn placeholder_test_data() -> Self {
-        transport::JobOpt::Python(transport::PythonJob { python_file: vec![], job_name: "test_job".into(), job_files: vec![]})
+        transport::JobOpt::Python(transport::PythonJob {
+            python_file: vec![],
+            job_name: "test_job".into(),
+            job_files: vec![],
+        })
     }
 }
 

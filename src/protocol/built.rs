@@ -284,7 +284,7 @@ impl Machine<Built, ServerBuiltState> {
     async fn into_executing_state(
         self,
         job_name: String,
-        task_info: server::pool_data::RunTaskInfo
+        task_info: server::pool_data::RunTaskInfo,
     ) -> super::executing::ServerExecutingState {
         debug!(
             "{} is moving built -> executing",
