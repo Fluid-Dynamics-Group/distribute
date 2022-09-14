@@ -215,7 +215,12 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
     }
 }
 
-async fn start_keepalive_checker(keepalive_port: SocketAddr) -> Result<(), error::TcpConnection> {
+/// start an arbiter to respoond to keepalive checks from the server
+///
+/// we do not need to communicate with the state of the nodes here - if 
+/// the node goes offline then the entire progrma will exit and this function
+/// will cease to respond to the keepalive checks from the server.
+pub(crate) async fn start_keepalive_checker(keepalive_port: SocketAddr) -> Result<(), error::TcpConnection> {
     info!("starting keepalive monitor on the client");
     // first, bind to the port so we can report errors before spawning off the task
     let listener = TcpListener::bind(keepalive_port)

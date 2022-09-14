@@ -18,6 +18,12 @@ async fn check_deallocate_jobs() {
         distribute::logger();
     }
 
+    assert_eq!(
+        PathBuf::from("./tests/apptainer_local/apptainer_local.sif").exists(),
+        true,
+        "you need to run ./tests/apptainer_local/build.sh before executing tests"
+    );
+
     let server_port = 9981;
     // this is the port in the corresponding distribute-nodes.yaml file for this job
     let client_port = 9967;

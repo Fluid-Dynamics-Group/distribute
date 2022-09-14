@@ -1,8 +1,6 @@
-/// cancel a simple set of python python jobs and ensure that 
-/// the `currently running jobs` counter on the scheduler
-/// is decremented as we would expect
+/// simulate a node going offline and ensure that jobs are properly
+/// added back to the queue
 
-use distribute::cli::Kill;
 use distribute::cli::Add;
 use distribute::cli::Client;
 use distribute::cli::Server;
@@ -19,9 +17,11 @@ use std::time::Duration;
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn failed_keepalive() {
     println!("starting failed keepalive test");
-    if true {
+    if false {
         distribute::logger();
     }
+
+    let current_dir = std::env::current_dir().unwrap();
 
     let server_port = 9981;
     // this is the port in the corresponding distribute-nodes.yaml file for this job
@@ -63,6 +63,17 @@ async fn failed_keepalive() {
         if let Err(_) = res {
             println!("client has been knocked offline after a timeout, keepalive should now fail");
             info!("client has been knocked offline after a timeout, keepalive should now fail");
+
+            // Since we artificially killed the client (simulating a shutdown of the computer)
+            // since these tasks share environment variables, the client has not cleaned up their
+            // execution model, and therefore the python script is still in the wrong directory
+            //
+            // here, we just set the directory to the correct value 
+            //
+            // we normally would not need to do this since the client and server would be 
+            // separate programs with separate environment variables (also likely on 
+            // separate computers)
+            std::env::set_current_dir(&current_dir).unwrap();
         } else {
             error!("client did not fail keepalive!");
             panic!("client did not fail keepalive!")

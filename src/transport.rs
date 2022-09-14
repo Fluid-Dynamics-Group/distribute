@@ -189,6 +189,11 @@ impl JobOpt {
             Self::Python(x) => &x.job_name,
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn placeholder_test_data() -> Self {
+        transport::JobOpt::Python(transport::PythonJob { python_file: vec![], job_name: "test_job".into(), job_files: vec![]})
+    }
 }
 
 #[cfg(feature = "cli")]

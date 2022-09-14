@@ -115,15 +115,43 @@ async fn execute_and_send_files(
         }
         Err((execute, err)) => {
             error!("{} error executing the job: {}, returning the job back to scheduler", execute.node_name(), err);
-            return Err((execute.into_uninit(), err.into()));
+
+            let (uninit, run_task_info) = execute.into_uninit();
+
+            let return_msg = server::JobRequest::DeadNode(run_task_info);
+            scheduler_tx.send(return_msg).await.ok().expect("scheduler is offine - irrecoverable error");
+
+            return Err((uninit, err.into()));
         }
     };
 
     let built = match send_files.receive_files(scheduler_tx).await {
         Ok(built) => built,
         Err((send_files, err)) => {
-            error!("error sending result files from the job: {}", err);
-            return Err((send_files.into_uninit(), err.into()));
+            error!("{} error sending result files from the job: {}", send_files.node_name(), err);
+
+            //
+            // add the job back into the scheduler since it did not finish properly
+            //
+            let node_name = send_files.node_name().to_string();
+            let job_name = send_files.job_name().to_string();
+
+            let (uninit, run_task_info) = send_files.into_uninit();
+
+            info!("{} adding job `{}` from `{}` back to scheduler since it failed to send its files previously", 
+                node_name,
+                job_name,
+                run_task_info.batch_name,
+            );
+
+            let return_msg = server::JobRequest::DeadNode(run_task_info);
+            scheduler_tx.send(return_msg).await.ok().expect("scheduler is offine - irrecoverable error");
+
+            //
+            // return out with the uninitialized state
+            //
+
+            return Err((uninit, err.into()));
         }
     };
 
