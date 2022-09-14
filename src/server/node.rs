@@ -114,7 +114,7 @@ async fn execute_and_send_files(
             return Ok(protocol::Either::Left(prepare_build))
         }
         Err((execute, err)) => {
-            error!("error executing the job: {}", err);
+            error!("{} error executing the job: {}, returning the job back to scheduler", execute.node_name(), err);
             return Err((execute.into_uninit(), err.into()));
         }
     };
@@ -245,7 +245,7 @@ pub(crate) async fn fetch_new_job(
 }
 
 /// constantly polls a connection to ensure that
-async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) {
+pub(crate) async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) {
     loop {
         if let Err(e) = check_keepalive(&address, name).await {
             error!(

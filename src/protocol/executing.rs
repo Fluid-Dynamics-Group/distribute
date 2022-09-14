@@ -4,7 +4,7 @@ use crate::prelude::*;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
-use super::send_files::{ClientSendFilesState, SendFiles, ServerSendFilesState};
+use super::send_files::{ClientSendFilesState, SendFiles};
 
 #[derive(Default)]
 pub(crate) struct Executing;
@@ -20,12 +20,23 @@ pub(crate) struct ClientExecutingState {
 pub(crate) struct ServerExecutingState {
     pub(super) conn: transport::Connection<ServerMsg>,
     pub(super) common: super::Common,
-    pub(super) namespace: String,
-    pub(super) batch_name: String,
-    // the job identifier we have scheduled to run
-    pub(super) job_identifier: server::JobIdentifier,
     pub(super) job_name: String,
     pub(super) save_location: PathBuf,
+    pub(super) task_info: server::pool_data::RunTaskInfo,
+}
+
+impl ServerExecutingState {
+    fn job_identifier(&self) -> JobIdentifier {
+        self.task_info.identifier
+    }
+
+    fn namespace(&self) -> &str {
+        &self.task_info.namespace
+    }
+
+    fn batch_name(&self) -> &str {
+        &self.task_info.batch_name
+    }
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -38,6 +49,8 @@ pub(crate) enum ClientError {
 pub(crate) enum ServerError {
     #[error("{0}")]
     TcpConnection(error::TcpConnection),
+    #[error("client failed keepalive connection")]
+    FailedKeepalive,
 }
 
 impl Machine<Executing, ClientExecutingState> {
@@ -127,6 +140,11 @@ impl Machine<Executing, ClientExecutingState> {
                 let either = Either::Right(machine);
                 Ok(either)
             }
+            ClientMsg::FailedKeepalive => {
+                // failed keepalive is a placeholder message the server generates
+                // for us if we fail a keepalive check
+                unreachable!()
+            }
         }
     }
 
@@ -202,7 +220,7 @@ impl Machine<Executing, ServerExecutingState> {
         // to notify if any issues arise
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<
-        super::ServerEitherPrepareBuild<Machine<SendFiles, ServerSendFilesState>>,
+        Either<super::PrepareBuildServer, super::SendFilesServer>,
         (Self, ServerError),
     > {
         let mut cancelled = false;
@@ -214,6 +232,9 @@ impl Machine<Executing, ServerExecutingState> {
             &mut cancelled,
         );
 
+        let keepalive_checker = 
+            server::node::complete_on_ping_failure(self.state.common.keepalive_addr, &self.state.common.node_name);
+
         let msg_result = tokio::select!(
             msg = self.state.conn.receive_data() => {
                 msg
@@ -222,16 +243,36 @@ impl Machine<Executing, ServerExecutingState> {
                 // cancel_checker will never return
                 unreachable!()
             }
+            _ = keepalive_checker => {
+                // the keepalive checker has returned, which implies that the client has NOT
+                // correctly responded to the keepalive check, it is offline right now
+                Ok(ClientMsg::FailedKeepalive)
+            }
         );
 
         let msg = throw_error_with_self!(msg_result, self);
 
         match msg {
             ClientMsg::Cancelled => {
-                // tell the compute node to continue as scheduled
-                info!("instructing compute node to transition to PrepareBuild state as planned");
+                info!("{} job was cancelled", self.state.common.node_name);
+
                 let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
                 throw_error_with_self!(tmp, self);
+
+                // tell the server the job is finished
+                // since the jobs have all been dequeued this doesnt really
+                // have any practical effect on anything - nothing in this jobset 
+                // really matters anymore so we dont need to create a special cancellation notice
+                info!("{} sending scheduler message that the job has been finished", self.state.common.node_name);
+                let mark_finished_msg = server::JobRequest::FinishJob(self.state.job_identifier);
+                scheduler_tx.send(mark_finished_msg).await.ok().expect("message to the job scheduler paniced - unrecoverable error");
+
+                // return self, the transition to uninitialized state will happen 
+                // for us at the call site
+                Err((self, ServerError::FailedKeepalive))
+            }
+            ClientMsg::FailedKeepalive => {
+                info!("{} client failed keepalive check, returning job back to pool", self.state.common.node_name );
 
                 // tell the server the job is finished
                 // since the jobs have all been dequeued this doesnt really
@@ -269,6 +310,7 @@ impl Machine<Executing, ServerExecutingState> {
                 let send_files = self.into_send_files_state().await;
                 let machine = Machine::from_state(send_files);
                 let either = Either::Right(machine);
+
                 Ok(either)
             }
         }
@@ -329,6 +371,10 @@ impl Machine<Executing, ServerExecutingState> {
 
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }
+
+    pub(crate) fn node_name(&self) -> &str {
+        &self.state.common.node_name
+    }
 }
 
 #[derive(Serialize, Deserialize, Unwrap)]
@@ -345,6 +391,10 @@ pub(crate) enum ServerMsg {
 pub(crate) enum ClientMsg {
     Cancelled,
     Successful,
+    // This is not actually a message that the client can send, but it will be
+    // generated as a value to continue the function if the client goes offline
+    // (fails a keepalive check)
+    FailedKeepalive,
     Failed,
 }
 

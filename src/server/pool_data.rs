@@ -14,6 +14,8 @@ pub(crate) enum JobResponse {
 #[derive(derive_more::From)]
 pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
+    /// a client failed a keepalive check while it was 
+    /// executing 
     DeadNode(RunTaskInfo),
     AddJobSet(storage::OwnedJobSet),
     QueryRemainingJobs(RemainingJobsQuery),
@@ -126,8 +128,8 @@ impl BuildTaskInfo {
 
 #[derive(From, Clone, Constructor)]
 pub(crate) struct RunTaskInfo {
-    namespace: String,
-    batch_name: String,
+    pub(crate) namespace: String,
+    pub(crate) batch_name: String,
     pub(crate) identifier: JobIdentifier,
     pub(crate) task: transport::JobOpt,
 }

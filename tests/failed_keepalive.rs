@@ -1,11 +1,14 @@
-/// simulate a node going offline during a long-running job set, and ensure that 
-/// the job is correctly returned to the running queue
+/// cancel a simple set of python python jobs and ensure that 
+/// the `currently running jobs` counter on the scheduler
+/// is decremented as we would expect
 
 use distribute::cli::Kill;
 use distribute::cli::Add;
 use distribute::cli::Client;
 use distribute::cli::Server;
 use distribute::cli::ServerStatus;
+
+use log::{info, error};
 
 use std::fs;
 use std::net::IpAddr;
@@ -15,8 +18,8 @@ use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn failed_keepalive() {
-    println!("starting cancel job test");
-    if false {
+    println!("starting failed keepalive test");
+    if true {
         distribute::logger();
     }
 
@@ -27,7 +30,7 @@ async fn failed_keepalive() {
     let cancel_port = 8955;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
-    let dir: PathBuf = "./tests/cancel_job/".into();
+    let dir: PathBuf = "./tests/failed_keepalive/".into();
     let nodes_file: PathBuf = dir.join("distribute-nodes.yaml");
     let server_save_dir = dir.join("server_save_dir");
     let server_temp_dir = dir.join("server_temp_dir");
@@ -43,6 +46,9 @@ async fn failed_keepalive() {
 
     // start up a client
     // the port comes from distribute-nodes.yaml
+
+    let client_failure_time = std::time::Duration::from_secs(30);
+
     let client = Client::new(
         client_workdir.clone(),
         client_port,
@@ -52,8 +58,15 @@ async fn failed_keepalive() {
     );
     tokio::spawn(async move {
         println!("starting the client");
-        distribute::client_command(client).await.unwrap();
-        println!("client has exited");
+        let fut = distribute::client_command(client);
+        let res = tokio::time::timeout(client_failure_time, fut).await;
+        if let Err(_) = res {
+            println!("client has been knocked offline after a timeout, keepalive should now fail");
+            info!("client has been knocked offline after a timeout, keepalive should now fail");
+        } else {
+            error!("client did not fail keepalive!");
+            panic!("client did not fail keepalive!")
+        }
     });
 
     thread::sleep(Duration::from_secs(1));
@@ -100,7 +113,11 @@ async fn failed_keepalive() {
     // this job set will have multiple jobs within it
     assert!(jobs.len() == 1);
 
-    thread::sleep(Duration::from_secs(30));
+    // sleep until after the client has been knocked offline.
+    // at this point, the correct behavior is for the client
+    // to return the job to the pool and decrement the total
+    // running job counter to 0
+    thread::sleep(client_failure_time + Duration::from_secs(5));
 
     //
     // ensure the job set is running right now
@@ -108,27 +125,10 @@ async fn failed_keepalive() {
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
-    assert!(jobs[0].running_jobs == 1);
-
-    //
-    // cancel the job set then
-    //
-    // `job_name` comes from distribute-jobs.yaml file
-    let kill_msg = Kill { port: server_port, ip: addr, job_name: "python_sleep_job".into() };
-    distribute::kill(kill_msg).await.unwrap();
-
-    // sleep a bit after the notice to cancel the jobs to give 
-    // the message queues ample time
-    thread::sleep(Duration::from_secs(5));
-
-    // check how many jobs are left
-    let status = ServerStatus::new(server_port, addr);
-    let jobs = distribute::get_current_jobs(&status).await.unwrap();
-
     dbg!(&jobs);
-    dbg!(&jobs.len());
 
-    assert_eq!(jobs.len(), 0);
+    assert!(jobs[0].running_jobs == 0);
+    assert!(jobs[0].jobs_left.len() == 1);
 
     fs::remove_dir_all(&server_save_dir).ok();
     fs::remove_dir_all(&server_temp_dir).ok();
