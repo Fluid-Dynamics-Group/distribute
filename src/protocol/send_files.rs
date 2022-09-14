@@ -414,6 +414,7 @@ impl transport::AssociatedMessage for ClientMsg {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn transport_files_with_large_file() {
     if false {
         crate::logger()
@@ -579,6 +580,7 @@ async fn transport_files_with_large_file() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[serial_test::serial]
 async fn async_read_from_file() {
     let path = PathBuf::from("./tests/test_file.binary");
     std::fs::File::create(&path)

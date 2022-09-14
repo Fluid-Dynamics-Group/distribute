@@ -477,7 +477,10 @@ async fn cancel_arbiter_negative() {
 }
 
 #[tokio::test]
-#[ignore]
+#[serial_test::serial]
+/// this test cannot be run at the same time as other tests
+/// since it changes the current working directory which can severely 
+/// affect the IO tests of other procs
 async fn cancel_run() {
     let folder_path = PathBuf::from("./tests/python_sleep/");
     let file_to_execute = folder_path.join("sleep30s.py");

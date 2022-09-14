@@ -661,6 +661,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     /// ensure the length of data in the filesystem is the length of the
     /// data if we were to read it into a vector
     fn check_filesystem_bytes() {
@@ -704,6 +705,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial]
     async fn read_from_writer_binary() {
         //crate::logger();
         let len = 1099;
