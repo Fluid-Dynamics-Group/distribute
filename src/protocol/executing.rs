@@ -237,6 +237,7 @@ impl Machine<Executing, ServerExecutingState> {
                 // since the jobs have all been dequeued this doesnt really
                 // have any practical effect on anything - nothing in this jobset 
                 // really matters anymore so we dont need to create a special cancellation notice
+                info!("sending scheduler message that the job has been finished");
                 let mark_finished_msg = server::JobRequest::FinishJob(self.state.job_identifier);
                 scheduler_tx.send(mark_finished_msg).await.ok().expect("message to the job scheduler paniced - unrecoverable error");
 
