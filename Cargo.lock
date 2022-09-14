@@ -208,7 +208,7 @@ dependencies = [
 
 [[package]]
 name = "distribute"
-version = "0.11.1"
+version = "0.11.2"
 dependencies = [
  "bincode",
  "chrono",
@@ -615,7 +615,7 @@ checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
 [[package]]
 name = "matrix-notify"
 version = "0.1.0"
-source = "git+https://github.com/fluid-Dynamics-Group/matrix-notify?rev=13b584fcf7d21432fa6748767810d266ab2798c5#13b584fcf7d21432fa6748767810d266ab2798c5"
+source = "git+https://github.com/fluid-Dynamics-Group/matrix-notify?rev=1291ebceb693fc368ffe64b1bd3d13c40ecbca68#1291ebceb693fc368ffe64b1bd3d13c40ecbca68"
 dependencies = [
  "argh",
  "dotenv",

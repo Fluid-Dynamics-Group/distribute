@@ -198,6 +198,9 @@ impl Machine<Executing, ClientExecutingState> {
 impl Machine<Executing, ServerExecutingState> {
     pub(crate) async fn wait_job_execution(
         mut self,
+        // the handler to the job scheduler that we can use 
+        // to notify if any issues arise
+        scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<
         super::ServerEitherPrepareBuild<Machine<SendFiles, ServerSendFilesState>>,
         (Self, ServerError),
@@ -229,6 +232,13 @@ impl Machine<Executing, ServerExecutingState> {
                 info!("instructing compute node to transition to PrepareBuild state as planned");
                 let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
                 throw_error_with_self!(tmp, self);
+
+                // tell the server the job is finished
+                // since the jobs have all been dequeued this doesnt really
+                // have any practical effect on anything - nothing in this jobset 
+                // really matters anymore so we dont need to create a special cancellation notice
+                let mark_finished_msg = server::JobRequest::FinishJob(self.state.job_identifier);
+                scheduler_tx.send(mark_finished_msg).await.ok().expect("message to the job scheduler paniced - unrecoverable error");
 
                 // go to Machine<PrepareBuild, _>
                 let prepare_build = self.into_prepare_build_state().await;
@@ -537,6 +547,8 @@ async fn cancel_run() {
         save_location: work_dir.join("server_backup"),
     };
 
+    let (mut scheduler_tx, mut scheduler_rx) = mpsc::channel(10);
+
     // setup each machine
     let client_machine = Machine::from_state(client_state);
     let server_machine = Machine::from_state(server_state);
@@ -552,7 +564,7 @@ async fn cancel_run() {
 
     // spawn server proc
     tokio::spawn(async move {
-        let next_server = server_machine.wait_job_execution().await;
+        let next_server = server_machine.wait_job_execution(&mut scheduler_tx).await;
         tx_server.send(next_server).ok().unwrap();
     });
 
@@ -567,6 +579,16 @@ async fn cancel_run() {
     // which implies that they were both cancelled
     assert_eq!(matches!(client, Either::Left(_)), true);
     assert_eq!(matches!(server, Either::Left(_)), true);
+
+    // check the scheduler receiving pipe to ensure that it has been informed that 
+    // a job was cancelled
+    let scheduler_msg = scheduler_rx.recv().await.unwrap();
+    if let server::pool_data::JobRequest::FinishJob(job_ident) = scheduler_msg {
+        assert!(job_ident == job_identifier)
+    } else {
+        panic!("server did not correctly mark job as finished when it was cancelled")
+    }
+    
 
     // clean up the folder after
     assert_eq!(work_dir.exists(), true, "workdir does not exist somehow");

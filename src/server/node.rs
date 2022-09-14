@@ -108,7 +108,7 @@ async fn execute_and_send_files(
     protocol::Either<protocol::PrepareBuildServer, protocol::BuiltServer>,
     (UninitServer, protocol::ServerError),
 > {
-    let send_files = match execute.wait_job_execution().await {
+    let send_files = match execute.wait_job_execution(scheduler_tx).await {
         Ok(protocol::Either::Right(send)) => send,
         Ok(protocol::Either::Left(prepare_build)) => {
             return Ok(protocol::Either::Left(prepare_build))
