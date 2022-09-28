@@ -31,7 +31,7 @@ structopt = { version = "0.3.25", optional = true }
 [dependencies.matrix-notify]
 default_features = false
 git = "https://github.com/fluid-Dynamics-Group/matrix-notify"
-rev = "1291ebceb693fc368ffe64b1bd3d13c40ecbca68"
+rev = "f3d4def0b1386ab5ee686857a029fa5716151a00"
 
 [dependencies.pyo3]
 #version = "0.16.5" 

@@ -9,8 +9,7 @@ git fetch -a
 git checkout release-$VERSION
 git pull
 
-cargo install --path . --locked
-
+cargo install --path .
 
 rm ~/logs/output.log
 systemctl restart distribute-compute
