@@ -31,6 +31,13 @@ impl StoredJob {
         // write the python setup file
 
         let python_setup_file_path = output_dir.join(&format!("{}_py_job.dist", hash));
+
+        trace!(
+            "saving python lazy file to {}, current working directory is {}",
+            python_setup_file_path.display(),
+            std::env::current_dir().unwrap().display()
+        );
+
         std::fs::write(&python_setup_file_path, x.python_file)?;
 
         // write the required files
@@ -38,6 +45,8 @@ impl StoredJob {
 
         for (i, file) in x.job_files.into_iter().enumerate() {
             let path = output_dir.join(&format!("{}_{}_job.dist", hash, i));
+
+            trace!("saving python dependent file to {}", path.display());
 
             std::fs::write(&path, file.file_bytes)?;
 

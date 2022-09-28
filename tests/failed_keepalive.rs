@@ -1,9 +1,11 @@
-/// Verify that jobs are removed from the job queue after they are completed
-/// and will therefore notify the end user about the completion
+/// simulate a node going offline and ensure that jobs are properly
+/// added back to the queue
 use distribute::cli::Add;
 use distribute::cli::Client;
 use distribute::cli::Server;
 use distribute::cli::ServerStatus;
+
+use log::{error, info};
 
 use std::fs;
 use std::net::IpAddr;
@@ -12,26 +14,22 @@ use std::thread;
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-async fn check_deallocate_jobs() {
-    println!("starting check_deallocate_jobs");
+async fn failed_keepalive() {
+    println!("starting failed keepalive test");
     if false {
         distribute::logger();
     }
 
-    assert_eq!(
-        PathBuf::from("./tests/apptainer_local/apptainer_local.sif").exists(),
-        true,
-        "you need to run ./tests/apptainer_local/build.sh before executing tests"
-    );
+    let current_dir = std::env::current_dir().unwrap();
 
     let server_port = 9981;
     // this is the port in the corresponding distribute-nodes.yaml file for this job
     let client_port = 9967;
     let keepalive_port = 9968;
-    let cancel_port = 9969;
+    let cancel_port = 8955;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
-    let dir: PathBuf = "./tests/check_deallocate_jobs/".into();
+    let dir: PathBuf = "./tests/failed_keepalive/".into();
     let nodes_file: PathBuf = dir.join("distribute-nodes.yaml");
     let server_save_dir = dir.join("server_save_dir");
     let server_temp_dir = dir.join("server_temp_dir");
@@ -47,6 +45,9 @@ async fn check_deallocate_jobs() {
 
     // start up a client
     // the port comes from distribute-nodes.yaml
+
+    let client_failure_time = std::time::Duration::from_secs(30);
+
     let client = Client::new(
         client_workdir.clone(),
         client_port,
@@ -56,8 +57,26 @@ async fn check_deallocate_jobs() {
     );
     tokio::spawn(async move {
         println!("starting the client");
-        distribute::client_command(client).await.unwrap();
-        println!("client has exited");
+        let fut = distribute::client_command(client);
+        let res = tokio::time::timeout(client_failure_time, fut).await;
+        if let Err(_) = res {
+            println!("client has been knocked offline after a timeout, keepalive should now fail");
+            info!("client has been knocked offline after a timeout, keepalive should now fail");
+
+            // Since we artificially killed the client (simulating a shutdown of the computer)
+            // since these tasks share environment variables, the client has not cleaned up their
+            // execution model, and therefore the python script is still in the wrong directory
+            //
+            // here, we just set the directory to the correct value
+            //
+            // we normally would not need to do this since the client and server would be
+            // separate programs with separate environment variables (also likely on
+            // separate computers)
+            std::env::set_current_dir(&current_dir).unwrap();
+        } else {
+            error!("client did not fail keepalive!");
+            panic!("client did not fail keepalive!")
+        }
     });
 
     thread::sleep(Duration::from_secs(1));
@@ -83,7 +102,7 @@ async fn check_deallocate_jobs() {
 
     // configure a job to send off to the server
     let run = Add::new(
-        "./tests/apptainer_local/distribute-jobs.yaml".into(),
+        dir.join("distribute-jobs.yaml").into(),
         server_port,
         addr,
         false,
@@ -99,66 +118,27 @@ async fn check_deallocate_jobs() {
 
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
+
+    // we should have 1 job set on the server currently
+    // this job set will have multiple jobs within it
     assert!(jobs.len() == 1);
 
-    thread::sleep(Duration::from_secs(30));
+    // sleep until after the client has been knocked offline.
+    // at this point, the correct behavior is for the client
+    // to return the job to the pool and decrement the total
+    // running job counter to 0
+    thread::sleep(client_failure_time + Duration::from_secs(5));
 
+    //
+    // ensure the job set is running right now
+    //
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
     dbg!(&jobs);
-    dbg!(&jobs.len());
 
-    assert_eq!(jobs.len(), 0);
-
-    // directory tree should be this:
-    // check_deallocate_jobs
-    //     ├── distribute-nodes.yaml
-    //     ├── server_save_dir
-    //     │   └── some_namespace
-    //     │       └── some_batch
-    //     │           ├── job_1
-    //     │           │   ├── job_1_output.txt
-    //     │           │   └── simulated_output.txt
-    //     │           └── job_2
-    //     │               ├── job_2_output.txt
-    //     │               └── simulated_output.txt
-
-    let batch = server_save_dir.join("some_namespace/some_batch");
-    assert_eq!(
-        batch.join("job_1/simulated_output.txt").exists(),
-        true,
-        "missing job 1 simulation output"
-    );
-    assert_eq!(
-        batch.join("job_2/simulated_output.txt").exists(),
-        true,
-        "missing job 2 simulation output"
-    );
-
-    // we should also have output files for the jobs that we ran
-    assert_eq!(
-        batch.join("job_1/job_1_output.txt").exists(),
-        true,
-        "missing job 1 output file"
-    );
-    assert_eq!(
-        batch.join("job_2/job_2_output.txt").exists(),
-        true,
-        "missing job 2 output file"
-    );
-
-    // we should not have output files from jobs we did not run
-    assert_eq!(
-        batch.join("job_1/job_2_output.txt").exists(),
-        false,
-        "output for job 2 exists in job 1"
-    );
-    assert_eq!(
-        batch.join("job_2/job_1_output.txt").exists(),
-        false,
-        "output for job 1 exists in job 2"
-    );
+    assert!(jobs[0].running_jobs == 0);
+    assert!(jobs[0].jobs_left.len() == 1);
 
     fs::remove_dir_all(&server_save_dir).ok();
     fs::remove_dir_all(&server_temp_dir).ok();

@@ -1,0 +1,6 @@
+nodes:
+  - ip: "0.0.0.0"
+    transport_port: 9967
+    keepalive_port: 9968
+    capabilities: []
+    name: "testname"

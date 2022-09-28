@@ -210,6 +210,7 @@ impl Common {
             errored_jobs,
         );
 
+        // tx here is a cancellation handle
         (tx, common)
     }
 }

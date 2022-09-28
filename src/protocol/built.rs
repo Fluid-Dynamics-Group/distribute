@@ -237,13 +237,13 @@ impl Machine<Built, ServerBuiltState> {
                 let tmp = self
                     .state
                     .conn
-                    .transport_data(&ServerMsg::ExecuteJob(run.task))
+                    .transport_data(&ServerMsg::ExecuteJob(run.task.clone()))
                     .await;
 
                 throw_error_with_self!(tmp, self);
 
                 // return a Machine<Executing, _>
-                let executing_state = self.into_executing_state(job_name).await;
+                let executing_state = self.into_executing_state(job_name, run).await;
                 let machine = Machine::from_state(executing_state);
                 Ok(Either::Right(machine))
             }
@@ -284,6 +284,7 @@ impl Machine<Built, ServerBuiltState> {
     async fn into_executing_state(
         self,
         job_name: String,
+        task_info: server::pool_data::RunTaskInfo,
     ) -> super::executing::ServerExecutingState {
         debug!(
             "{} is moving built -> executing",
@@ -295,7 +296,7 @@ impl Machine<Built, ServerBuiltState> {
             common,
             namespace,
             batch_name,
-            job_identifier,
+            job_identifier: _,
         } = self.state;
 
         #[allow(unused_mut)]
@@ -313,9 +314,7 @@ impl Machine<Built, ServerBuiltState> {
         super::executing::ServerExecutingState {
             conn,
             common,
-            namespace,
-            batch_name,
-            job_identifier,
+            task_info,
             job_name,
             save_location,
         }

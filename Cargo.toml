@@ -40,6 +40,13 @@ rev = "2b6d59f8898ed579a7cbd1c538f0fe2db65c659b"
 features = ["extension-module"]
 optional = true
 
+[dev-dependencies]
+# one of the executing.rs tests changes the
+# current working directory which can really mess with the state
+# of some other tests that create / read files. Cant currently
+# use sealed_test since we use tokio, I believe
+serial_test = "0.9.0"
+
 [features]
 default = ["cli"]
 cli = [

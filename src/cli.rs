@@ -246,6 +246,5 @@ pub struct Run {
 fn check_send<T: Send>() {}
 
 fn other_send() {
-
     check_send::<Server>();
 }

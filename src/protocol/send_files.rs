@@ -24,13 +24,24 @@ pub(crate) struct ClientSendFilesState {
 pub(crate) struct ServerSendFilesState {
     pub(super) conn: transport::Connection<ServerMsg>,
     pub(super) common: super::Common,
-    pub(super) namespace: String,
-    pub(super) batch_name: String,
-    // the job identifier we have scheduled to run
-    pub(super) job_identifier: server::JobIdentifier,
     pub(super) job_name: String,
     /// where the results of the job should be stored
     pub(super) save_location: PathBuf,
+    pub(super) task_info: server::pool_data::RunTaskInfo,
+}
+
+impl ServerSendFilesState {
+    fn job_identifier(&self) -> JobIdentifier {
+        self.task_info.identifier
+    }
+
+    fn namespace(&self) -> &str {
+        &self.task_info.namespace
+    }
+
+    fn batch_name(&self) -> &str {
+        &self.task_info.batch_name
+    }
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -217,8 +228,8 @@ impl Machine<SendFiles, ServerSendFilesState> {
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
         // create the namesapce and batch name for this process
-        let namespace_dir = self.state.common.save_path.join(&self.state.namespace);
-        let batch_dir = namespace_dir.join(&self.state.batch_name);
+        let namespace_dir = self.state.common.save_path.join(&self.state.namespace());
+        let batch_dir = namespace_dir.join(&self.state.batch_name());
         let job_dir = batch_dir.join(&self.state.job_name);
 
         // create directories, with error handling
@@ -319,7 +330,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
                     // first, tell the scheduler that this job has finished
                     if let Err(_e) = scheduler_tx
                         .send(server::pool_data::JobRequest::FinishJob(
-                            self.state.job_identifier,
+                            self.state.job_identifier(),
                         ))
                         .await
                     {
@@ -357,11 +368,13 @@ impl Machine<SendFiles, ServerSendFilesState> {
         let ServerSendFilesState {
             conn,
             common,
-            namespace,
-            batch_name,
-            job_identifier,
+            task_info,
             ..
         } = self.state;
+
+        let namespace = task_info.namespace;
+        let batch_name = task_info.batch_name;
+        let job_identifier = task_info.identifier;
 
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
@@ -381,12 +394,26 @@ impl Machine<SendFiles, ServerSendFilesState> {
         }
     }
 
-    pub(crate) fn into_uninit(self) -> super::UninitServer {
-        let ServerSendFilesState { conn, common, .. } = self.state;
+    pub(crate) fn into_uninit(self) -> (super::UninitServer, server::pool_data::RunTaskInfo) {
+        let ServerSendFilesState {
+            conn,
+            common,
+            task_info,
+            ..
+        } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
         debug!("moving server send files -> uninit");
-        Machine::from_state(state)
+
+        (Machine::from_state(state), task_info)
+    }
+
+    pub(crate) fn node_name(&self) -> &str {
+        &self.state.common.node_name
+    }
+
+    pub(crate) fn job_name(&self) -> &str {
+        &self.state.job_name
     }
 }
 
@@ -414,6 +441,7 @@ impl transport::AssociatedMessage for ClientMsg {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn transport_files_with_large_file() {
     if false {
         crate::logger()
@@ -477,9 +505,16 @@ async fn transport_files_with_large_file() {
         cancel_addr,
     };
 
-    let namespace = "namespace".into();
-    let batch_name = "batch_name".into();
-    let job_name = "job_name".into();
+    let namespace = "namespace".to_string();
+    let batch_name = "batch_name".to_string();
+    let job_name = "job_name".to_string();
+
+    let task_info = server::pool_data::RunTaskInfo {
+        namespace: namespace.clone(),
+        batch_name: batch_name.clone(),
+        identifier: server::JobIdentifier::none(),
+        task: transport::JobOpt::placeholder_test_data(),
+    };
 
     let (_tx, common) = super::Common::test_configuration(
         add_port(client_port),
@@ -489,9 +524,7 @@ async fn transport_files_with_large_file() {
     let server_state = ServerSendFilesState {
         conn: server_conn,
         common,
-        namespace,
-        batch_name,
-        job_identifier: server::JobIdentifier::none(),
+        task_info,
         job_name,
         save_location: save_path.clone(),
     };
@@ -579,6 +612,7 @@ async fn transport_files_with_large_file() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[serial_test::serial]
 async fn async_read_from_file() {
     let path = PathBuf::from("./tests/test_file.binary");
     std::fs::File::create(&path)

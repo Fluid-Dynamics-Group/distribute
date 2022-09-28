@@ -108,22 +108,66 @@ async fn execute_and_send_files(
     protocol::Either<protocol::PrepareBuildServer, protocol::BuiltServer>,
     (UninitServer, protocol::ServerError),
 > {
-    let send_files = match execute.wait_job_execution().await {
+    let send_files = match execute.wait_job_execution(scheduler_tx).await {
         Ok(protocol::Either::Right(send)) => send,
         Ok(protocol::Either::Left(prepare_build)) => {
             return Ok(protocol::Either::Left(prepare_build))
         }
         Err((execute, err)) => {
-            error!("error executing the job: {}", err);
-            return Err((execute.into_uninit(), err.into()));
+            error!(
+                "{} error executing the job: {}, returning the job back to scheduler",
+                execute.node_name(),
+                err
+            );
+
+            let (uninit, run_task_info) = execute.into_uninit();
+
+            let return_msg = server::JobRequest::DeadNode(run_task_info);
+            scheduler_tx
+                .send(return_msg)
+                .await
+                .ok()
+                .expect("scheduler is offine - irrecoverable error");
+
+            return Err((uninit, err.into()));
         }
     };
 
     let built = match send_files.receive_files(scheduler_tx).await {
         Ok(built) => built,
         Err((send_files, err)) => {
-            error!("error sending result files from the job: {}", err);
-            return Err((send_files.into_uninit(), err.into()));
+            error!(
+                "{} error sending result files from the job: {}",
+                send_files.node_name(),
+                err
+            );
+
+            //
+            // add the job back into the scheduler since it did not finish properly
+            //
+            let node_name = send_files.node_name().to_string();
+            let job_name = send_files.job_name().to_string();
+
+            let (uninit, run_task_info) = send_files.into_uninit();
+
+            info!("{} adding job `{}` from `{}` back to scheduler since it failed to send its files previously", 
+                node_name,
+                job_name,
+                run_task_info.batch_name,
+            );
+
+            let return_msg = server::JobRequest::DeadNode(run_task_info);
+            scheduler_tx
+                .send(return_msg)
+                .await
+                .ok()
+                .expect("scheduler is offine - irrecoverable error");
+
+            //
+            // return out with the uninitialized state
+            //
+
+            return Err((uninit, err.into()));
         }
     };
 
@@ -245,7 +289,7 @@ pub(crate) async fn fetch_new_job(
 }
 
 /// constantly polls a connection to ensure that
-async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) {
+pub(crate) async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) {
     loop {
         if let Err(e) = check_keepalive(&address, name).await {
             error!(

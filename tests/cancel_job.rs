@@ -1,7 +1,9 @@
-/// Verify that jobs are removed from the job queue after they are completed
-/// and will therefore notify the end user about the completion
 use distribute::cli::Add;
 use distribute::cli::Client;
+/// cancel a simple set of python python jobs and ensure that
+/// the `currently running jobs` counter on the scheduler
+/// is decremented as we would expect
+use distribute::cli::Kill;
 use distribute::cli::Server;
 use distribute::cli::ServerStatus;
 
@@ -12,26 +14,20 @@ use std::thread;
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-async fn check_deallocate_jobs() {
-    println!("starting check_deallocate_jobs");
+async fn cancel_job() {
+    println!("starting cancel job test");
     if false {
         distribute::logger();
     }
-
-    assert_eq!(
-        PathBuf::from("./tests/apptainer_local/apptainer_local.sif").exists(),
-        true,
-        "you need to run ./tests/apptainer_local/build.sh before executing tests"
-    );
 
     let server_port = 9981;
     // this is the port in the corresponding distribute-nodes.yaml file for this job
     let client_port = 9967;
     let keepalive_port = 9968;
-    let cancel_port = 9969;
+    let cancel_port = 8955;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
-    let dir: PathBuf = "./tests/check_deallocate_jobs/".into();
+    let dir: PathBuf = "./tests/cancel_job/".into();
     let nodes_file: PathBuf = dir.join("distribute-nodes.yaml");
     let server_save_dir = dir.join("server_save_dir");
     let server_temp_dir = dir.join("server_temp_dir");
@@ -83,7 +79,7 @@ async fn check_deallocate_jobs() {
 
     // configure a job to send off to the server
     let run = Add::new(
-        "./tests/apptainer_local/distribute-jobs.yaml".into(),
+        dir.join("distribute-jobs.yaml").into(),
         server_port,
         addr,
         false,
@@ -99,10 +95,37 @@ async fn check_deallocate_jobs() {
 
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
+
+    // we should have 1 job set on the server currently
+    // this job set will have multiple jobs within it
     assert!(jobs.len() == 1);
 
     thread::sleep(Duration::from_secs(30));
 
+    //
+    // ensure the job set is running right now
+    //
+    let status = ServerStatus::new(server_port, addr);
+    let jobs = distribute::get_current_jobs(&status).await.unwrap();
+
+    assert!(jobs[0].running_jobs == 1);
+
+    //
+    // cancel the job set then
+    //
+    // `job_name` comes from distribute-jobs.yaml file
+    let kill_msg = Kill {
+        port: server_port,
+        ip: addr,
+        job_name: "python_sleep_job".into(),
+    };
+    distribute::kill(kill_msg).await.unwrap();
+
+    // sleep a bit after the notice to cancel the jobs to give
+    // the message queues ample time
+    thread::sleep(Duration::from_secs(5));
+
+    // check how many jobs are left
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
@@ -110,55 +133,6 @@ async fn check_deallocate_jobs() {
     dbg!(&jobs.len());
 
     assert_eq!(jobs.len(), 0);
-
-    // directory tree should be this:
-    // check_deallocate_jobs
-    //     ├── distribute-nodes.yaml
-    //     ├── server_save_dir
-    //     │   └── some_namespace
-    //     │       └── some_batch
-    //     │           ├── job_1
-    //     │           │   ├── job_1_output.txt
-    //     │           │   └── simulated_output.txt
-    //     │           └── job_2
-    //     │               ├── job_2_output.txt
-    //     │               └── simulated_output.txt
-
-    let batch = server_save_dir.join("some_namespace/some_batch");
-    assert_eq!(
-        batch.join("job_1/simulated_output.txt").exists(),
-        true,
-        "missing job 1 simulation output"
-    );
-    assert_eq!(
-        batch.join("job_2/simulated_output.txt").exists(),
-        true,
-        "missing job 2 simulation output"
-    );
-
-    // we should also have output files for the jobs that we ran
-    assert_eq!(
-        batch.join("job_1/job_1_output.txt").exists(),
-        true,
-        "missing job 1 output file"
-    );
-    assert_eq!(
-        batch.join("job_2/job_2_output.txt").exists(),
-        true,
-        "missing job 2 output file"
-    );
-
-    // we should not have output files from jobs we did not run
-    assert_eq!(
-        batch.join("job_1/job_2_output.txt").exists(),
-        false,
-        "output for job 2 exists in job 1"
-    );
-    assert_eq!(
-        batch.join("job_2/job_1_output.txt").exists(),
-        false,
-        "output for job 1 exists in job 2"
-    );
 
     fs::remove_dir_all(&server_save_dir).ok();
     fs::remove_dir_all(&server_temp_dir).ok();

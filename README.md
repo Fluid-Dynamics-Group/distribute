@@ -52,5 +52,4 @@ Therefore, to run all tests in the repo, you must run:
 
 ```
 cargo test
-cargo test -- --ignored
 ```
