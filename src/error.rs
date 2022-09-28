@@ -86,7 +86,7 @@ pub struct Deserialization {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunJobError {
-    #[error("could not create / edit the job run script ({path}) (this should not happen). Error: `{0}`")]
+    #[error("could not create / edit the job run script ({path}) (this should not happen). Error: `{full_error}`")]
     CreateFile {
         path: std::path::PathBuf,
         full_error: std::io::Error,
