@@ -44,8 +44,10 @@ pub use error::{Error, LogError, RunErrorLocal};
 extern crate log;
 
 pub use config::*;
-pub use matrix_notify::UserId;
 pub use serde_yaml;
+
+pub use matrix_notify::UserId;
+pub use matrix_notify::OwnedUserId;
 
 #[cfg(feature = "cli")]
 pub use {

@@ -67,6 +67,7 @@ cli = [
 	"matrix-notify/cli"
 ]
 python = ["pyo3", "matrix-notify/userid"]
+config = ["matrix-notify/userid"]
 
 [[bin]]
 name = "distribute"
