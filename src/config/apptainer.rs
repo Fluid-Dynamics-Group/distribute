@@ -101,3 +101,9 @@ pub struct Job {
     #[serde(default)]
     required_files: Vec<File>,
 }
+
+impl Job {
+    pub(crate) fn name(&self) -> &str {
+        &self.name
+    }
+}

@@ -279,6 +279,8 @@ pub enum AddError {
     FailedToAdd,
     #[error("There were no actual jobs specified in the configuration file")]
     NoJobsToAdd,
+    #[error("Duplicate job name `{0}` appeared in config file. Job names must be unique")]
+    DuplicateJobName(String),
 }
 
 #[derive(Debug, From, thiserror::Error)]

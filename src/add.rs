@@ -16,6 +16,9 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
         return Err(Error::Add(error::AddError::NoJobsToAdd));
     }
 
+    // ensure that there are no duplicate job names
+    check_has_duplicates(&jobs.job_names())?;
+
     debug!("loading job information from files");
     let loaded_jobs = jobs.load_jobs().await.map_err(error::ServerError::from)?;
 
@@ -101,4 +104,39 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn check_has_duplicates<T: Eq + std::fmt::Display>(list: &[T]) -> Result<(), error::AddError> {
+    for i in list {
+        let mut count = 0;
+        for j in list {
+            if i == j {
+                count += 1;
+            }
+        }
+
+        if count > 1 {
+            return Err(error::AddError::DuplicateJobName(i.to_string()));
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn pass_no_duplicate_entires() {
+    let list = [
+        1, 2, 3, 4, 5, 6
+    ];
+
+    assert_eq!(check_has_duplicates(list.as_slice()).is_ok(), true);
+}
+
+#[test]
+fn fail_no_duplicate_entires() {
+    let list = [
+        1, 1, 2, 3, 4, 5, 6
+    ];
+
+    assert_eq!(check_has_duplicates(list.as_slice()).is_ok(), false);
 }

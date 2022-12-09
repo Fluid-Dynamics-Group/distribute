@@ -16,8 +16,8 @@ use super::common::File;
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
 pub struct Description {
-    initialize: Initialize,
-    jobs: Vec<Job>,
+    pub initialize: Initialize,
+    pub jobs: Vec<Job>,
 }
 
 #[cfg(feature = "cli")]
@@ -110,4 +110,10 @@ pub struct Job {
     python_job_file: PathBuf,
     #[serde(default)]
     required_files: Vec<File>,
+}
+
+impl Job {
+    pub(crate) fn name(&self) -> &str {
+        &self.name
+    }
 }
