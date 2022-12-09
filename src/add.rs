@@ -125,18 +125,14 @@ fn check_has_duplicates<T: Eq + std::fmt::Display>(list: &[T]) -> Result<(), err
 
 #[test]
 fn pass_no_duplicate_entires() {
-    let list = [
-        1, 2, 3, 4, 5, 6
-    ];
+    let list = [1, 2, 3, 4, 5, 6];
 
     assert_eq!(check_has_duplicates(list.as_slice()).is_ok(), true);
 }
 
 #[test]
 fn fail_no_duplicate_entires() {
-    let list = [
-        1, 1, 2, 3, 4, 5, 6
-    ];
+    let list = [1, 1, 2, 3, 4, 5, 6];
 
     assert_eq!(check_has_duplicates(list.as_slice()).is_ok(), false);
 }

@@ -46,8 +46,8 @@ extern crate log;
 pub use config::*;
 pub use serde_yaml;
 
-pub use matrix_notify::UserId;
 pub use matrix_notify::OwnedUserId;
+pub use matrix_notify::UserId;
 
 #[cfg(feature = "cli")]
 pub use {

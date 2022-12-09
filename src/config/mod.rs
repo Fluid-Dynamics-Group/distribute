@@ -247,7 +247,7 @@ impl Jobs {
     pub fn job_names(&self) -> Vec<&str> {
         match self {
             Self::Python(py) => py.description.jobs.iter().map(|job| job.name()).collect(),
-            Self::Apptainer(apt) => apt.description.jobs.iter().map(|job| job.name()).collect()
+            Self::Apptainer(apt) => apt.description.jobs.iter().map(|job| job.name()).collect(),
         }
     }
 }
