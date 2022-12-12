@@ -19,11 +19,18 @@ pub(crate) struct ServerUninitState {
 #[derive(thiserror::Error, Debug, From)]
 pub(crate) enum ServerError {
     #[error("node version did not match server version: `{0}`")]
-    VersionMismatch(transport::Version),
+    VersionMismatch(VersionMismatch),
     #[error("{0}")]
     TcpConnection(error::TcpConnection),
     #[error("Unexpected Response: {0}")]
     Response(ClientMsg),
+}
+
+#[derive(thiserror::Error, Debug, From, Display)]
+#[display(fmt = "server version {} client version {}", server_version, client_version)]
+pub(crate) struct VersionMismatch {
+    server_version: transport::Version,
+    client_version: transport::Version,
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -157,7 +164,10 @@ impl Machine<Uninit, ServerUninitState> {
                     .await,
                 self
             );
-            return Err((self, ServerError::VersionMismatch(client_version)));
+
+            let mismatch = VersionMismatch { server_version: our_version, client_version};
+
+            return Err((self, ServerError::VersionMismatch(mismatch)));
         }
 
         // tell the client that we are moving forward with the connection
