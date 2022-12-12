@@ -165,7 +165,7 @@ async fn write_init_file<T: AsRef<Path>>(
 ) -> Result<(), error::InitJobError> {
     let file_path = base_path.join(file_name);
 
-    debug!("creating file {} for job init", file_path.display());
+    info!("creating file {} for job init", file_path.display());
 
     let mut file = tokio::fs::File::create(&file_path)
         .await
@@ -194,7 +194,7 @@ pub(crate) async fn initialize_python_job(
     )
     .await?;
 
-    debug!("initialized all init files");
+    info!("initialized all init files");
 
     // enter the file to execute the file from
     let original_dir = enter_output_dir(base_path);
@@ -277,6 +277,8 @@ pub(crate) async fn run_apptainer_job(
     let command_output = command.output();
 
     let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+
+    debug!("starting generalized run");
 
     generalized_run(
         None,
@@ -381,33 +383,36 @@ async fn generalized_run(
     name: &str,
     cancel: &mut broadcast::Receiver<()>,
 ) -> Result<Option<()>, Error> {
+    debug!("started generalized_run()");
     tokio::select!(
-       output = command => {
-           // command has finished -> return to the original dir so we dont accidentally
-           // bubble the error up with `?` before we have fixed the directory
-           if let Some(original_dir) = original_dir {
-               enter_output_dir(original_dir);
-           }
+        output = command => {
+            debug!("started executing tokio::select!() for job execution");
+
+            // command has finished -> return to the original dir so we dont accidentally
+            // bubble the error up with `?` before we have fixed the directory
+            if let Some(original_dir) = original_dir {
+                enter_output_dir(original_dir);
+            }
             debug!("current file path is {:?}", std::env::current_dir());
 
-           let output = output
-               .map_err(error::CommandExecutionError::from)
-               .map_err(error::RunJobError::ExecuteProcess)?;
+            let output = output
+                .map_err(error::CommandExecutionError::from)
+                .map_err(error::RunJobError::ExecuteProcess)?;
 
-           debug!("job successfully finished - returning to main process");
+            debug!("job successfully finished - returning to main process");
 
-           // write the stdout and stderr to a file
-           command_output_to_file(output, output_file_path).await;
+            // write the stdout and stderr to a file
+            command_output_to_file(output, output_file_path).await;
 
-           Ok(Some(()))
+            Ok(Some(()))
        }
        _ = cancel.recv() => {
-           if let Some(original_dir) = original_dir {
-               enter_output_dir(original_dir);
-           }
+            if let Some(original_dir) = original_dir {
+                enter_output_dir(original_dir);
+            }
 
-           info!("run_job has been canceled for job name {}", name);
-           Ok(None)
+            info!("run_job has been canceled for job name {}", name);
+            Ok(None)
        }
     )
 }

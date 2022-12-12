@@ -80,7 +80,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
         for metadata in files.into_iter().skip(1) {
             // remove leading directories up until (and including) distribute_save
 
-            debug!(
+            info!(
                 "sending {} for job {}",
                 metadata.file_path.display(),
                 self.state.job_name,
@@ -133,7 +133,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
                         throw_error_with_self!(msg, self);
                     }
                     ServerMsg::ReceivedFile | ServerMsg::DontSendLargeFile => {
-                        debug!("skipping large file transport to server {}", path.display());
+                        info!("skipping large file transport to server {}", path.display());
                         continue;
                     }
                 }
@@ -167,7 +167,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
         }
 
         // tell the server we are done sending files and we should transition to the next state
-        debug!("done sending files - transitioning to next state");
+        info!("done sending files - transitioning to next state");
 
         let msg = ClientMsg::FinishFiles;
         let tmp = self.state.conn.transport_data(&msg).await;
@@ -186,7 +186,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
             ..
         } = self.state;
         let conn = conn.update_state();
-        debug!("moving client send files -> uninit");
+        info!("moving client send files -> uninit");
         let state = super::uninit::ClientUninitState {
             conn,
             working_dir,
@@ -196,7 +196,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
     }
 
     async fn into_built_state(self) -> super::built::ClientBuiltState {
-        debug!("moving client send files -> built");
+        info!("moving client send files -> built");
         let ClientSendFilesState {
             conn,
             working_dir,

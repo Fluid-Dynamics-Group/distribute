@@ -3,7 +3,7 @@ use distribute::Error;
 
 use structopt::StructOpt;
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
     if let Err(e) = wrap_main().await {
         println!("{}", e);
