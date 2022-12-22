@@ -33,6 +33,7 @@ pub(crate) struct NewJobRequest {
     pub(crate) initialized_job: JobIdentifier,
     pub(crate) capabilities: Arc<Requirements<NodeProvidedCaps>>,
     pub(crate) build_failures: BTreeSet<JobIdentifier>,
+    pub(crate) node_meta: NodeMetadata,
 }
 
 #[derive(derive_more::Constructor)]
@@ -139,4 +140,16 @@ pub(crate) struct RunTaskInfo {
 pub(crate) enum JobOrInit {
     Job(transport::JobOpt),
     JobInit(transport::BuildOpts),
+}
+
+#[derive(Display, Clone)]
+#[display(fmt = "{node_name} : {node_address}")]
+/// information about the compute node that is stored on the scheduling server.
+///
+/// This is a nice wrapper that is shared in different places. It contains the 
+/// name of the node (as defined in the .yaml config file for the node) and the 
+/// main transport address used to reach the node.
+pub(crate) struct NodeMetadata {
+    pub(crate) node_name: String,
+    pub(crate) node_address: SocketAddr
 }

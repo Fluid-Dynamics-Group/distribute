@@ -21,14 +21,12 @@ pub(crate) async fn run_node(
     mut scheduler_tx: mpsc::Sender<server::JobRequest>,
 ) {
     info!(
-        "initializing connection to {} / {}",
-        common.node_name, common.main_transport_addr
+        "initializing connection to {}",
+        common.node_meta
     );
 
-    let conn = make_connection(common.main_transport_addr, &common.node_name).await;
-
-    let ip = common.main_transport_addr;
-    let name = common.node_name.clone();
+    let conn = make_connection(&common.node_meta).await;
+    let node_meta = common.node_meta.clone();
 
     let mut uninit = protocol::Machine::<_, protocol::uninit::ServerUninitState>::new(conn, common);
 
@@ -40,17 +38,15 @@ pub(crate) async fn run_node(
 
                 if error.is_tcp_error() {
                     error!(
-                        "tcp error encountered when executing jobs on {} / {}: {}",
-                        ip, name, error
+                        "tcp error encountered when executing jobs on {node_meta} : {error}",
                     );
 
-                    let conn = make_connection(ip, &name).await;
+                    let conn = make_connection(&node_meta).await;
 
                     uninit.update_tcp_connection(conn);
                 } else {
                     error!(
-                        "non tcp error encountered when executing jobs on {} / {}: {}",
-                        ip, name, error
+                        "non tcp error encountered when executing jobs on {node_meta}: {error}",
                     );
                 }
             }
@@ -226,13 +222,14 @@ async fn inner_prepare_build_to_compile_result(
     Ok(building_state_or_prepare)
 }
 
-async fn make_connection(addr: SocketAddr, name: &str) -> tokio::net::TcpStream {
+//async fn make_connection(addr: SocketAddr, name: &str) -> tokio::net::TcpStream {
+async fn make_connection(node_meta: &pool_data::NodeMetadata) -> tokio::net::TcpStream {
     loop {
-        info!("making server TCP connection to {}", addr);
-        match tokio::net::TcpStream::connect(addr).await {
+        info!("making server TCP connection to {}", node_meta);
+        match tokio::net::TcpStream::connect(node_meta.node_address).await {
             Ok(conn) => return conn,
             Err(e) => {
-                error!("failed to connect to node {} at {} to create uninitialized connection - sleeping for 5 minutes. err: `{e}`", name, addr);
+                error!("failed to connect to node {} to create uninitialized connection - sleeping for 5 minutes. err: `{e}`", node_meta);
 
                 tokio::time::sleep(Duration::from_secs(60 * 5)).await;
 
@@ -245,14 +242,14 @@ async fn make_connection(addr: SocketAddr, name: &str) -> tokio::net::TcpStream 
 pub(crate) async fn fetch_new_job(
     scheduler_tx: &mut mpsc::Sender<JobRequest>,
     initialized_job: JobIdentifier,
-    node_name: &str,
+    node_meta: &pool_data::NodeMetadata,
     keepalive_addr: &SocketAddr,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
     errored_jobsets: BTreeSet<JobIdentifier>,
 ) -> pool_data::FetchedJob {
     loop {
-        if let Err(e) = check_keepalive(keepalive_addr, node_name).await {
-            info!("{} could not access the client before fetching a new job from the server (err: {})- scheduling a reconnect", node_name, e);
+        if let Err(e) = check_keepalive(keepalive_addr, node_meta).await {
+            info!("{node_meta} could not access the client before fetching a new job from the server (err: {e})- scheduling a reconnect");
             return pool_data::FetchedJob::MissedKeepalive;
         }
 
@@ -263,14 +260,15 @@ pub(crate) async fn fetch_new_job(
                 initialized_job,
                 capabilities: capabilities.clone(),
                 build_failures: errored_jobsets.clone(),
+                node_meta: node_meta.clone()
             }))
             .await;
 
         match response {
             Ok(x) => x,
             Err(_) => {
-                error!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &node_name);
-                panic!("the job pool server has been dropped and cannot be accessed from {}. This is an irrecoverable error", &node_name);
+                error!("the job pool server has been dropped and cannot be accessed from {node_meta}. This is an irrecoverable error");
+                panic!("the job pool server has been dropped and cannot be accessed from {node_meta}. This is an irrecoverable error");
             }
         }
 
@@ -278,8 +276,7 @@ pub(crate) async fn fetch_new_job(
             JobResponse::SetupOrRun(t) => return t.flatten(),
             JobResponse::EmptyJobs => {
                 debug!(
-                    "no more jobs to run on {} - sleeping and asking for more",
-                    node_name
+                    "no more jobs to run on {node_meta} - sleeping and asking for more",
                 );
                 tokio::time::sleep(std::time::Duration::from_secs(10)).await;
                 continue;
@@ -289,9 +286,9 @@ pub(crate) async fn fetch_new_job(
 }
 
 /// constantly polls a connection to ensure that
-pub(crate) async fn complete_on_ping_failure(address: std::net::SocketAddr, name: &str) {
+pub(crate) async fn complete_on_ping_failure(address: std::net::SocketAddr, node_meta: &pool_data::NodeMetadata) {
     loop {
-        if let Err(e) = check_keepalive(&address, name).await {
+        if let Err(e) = check_keepalive(&address, node_meta).await {
             error!(
                 "error checking the keepalive for node at {}: {}",
                 address, e
@@ -310,8 +307,8 @@ pub(crate) async fn complete_on_ping_failure(address: std::net::SocketAddr, name
 /// ping keepalive address to ensure that the node responds within 10 seconds. If
 /// the node does not respond, it means that it has silently gone offline and the
 /// job needs to be returned to the scheduler to be allocated to a functioning node.
-async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(), Error> {
-    trace!("making keepalive check to {}", address);
+async fn check_keepalive(address: &std::net::SocketAddr, node_meta: &pool_data::NodeMetadata) -> Result<(), Error> {
+    trace!("making keepalive check to {address} ({node_meta})");
     // TODO: this connection might be able to stall, im not sure
     let mut conn = transport::Connection::new(*address).await?;
     conn.transport_data(&transport::ServerQuery::KeepaliveCheck)
@@ -328,7 +325,7 @@ async fn check_keepalive(address: &std::net::SocketAddr, name: &str) -> Result<(
                 Err(e.into())
             }
         },
-        Err(_elapsed) => Err(error::TimeoutError::new(*address, name.to_string()).into()),
+        Err(_elapsed) => Err(error::TimeoutError::new(*address, node_meta.node_name.to_string()).into()),
     }
 }
 

@@ -174,12 +174,12 @@ impl Machine<Built, ServerBuiltState> {
         super::ServerEitherPrepareBuild<Machine<Executing, ServerExecutingState>>,
         (Self, ServerError),
     > {
-        info!("{} now in built state", self.state.common.node_name);
+        info!("{} now in built state", self.state.common.node_meta);
 
         let job = server::node::fetch_new_job(
             scheduler_tx,
             self.state.job_identifier,
-            &self.state.common.node_name,
+            &self.state.common.node_meta,
             &self.state.common.keepalive_addr,
             self.state.common.capabilities.clone(),
             self.state.common.errored_jobs.clone(),
@@ -194,15 +194,15 @@ impl Machine<Built, ServerBuiltState> {
 
                 debug!(
                     "{} got build instructions from the job pool",
-                    self.state.common.node_name
+                    self.state.common.node_meta
                 );
                 if build.identifier == self.state.job_identifier {
-                    error!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
-                    panic!("scheduler returned a build instruction for a job we have already compiled on {} / {} This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
+                    error!("scheduler returned a build instruction for a job we have already compiled on {} This is a bug", self.state.common.node_meta);
+                    panic!("scheduler returned a build instruction for a job we have already compiled on {} This is a bug", self.state.common.node_meta);
                 } else {
                     debug!(
                         "{} notifying compute node to transition states to prepare build",
-                        self.state.common.node_name
+                        self.state.common.node_meta
                     );
 
                     // notify the compute machine that we are transitioning states
@@ -228,7 +228,7 @@ impl Machine<Built, ServerBuiltState> {
 
                 debug!(
                     "{} got execute instructions from the job pool, job name is {}",
-                    self.state.common.node_name,
+                    self.state.common.node_meta,
                     run.task.name()
                 );
 
@@ -260,7 +260,7 @@ impl Machine<Built, ServerBuiltState> {
     pub(crate) fn into_uninit(self) -> super::UninitServer {
         let ServerBuiltState { conn, common, .. } = self.state;
         let conn = conn.update_state();
-        debug!("moving server built -> uninit");
+        debug!("moving {} server built -> uninit", common.node_meta);
         let state = super::uninit::ServerUninitState { conn, common };
         Machine::from_state(state)
     }
@@ -268,7 +268,7 @@ impl Machine<Built, ServerBuiltState> {
     async fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
         debug!(
             "moving {} server built -> prepare_build",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
         let ServerBuiltState { conn, common, .. } = self.state;
 
@@ -288,7 +288,7 @@ impl Machine<Built, ServerBuiltState> {
     ) -> super::executing::ServerExecutingState {
         debug!(
             "{} is moving built -> executing",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
 
         let ServerBuiltState {

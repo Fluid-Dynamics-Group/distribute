@@ -227,14 +227,14 @@ impl Machine<Building, ServerBuildingState> {
         let ServerBuildingState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
-        debug!("moving server compiling -> uninit");
+        debug!("moving {} server compiling -> uninit", state.common.node_meta);
         Machine::from_state(state)
     }
 
     pub(crate) async fn into_built_state(self) -> super::built::ServerBuiltState {
         debug!(
             "moving {} server compiling -> built",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
         let ServerBuildingState {
             conn,
@@ -261,7 +261,7 @@ impl Machine<Building, ServerBuildingState> {
     pub(crate) async fn into_prepare_build(self) -> super::prepare_build::ServerPrepareBuildState {
         debug!(
             "moving {} server compiling -> prepare build",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
 
         let ServerBuildingState { conn, common, .. } = self.state;

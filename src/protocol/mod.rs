@@ -38,6 +38,7 @@ use crate::prelude::*;
 use crate::server::JobIdentifier;
 use std::collections::BTreeSet;
 use tokio::sync::broadcast;
+use crate::server::pool_data;
 
 #[macro_export]
 #[doc(hidden)]
@@ -173,7 +174,7 @@ pub(crate) struct Common {
     /// the root directory on the HDD that we should save results of the runs,
     /// not including namespace and batch name information
     save_path: PathBuf,
-    pub(crate) node_name: String,
+    pub(crate) node_meta: pool_data::NodeMetadata,
     keepalive_addr: SocketAddr,
     pub(crate) main_transport_addr: SocketAddr,
     /// address on the compute node to message if the job was

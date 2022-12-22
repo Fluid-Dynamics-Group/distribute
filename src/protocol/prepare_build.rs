@@ -105,7 +105,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         let job = server::node::fetch_new_job(
             scheduler_tx,
             server::JobIdentifier::none(),
-            &self.state.common.node_name,
+            &self.state.common.node_meta,
             &self.state.common.keepalive_addr,
             self.state.common.capabilities.clone(),
             self.state.common.errored_jobs.clone(),
@@ -117,8 +117,8 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         let build_job: server::pool_data::BuildTaskInfo = match job {
             server::pool_data::FetchedJob::Build(build) => build,
             server::pool_data::FetchedJob::Run(_run) => {
-                error!("got execution job on {} / {} when we have not initialized anything. This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
-                panic!("got execution job on {} / {} when we have not initialized anything. This is a bug", self.state.common.node_name, self.state.common.main_transport_addr);
+                error!("got execution job on {} when we have not initialized anything. This is a bug", self.state.common.node_meta);
+                panic!("got execution job on {} when we have not initialized anything. This is a bug", self.state.common.node_meta);
                 //
             }
             server::pool_data::FetchedJob::MissedKeepalive => {
@@ -162,7 +162,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
     ) -> super::compiling::ServerBuildingState {
         debug!(
             "moving {} server prepare build -> compiling",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
         let ServerPrepareBuildState { conn, common } = self.state;
         #[allow(unused_mut)]

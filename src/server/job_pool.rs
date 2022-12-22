@@ -36,6 +36,7 @@ where
                             new_req.initialized_job,
                             new_req.capabilities,
                             &new_req.build_failures,
+                            new_req.node_meta,
                         );
                         new_req.tx.send(new_task).ok().unwrap();
                     }

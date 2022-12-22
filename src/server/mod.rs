@@ -117,11 +117,16 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
         let transport_addr = node.transport_addr();
         let cancel_addr = node.cancel_addr();
 
+        let node_meta = pool_data::NodeMetadata {
+            node_name: node.node_name,
+            node_address: transport_addr.clone()
+        };
+
         let common = Common::new(
             tx_cancel.subscribe(),
             Arc::new(node.capabilities),
             server.save_path.clone(),
-            node.node_name,
+            node_meta,
             keepalive_addr,
             transport_addr,
             cancel_addr,

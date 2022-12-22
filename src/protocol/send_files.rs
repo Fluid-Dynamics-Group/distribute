@@ -252,7 +252,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
                         debug!(
                             "creating file {} on {} for {}",
                             path.display(),
-                            self.state.common.node_name,
+                            self.state.common.node_meta,
                             self.state.job_name
                         );
 
@@ -272,7 +272,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
                         debug!(
                             "creating directory {} on {} for {}",
                             path.display(),
-                            self.state.common.node_name,
+                            self.state.common.node_meta,
                             self.state.job_name
                         );
 
@@ -336,11 +336,11 @@ impl Machine<SendFiles, ServerSendFilesState> {
                     {
                         error!(
                             "scheduler is down - cannot transmit that job {} has finished on {}",
-                            self.state.job_name, self.state.common.node_name
+                            self.state.job_name, self.state.common.node_meta
                         );
                         panic!(
                             "scheduler is down - cannot transmit that job {} has finished on {}",
-                            self.state.job_name, self.state.common.node_name
+                            self.state.job_name, self.state.common.node_meta
                         );
                     }
 
@@ -363,7 +363,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
     async fn into_built_state(self) -> super::built::ServerBuiltState {
         debug!(
             "moving {} server send files -> built",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
         let ServerSendFilesState {
             conn,
@@ -409,7 +409,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
     }
 
     pub(crate) fn node_name(&self) -> &str {
-        &self.state.common.node_name
+        &self.state.common.node_meta.node_name
     }
 
     pub(crate) fn job_name(&self) -> &str {

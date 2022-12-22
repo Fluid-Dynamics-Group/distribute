@@ -1,5 +1,5 @@
 use super::matrix;
-use super::pool_data::{JobOrInit, JobResponse, TaskInfo};
+use super::pool_data::{JobOrInit, JobResponse, TaskInfo, NodeMetadata};
 use super::storage::{self, StoredJob, StoredJobInit};
 
 use crate::config::{self, requirements};
@@ -17,6 +17,7 @@ pub(crate) trait Schedule {
         current_compiled_job: JobIdentifier,
         node_caps: Arc<requirements::Requirements<requirements::NodeProvidedCaps>>,
         build_failures: &BTreeSet<JobIdentifier>,
+        node_meta: NodeMetadata
     ) -> JobResponse;
 
     fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError>;
@@ -138,6 +139,7 @@ impl Schedule for GpuPriority {
         current_compiled_job: JobIdentifier,
         node_caps: Arc<requirements::Requirements<requirements::NodeProvidedCaps>>,
         build_failures: &BTreeSet<JobIdentifier>,
+        node_meta: NodeMetadata
     ) -> JobResponse {
         // go through our entire job set and see if there is a gpu job
         if let Some((gpu_ident, gpu_job_set)) = self
@@ -247,7 +249,7 @@ impl Schedule for GpuPriority {
         } else {
             error!(
                 "a job set for identifier {} was removed before all 
-               of the running jobs for the set were done. This shuould not happen",
+               of the running jobs for the set were done. This should not happen",
                 &identifier
             )
         }
@@ -481,6 +483,27 @@ pub struct RemainingJobs {
     pub batch_name: String,
     pub jobs_left: Vec<String>,
     pub running_jobs: usize,
+}
+
+#[derive(Clone, Debug)]
+struct RunningJob {
+    job_name: String,
+    /// the name of the node in charge of executing this job
+    node_name: String,
+    /// IP address of the node in charge of executing this job
+    node_ip: SocketAddr,
+    start_time: std::time::Instant
+}
+
+impl RunningJob {
+    fn new(job_name: String, node_name: String, node_ip: SocketAddr) -> Self {
+        Self {
+            job_name,
+            node_name,
+            node_ip,
+            start_time: std::time::Instant::now()
+        }
+    }
 }
 
 #[cfg(test)]

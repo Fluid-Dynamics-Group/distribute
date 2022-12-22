@@ -235,7 +235,7 @@ impl Machine<Executing, ServerExecutingState> {
 
         let keepalive_checker = server::node::complete_on_ping_failure(
             self.state.common.keepalive_addr,
-            &self.state.common.node_name,
+            &self.state.common.node_meta,
         );
 
         let msg_result = tokio::select!(
@@ -257,7 +257,7 @@ impl Machine<Executing, ServerExecutingState> {
 
         match msg {
             ClientMsg::FailedKeepalive => {
-                info!("{} job failed keepalive check", self.state.common.node_name);
+                info!("{} job failed keepalive check", self.state.common.node_meta);
 
                 let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
                 throw_error_with_self!(tmp, self);
@@ -272,7 +272,7 @@ impl Machine<Executing, ServerExecutingState> {
             ClientMsg::Cancelled => {
                 info!(
                     "{} job was cancelled (job name {}, batch name {})",
-                    self.state.common.node_name,
+                    self.state.common.node_meta,
                     self.state.job_name,
                     self.state.batch_name()
                 );
@@ -334,7 +334,7 @@ impl Machine<Executing, ServerExecutingState> {
         } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
-        debug!("moving client executing -> uninit");
+        debug!("moving {} client executing -> uninit", state.common.node_meta);
 
         (Machine::from_state(state), task_info)
     }
@@ -342,7 +342,7 @@ impl Machine<Executing, ServerExecutingState> {
     async fn into_send_files_state(self) -> super::send_files::ServerSendFilesState {
         debug!(
             "moving {} server executing -> send files",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
         let ServerExecutingState {
             conn,
@@ -370,7 +370,7 @@ impl Machine<Executing, ServerExecutingState> {
     async fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
         debug!(
             "moving {} server executing -> prepare build",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
         let ServerExecutingState { conn, common, .. } = self.state;
 
@@ -384,7 +384,7 @@ impl Machine<Executing, ServerExecutingState> {
     }
 
     pub(crate) fn node_name(&self) -> &str {
-        &self.state.common.node_name
+        &self.state.common.node_meta.node_name
     }
 }
 

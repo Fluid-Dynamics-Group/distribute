@@ -201,7 +201,7 @@ impl Machine<Uninit, ServerUninitState> {
     async fn into_prepare_build_state(self) -> super::prepare_build::ServerPrepareBuildState {
         debug!(
             "moving {} server uninit -> prepare build",
-            self.state.common.node_name
+            self.state.common.node_meta
         );
         let ServerUninitState { conn, common } = self.state;
         #[allow(unused_mut)]
