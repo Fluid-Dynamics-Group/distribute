@@ -328,9 +328,13 @@ impl Machine<SendFiles, ServerSendFilesState> {
                 }
                 ClientMsg::FinishFiles => {
                     // first, tell the scheduler that this job has finished
+                    let finish_msg = server::pool_data::FinishJob {
+                        ident: self.state.job_identifier(),
+                        job_name: self.state.job_name.clone()
+                    };
                     if let Err(_e) = scheduler_tx
                         .send(server::pool_data::JobRequest::FinishJob(
-                            self.state.job_identifier(),
+                            finish_msg
                         ))
                         .await
                     {

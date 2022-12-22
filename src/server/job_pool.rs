@@ -23,9 +23,9 @@ where
         tokio::task::spawn(async move {
             while let Some(new_req) = self.receive_requests.recv().await {
                 match new_req {
-                    JobRequest::FinishJob(ident) => {
-                        info!("marking a finished job for {}", ident);
-                        self.remaining_jobs.finish_job(ident);
+                    JobRequest::FinishJob(finish) => {
+                        info!("marking a finished job for {} ({})", finish.job_name, finish.ident);
+                        self.remaining_jobs.finish_job(finish.ident, &finish.job_name);
                     }
                     // we want a new job from the scheduler
                     JobRequest::NewJob(new_req) => {

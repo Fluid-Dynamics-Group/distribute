@@ -21,7 +21,13 @@ pub(crate) enum JobRequest {
     QueryRemainingJobs(RemainingJobsQuery),
     CancelBatchByName(CancelBatchQuery),
     MarkBuildFailure(MarkBuildFailure),
-    FinishJob(JobIdentifier),
+    FinishJob(FinishJob),
+}
+
+#[derive(PartialEq)]
+pub(crate) struct FinishJob {
+    pub(crate) ident: JobIdentifier,
+    pub(crate) job_name: String
 }
 
 pub(crate) struct MarkBuildFailure {
@@ -142,7 +148,7 @@ pub(crate) enum JobOrInit {
     JobInit(transport::BuildOpts),
 }
 
-#[derive(Display, Clone)]
+#[derive(Display, Clone, Debug, Serialize, Deserialize)]
 #[display(fmt = "{node_name} : {node_address}")]
 /// information about the compute node that is stored on the scheduling server.
 ///

@@ -24,7 +24,7 @@ pub(crate) trait Schedule {
 
     fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobIdentifier);
 
-    fn finish_job(&mut self, job: JobIdentifier);
+    fn finish_job(&mut self, job: JobIdentifier, job_name: &str);
 
     /// fetch all of the batch names and associated jobs that are still running
     fn remaining_jobs(&self) -> Vec<RemainingJobs>;
@@ -102,6 +102,7 @@ impl GpuPriority {
         &mut self,
         identifier: JobIdentifier,
         build_failures: &BTreeSet<JobIdentifier>,
+        node_meta: &NodeMetadata
     ) -> Option<JobResponse> {
         // make sure that any job we pull in this function
         // is actually buildable by the node requesting it
@@ -119,7 +120,7 @@ impl GpuPriority {
                     "fetching next job since there are jobs remaining in set {}",
                     identifier
                 );
-                let job = job_set.next_job().unwrap();
+                let job = job_set.next_job(node_meta).unwrap();
                 Some(JobResponse::SetupOrRun(TaskInfo::new(
                     job_set.namespace.clone(),
                     job_set.batch_name.clone(),
@@ -157,7 +158,7 @@ impl Schedule for GpuPriority {
             // if we are already working on this job - we dont need to recompile anything,
             // just send the next iteration of the job out
             if current_compiled_job == *gpu_ident {
-                let job = gpu_job_set.next_job().unwrap();
+                let job = gpu_job_set.next_job(&node_meta).unwrap();
                 JobResponse::SetupOrRun(TaskInfo::new(
                     gpu_job_set.namespace.clone(),
                     gpu_job_set.batch_name.clone(),
@@ -178,7 +179,7 @@ impl Schedule for GpuPriority {
         }
         // we dont have any gpu jobs to run, just pull the first item from the map that has some
         // jobs left and we will run those
-        else if let Some(job) = self.job_by_id(current_compiled_job, build_failures) {
+        else if let Some(job) = self.job_by_id(current_compiled_job, build_failures, &node_meta) {
             job
         } else {
             self.take_first_job(node_caps, build_failures)
@@ -207,17 +208,17 @@ impl Schedule for GpuPriority {
         }
     }
 
-    fn finish_job(&mut self, identifier: JobIdentifier) {
+    fn finish_job(&mut self, identifier: JobIdentifier, job_name: &str) {
         debug!("called finish job with ident {}", identifier);
 
         if let Some(job_set) = self.map.get_mut(&identifier) {
-            job_set.job_finished();
+            job_set.job_finished(job_name);
 
             // if there are no more jobs to run, and the final job for this process
             // has just finished - remove the job set from the tree
-            if !job_set.has_remaining_jobs() && job_set.currently_running_jobs == 0 {
+            if !job_set.has_remaining_jobs() && job_set.running_jobs.is_empty() {
                 info!(
-                    "removeing tree with identifier {} from the queue - all jobs have finished 
+                    "removing job set with identifier {} from the queue - all jobs have finished 
                     and there are no more running jobs",
                     identifier
                 );
@@ -346,7 +347,7 @@ pub(crate) struct JobSet {
     build: StoredJobInit,
     requirements: requirements::Requirements<requirements::JobRequiredCaps>,
     remaining_jobs: Vec<StoredJob>,
-    currently_running_jobs: usize,
+    running_jobs: Vec<RunningJob>,
     pub(crate) batch_name: String,
     namespace: String,
     matrix_user: Option<matrix_notify::OwnedUserId>,
@@ -358,12 +359,14 @@ impl JobSet {
         !self.remaining_jobs.is_empty()
     }
 
-    fn next_job(&mut self) -> Option<transport::JobOpt> {
+    fn next_job(&mut self, node_meta: &NodeMetadata) -> Option<transport::JobOpt> {
         if let Some(job) = self.remaining_jobs.pop() {
-            self.currently_running_jobs += 1;
+            let running_job_desc = RunningJob::new(job.job_name().to_string(), node_meta.clone());
+            self.running_jobs.push(running_job_desc);
+
             debug!(
-                "calling next_job() -> currently running jobs is now {}",
-                self.currently_running_jobs
+                "calling next_job() -> currently running jobs is now length {}",
+                self.running_jobs.len()
             );
             job.load_job().ok()
         } else {
@@ -376,7 +379,7 @@ impl JobSet {
     }
 
     fn add_errored_job(&mut self, job: transport::JobOpt, base_path: &Path) {
-        self.currently_running_jobs -= 1;
+        self.remove_running_job_by_name(job.name());
 
         match StoredJob::from_opt(job, base_path) {
             Ok(job) => self.remaining_jobs.push(job),
@@ -384,16 +387,22 @@ impl JobSet {
         }
     }
 
-    fn job_finished(&mut self) {
-        if self.currently_running_jobs == 0 {
-            warn!("a job from {}'s currently_running_jobs finished, but the value was already zero. This should not happen", &self.batch_name);
-        } else {
-            self.currently_running_jobs -= 1;
+    fn remove_running_job_by_name(&mut self, job_name: &str) {
+        if let Some(idx) = self.running_jobs.iter().enumerate().filter(|(_, running_job)| running_job.job_name == job_name).map(|(idx, _)| idx).next() {
+            self.remaining_jobs.remove(idx);
             debug!(
-                "calling job_finished() -> currently running jobs is now {}",
-                self.currently_running_jobs
+                "calling removing job of name {job_name} from current queue -> currently running jobs is now {}",
+                self.running_jobs.len()
             );
         }
+        else {
+            error!("failed to find job name {} in the set of running jobs for this node. Running job names are currently: {:?}", 
+                job_name, self.running_jobs.iter().map(|job| &job.job_name).collect::<Vec<_>>());
+        }
+    }
+
+    fn job_finished(&mut self, job_name: &str) {
+        self.remove_running_job_by_name(job_name);
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -408,7 +417,7 @@ impl JobSet {
                 .iter()
                 .map(|x| x.job_name().to_string())
                 .collect(),
-            running_jobs: self.currently_running_jobs,
+            running_jobs: self.running_jobs.iter().map(|x| x.to_duration_information()).collect()
         }
     }
 
@@ -440,11 +449,12 @@ impl JobSet {
             build,
             requirements,
             remaining_jobs,
-            currently_running_jobs,
+            //currently_running_jobs,
             batch_name,
             matrix_user,
             namespace,
         } = owned;
+
         let build = StoredJobInit::from_opt(build, base_path)?;
         let remaining_jobs = match remaining_jobs {
             config::JobOpts::Python(python_jobs) => {
@@ -469,7 +479,7 @@ impl JobSet {
             build,
             requirements,
             remaining_jobs,
-            currently_running_jobs,
+            running_jobs: vec![],
             batch_name,
             matrix_user,
             namespace,
@@ -482,28 +492,42 @@ impl JobSet {
 pub struct RemainingJobs {
     pub batch_name: String,
     pub jobs_left: Vec<String>,
-    pub running_jobs: usize,
+    pub running_jobs: Vec<RunningJobDuration>,
 }
 
 #[derive(Clone, Debug)]
-struct RunningJob {
+pub struct RunningJob {
     job_name: String,
-    /// the name of the node in charge of executing this job
-    node_name: String,
-    /// IP address of the node in charge of executing this job
-    node_ip: SocketAddr,
+    /// information on the node we are running on
+    node_meta: NodeMetadata,
     start_time: std::time::Instant
 }
 
 impl RunningJob {
-    fn new(job_name: String, node_name: String, node_ip: SocketAddr) -> Self {
+    fn new(job_name: String, node_meta: NodeMetadata) -> Self {
         Self {
             job_name,
-            node_name,
-            node_ip,
+            node_meta,
             start_time: std::time::Instant::now()
         }
     }
+
+    fn to_duration_information(&self) -> RunningJobDuration {
+        let Self {job_name, node_meta, start_time } = self.clone();
+        RunningJobDuration {
+            job_name,
+            node_meta,
+            duration: start_time.elapsed()
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RunningJobDuration {
+    pub(crate) job_name: String,
+    /// information on the node we are running on
+    pub(crate) node_meta: NodeMetadata,
+    pub(crate) duration: std::time::Duration
 }
 
 #[cfg(test)]

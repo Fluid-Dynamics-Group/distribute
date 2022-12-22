@@ -80,7 +80,6 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
         loaded_build,
         jobs.capabilities().clone(),
         loaded_jobs,
-        0,
         jobs.batch_name(),
         jobs.matrix_user(),
         jobs.namespace(),

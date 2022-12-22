@@ -284,7 +284,13 @@ impl Machine<Executing, ServerExecutingState> {
                 // have any practical effect on anything - nothing in this jobset
                 // really matters anymore so we dont need to create a special cancellation notice
                 info!("sending scheduler message that the job has been finished");
-                let mark_finished_msg = server::JobRequest::FinishJob(self.state.job_identifier());
+
+                let finish_msg = server::pool_data::FinishJob {
+                    ident: self.state.job_identifier(),
+                    job_name: self.state.job_name.clone()
+                };
+
+                let mark_finished_msg = server::JobRequest::FinishJob(finish_msg);
                 scheduler_tx
                     .send(mark_finished_msg)
                     .await

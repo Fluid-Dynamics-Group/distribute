@@ -18,7 +18,18 @@ pub async fn server_status(args: cli::ServerStatus) -> Result<(), Error> {
             println!("\t-{}", job);
         }
 
-        println!("\t:jobs running now: {}", batch.running_jobs);
+        println!("\t:jobs running now:");
+
+        for job in batch.running_jobs {
+            let seconds = job.duration.as_secs();
+            let minutes = seconds / 60;
+            let hours = minutes / 60;
+
+            let minutes = minutes % (hours * 60);
+            let seconds = seconds % (((hours * 60) + minutes) * 60);
+
+            println!("\t\t{} ({}): {hours}h:{minutes}m:{seconds}s", job.job_name, job.node_meta);
+        }
     }
 
     Ok(())
