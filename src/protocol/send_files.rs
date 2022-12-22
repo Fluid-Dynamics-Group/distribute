@@ -31,7 +31,7 @@ pub(crate) struct ServerSendFilesState {
 }
 
 impl ServerSendFilesState {
-    fn job_identifier(&self) -> JobIdentifier {
+    fn job_identifier(&self) -> JobSetIdentifier {
         self.task_info.identifier
     }
 
@@ -514,7 +514,7 @@ async fn transport_files_with_large_file() {
     let task_info = server::pool_data::RunTaskInfo {
         namespace: namespace.clone(),
         batch_name: batch_name.clone(),
-        identifier: server::JobIdentifier::none(),
+        identifier: server::JobSetIdentifier::none(),
         task: transport::JobOpt::placeholder_test_data(),
     };
 

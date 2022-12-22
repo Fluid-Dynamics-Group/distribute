@@ -104,7 +104,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
     ) -> Result<Machine<Building, ServerBuildingState>, (Self, ServerError)> {
         let job = server::node::fetch_new_job(
             scheduler_tx,
-            server::JobIdentifier::none(),
+            server::JobSetIdentifier::none(),
             &self.state.common.node_meta,
             &self.state.common.keepalive_addr,
             self.state.common.capabilities.clone(),
@@ -164,7 +164,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         self,
         namespace: String,
         batch_name: String,
-        job_identifier: server::JobIdentifier,
+        job_identifier: server::JobSetIdentifier,
     ) -> super::compiling::ServerBuildingState {
         debug!(
             "moving {} server prepare build -> compiling",

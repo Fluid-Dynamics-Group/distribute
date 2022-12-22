@@ -27,7 +27,7 @@
 ///
 /// We do not need to worry about cancellation messages for the most part. This is because
 /// cancellation messages on the server node task have a type
-/// `tokio::sync::broadcast::Receiver<JobIdentifier>`, so reading through the cancellations later
+/// `tokio::sync::broadcast::Receiver<JobSetIdentifier>`, so reading through the cancellations later
 /// will still give us identical information as we have a full history of whats being cancelled.
 /// For example, we dont need to worry about cancellations in the compiling phase because once the
 /// job is compiled, we will request jobs from the server and there will be none (as they were all
@@ -36,7 +36,7 @@
 /// The only place we *do* need to worry about cancellations are in the execution phase.
 use crate::prelude::*;
 use crate::server::pool_data;
-use crate::server::JobIdentifier;
+use crate::server::JobSetIdentifier;
 use std::collections::BTreeSet;
 use tokio::sync::broadcast;
 
@@ -169,7 +169,7 @@ type ServerEitherPrepareBuild<T> =
 
 #[derive(Constructor)]
 pub(crate) struct Common {
-    receive_cancellation: broadcast::Receiver<JobIdentifier>,
+    receive_cancellation: broadcast::Receiver<JobSetIdentifier>,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
     /// the root directory on the HDD that we should save results of the runs,
     /// not including namespace and batch name information
@@ -180,7 +180,7 @@ pub(crate) struct Common {
     /// address on the compute node to message if the job was
     /// cancelled
     pub(crate) cancel_addr: SocketAddr,
-    errored_jobs: BTreeSet<server::JobIdentifier>,
+    errored_jobs: BTreeSet<server::JobSetIdentifier>,
 }
 
 impl Common {
@@ -189,7 +189,7 @@ impl Common {
         transport_addr: SocketAddr,
         keepalive_addr: SocketAddr,
         cancel_addr: SocketAddr,
-    ) -> (broadcast::Sender<JobIdentifier>, Self) {
+    ) -> (broadcast::Sender<JobSetIdentifier>, Self) {
         let (tx, rx) = broadcast::channel(1);
 
         let capabilities = Arc::new(vec![].into_iter().collect());

@@ -3,7 +3,7 @@
 cd ~/distribute
 
 # for fish shell
-set VERSION "0.11.3"
+set VERSION "0.11.5"
 
 git fetch -a
 git checkout release-$VERSION

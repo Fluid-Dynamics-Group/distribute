@@ -22,7 +22,7 @@ pub(crate) struct ServerBuildingState {
     pub(super) common: super::Common,
     pub(super) namespace: String,
     pub(super) batch_name: String,
-    pub(super) job_identifier: server::JobIdentifier,
+    pub(super) job_identifier: server::JobSetIdentifier,
 }
 
 // information on the next build state that we transition to

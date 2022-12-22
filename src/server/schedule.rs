@@ -14,49 +14,51 @@ use std::sync::Arc;
 pub(crate) trait Schedule {
     fn fetch_new_task(
         &mut self,
-        current_compiled_job: JobIdentifier,
+        current_compiled_job: JobSetIdentifier,
         node_caps: Arc<requirements::Requirements<requirements::NodeProvidedCaps>>,
-        build_failures: &BTreeSet<JobIdentifier>,
+        build_failures: &BTreeSet<JobSetIdentifier>,
         node_meta: NodeMetadata,
     ) -> JobResponse;
 
     fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError>;
 
-    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobIdentifier);
+    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobSetIdentifier);
 
-    fn finish_job(&mut self, job: JobIdentifier, job_name: &str);
+    fn finish_job(&mut self, job: JobSetIdentifier, job_name: &str);
 
     /// fetch all of the batch names and associated jobs that are still running
     fn remaining_jobs(&self) -> Vec<RemainingJobs>;
 
     /// find a job identifier associated with the name of a certain job
-    fn identifier_by_name(&self, batch_name: &str) -> Option<JobIdentifier>;
+    fn identifier_by_name(&self, batch_name: &str) -> Option<JobSetIdentifier>;
 
-    fn mark_build_failure(&mut self, failed_ident: JobIdentifier, total_nodes: usize);
+    fn mark_build_failure(&mut self, failed_ident: JobSetIdentifier, total_nodes: usize);
 
-    fn cancel_batch(&mut self, ident: JobIdentifier);
+    fn cancel_batch(&mut self, ident: JobSetIdentifier);
 }
 
 #[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug)]
-pub(crate) enum JobIdentifier {
+/// Identify a batch of jobs
+pub(crate) enum JobSetIdentifier {
     #[display(fmt = "{}", _0)]
     Identity(u64),
     #[display(fmt = "Empty")]
     None,
 }
 
-impl JobIdentifier {
+impl JobSetIdentifier {
     pub(crate) fn none() -> Self {
         Self::None
     }
+
     fn new(ident: u64) -> Self {
-        JobIdentifier::Identity(ident)
+        JobSetIdentifier::Identity(ident)
     }
 }
 
 #[derive(Constructor)]
 pub(crate) struct GpuPriority {
-    map: BTreeMap<JobIdentifier, JobSet>,
+    map: BTreeMap<JobSetIdentifier, JobSet>,
     last_identifier: u64,
     base_path: PathBuf,
     matrix: Option<matrix::MatrixData>,
@@ -70,7 +72,7 @@ impl GpuPriority {
     fn take_first_job(
         &mut self,
         node_caps: Arc<requirements::Requirements<requirements::NodeProvidedCaps>>,
-        build_failures: &BTreeSet<JobIdentifier>,
+        build_failures: &BTreeSet<JobSetIdentifier>,
     ) -> JobResponse {
         if let Some((ident, job_set)) = self
             .map
@@ -100,8 +102,8 @@ impl GpuPriority {
     /// and allow the calling function to figure out how to find the next process
     fn job_by_id(
         &mut self,
-        identifier: JobIdentifier,
-        build_failures: &BTreeSet<JobIdentifier>,
+        identifier: JobSetIdentifier,
+        build_failures: &BTreeSet<JobSetIdentifier>,
         node_meta: &NodeMetadata,
     ) -> Option<JobResponse> {
         // make sure that any job we pull in this function
@@ -137,9 +139,9 @@ impl GpuPriority {
 impl Schedule for GpuPriority {
     fn fetch_new_task(
         &mut self,
-        current_compiled_job: JobIdentifier,
+        current_compiled_job: JobSetIdentifier,
         node_caps: Arc<requirements::Requirements<requirements::NodeProvidedCaps>>,
-        build_failures: &BTreeSet<JobIdentifier>,
+        build_failures: &BTreeSet<JobSetIdentifier>,
         node_meta: NodeMetadata,
     ) -> JobResponse {
         // go through our entire job set and see if there is a gpu job
@@ -190,13 +192,13 @@ impl Schedule for GpuPriority {
         let jobs = JobSet::from_owned(jobs, &self.base_path).map_err(error::StoreSet::from)?;
 
         self.last_identifier += 1;
-        let ident = JobIdentifier::new(self.last_identifier);
+        let ident = JobSetIdentifier::new(self.last_identifier);
         self.map.insert(ident, jobs);
 
         Ok(())
     }
 
-    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobIdentifier) {
+    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobSetIdentifier) {
         if let Some(job_set) = self.map.get_mut(&identifier) {
             job_set.add_errored_job(job, &self.base_path)
         } else {
@@ -208,7 +210,7 @@ impl Schedule for GpuPriority {
         }
     }
 
-    fn finish_job(&mut self, identifier: JobIdentifier, job_name: &str) {
+    fn finish_job(&mut self, identifier: JobSetIdentifier, job_name: &str) {
         debug!("called finish job with ident {}", identifier);
 
         if let Some(job_set) = self.map.get_mut(&identifier) {
@@ -263,7 +265,7 @@ impl Schedule for GpuPriority {
             .collect()
     }
 
-    fn identifier_by_name(&self, batch_name: &str) -> Option<JobIdentifier> {
+    fn identifier_by_name(&self, batch_name: &str) -> Option<JobSetIdentifier> {
         self.map
             .iter()
             .filter(|(_, set)| set.batch_name == batch_name)
@@ -271,7 +273,7 @@ impl Schedule for GpuPriority {
             .next()
     }
 
-    fn mark_build_failure(&mut self, failed_ident: JobIdentifier, total_nodes: usize) {
+    fn mark_build_failure(&mut self, failed_ident: JobSetIdentifier, total_nodes: usize) {
         if let Some((_ident, mut job_set)) = self
             .map
             .iter_mut()
@@ -318,7 +320,7 @@ impl Schedule for GpuPriority {
     /// so the overall job set must remain in the pool.
     ///
     /// Once all cancellations have been filed the job set will be dropped in another function call
-    fn cancel_batch(&mut self, ident: JobIdentifier) {
+    fn cancel_batch(&mut self, ident: JobSetIdentifier) {
         info!("cancelling batch for identifier {}", ident);
 
         if let Some(job_set) = self.map.get_mut(&ident) {
@@ -551,11 +553,11 @@ mod tests {
     use crate::server::storage::OwnedJobSet;
     use crate::transport;
 
-    fn check_init(current_ident: &mut JobIdentifier, expected_ident: u64, response: JobResponse) {
+    fn check_init(current_ident: &mut JobSetIdentifier, expected_ident: u64, response: JobResponse) {
         match response {
             JobResponse::SetupOrRun(task) => {
                 task.task.unwrap_job_init();
-                assert_eq!(task.identifier, JobIdentifier::Identity(expected_ident));
+                assert_eq!(task.identifier, JobSetIdentifier::Identity(expected_ident));
                 *current_ident = task.identifier;
             }
             JobResponse::EmptyJobs => {
@@ -672,7 +674,7 @@ mod tests {
             marker: std::marker::PhantomData,
         });
 
-        let mut current_ident = JobIdentifier::none();
+        let mut current_ident = JobSetIdentifier::none();
 
         let build_failures = Default::default();
 
@@ -756,7 +758,7 @@ mod tests {
 
         let build_failures = Default::default();
 
-        let mut current_ident = JobIdentifier::none();
+        let mut current_ident = JobSetIdentifier::none();
 
         let job = scheduler.fetch_new_task(
             current_ident,
@@ -855,8 +857,8 @@ mod tests {
             marker: std::marker::PhantomData,
         });
 
-        let mut curr_cpu_ident = JobIdentifier::none();
-        let mut curr_gpu_ident = JobIdentifier::none();
+        let mut curr_cpu_ident = JobSetIdentifier::none();
+        let mut curr_gpu_ident = JobSetIdentifier::none();
 
         let build_failures = Default::default();
 
@@ -946,7 +948,7 @@ mod tests {
             marker: std::marker::PhantomData,
         });
 
-        let mut current_ident = JobIdentifier::none();
+        let mut current_ident = JobSetIdentifier::none();
 
         let job = scheduler.fetch_new_task(
             current_ident,
@@ -991,7 +993,7 @@ mod tests {
             marker: std::marker::PhantomData,
         });
 
-        let mut current_ident = JobIdentifier::none();
+        let mut current_ident = JobSetIdentifier::none();
 
         let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta);
         check_init(&mut current_ident, 1, job);

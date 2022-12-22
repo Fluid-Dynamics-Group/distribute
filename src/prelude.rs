@@ -11,7 +11,7 @@ pub(crate) use crate::protocol;
 pub(crate) use crate::server;
 pub(crate) use crate::transport;
 
-pub(crate) use crate::server::JobIdentifier;
+pub(crate) use crate::server::JobSetIdentifier;
 
 pub(crate) use std::path::Path;
 pub(crate) use std::path::PathBuf;

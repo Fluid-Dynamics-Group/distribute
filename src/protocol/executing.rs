@@ -27,7 +27,7 @@ pub(crate) struct ServerExecutingState {
 }
 
 impl ServerExecutingState {
-    fn job_identifier(&self) -> JobIdentifier {
+    fn job_identifier(&self) -> JobSetIdentifier {
         self.task_info.identifier
     }
 
@@ -613,7 +613,7 @@ async fn cancel_run() {
 
     let (cancel_tx, common) =
         protocol::Common::test_configuration(transport_addr, keepalive_addr, cancel_addr);
-    let job_identifier = server::JobIdentifier::Identity(1);
+    let job_identifier = server::JobSetIdentifier::Identity(1);
 
     let task_info = server::pool_data::RunTaskInfo {
         namespace: "test_namespace".into(),

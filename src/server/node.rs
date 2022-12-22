@@ -1,4 +1,4 @@
-use super::schedule::JobIdentifier;
+use super::schedule::JobSetIdentifier;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
 use super::pool_data::{JobRequest, JobResponse, NewJobRequest};
@@ -234,11 +234,11 @@ async fn make_connection(node_meta: &pool_data::NodeMetadata) -> tokio::net::Tcp
 
 pub(crate) async fn fetch_new_job(
     scheduler_tx: &mut mpsc::Sender<JobRequest>,
-    initialized_job: JobIdentifier,
+    initialized_job: JobSetIdentifier,
     node_meta: &pool_data::NodeMetadata,
     keepalive_addr: &SocketAddr,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
-    errored_jobsets: BTreeSet<JobIdentifier>,
+    errored_jobsets: BTreeSet<JobSetIdentifier>,
 ) -> pool_data::FetchedJob {
     loop {
         if let Err(e) = check_keepalive(keepalive_addr, node_meta).await {
@@ -333,9 +333,9 @@ async fn check_keepalive(
 /// this function must never return because there are `unreachable!()` calls
 /// at the call sites.
 pub(crate) async fn check_broadcast_for_matching_token(
-    cancel_rx: &mut broadcast::Receiver<JobIdentifier>,
+    cancel_rx: &mut broadcast::Receiver<JobSetIdentifier>,
     cancel_address: &SocketAddr,
-    job_id_to_monitor: JobIdentifier,
+    job_id_to_monitor: JobSetIdentifier,
     cancelled_marker: &mut bool,
 ) -> ! {
     loop {

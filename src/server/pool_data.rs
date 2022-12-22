@@ -1,5 +1,5 @@
 use super::ok_if_exists;
-use super::schedule::JobIdentifier;
+use super::schedule::JobSetIdentifier;
 use super::storage;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
@@ -26,19 +26,19 @@ pub(crate) enum JobRequest {
 
 #[derive(PartialEq)]
 pub(crate) struct FinishJob {
-    pub(crate) ident: JobIdentifier,
+    pub(crate) ident: JobSetIdentifier,
     pub(crate) job_name: String,
 }
 
 pub(crate) struct MarkBuildFailure {
-    pub(crate) ident: JobIdentifier,
+    pub(crate) ident: JobSetIdentifier,
 }
 
 pub(crate) struct NewJobRequest {
     pub(crate) tx: oneshot::Sender<JobResponse>,
-    pub(crate) initialized_job: JobIdentifier,
+    pub(crate) initialized_job: JobSetIdentifier,
     pub(crate) capabilities: Arc<Requirements<NodeProvidedCaps>>,
-    pub(crate) build_failures: BTreeSet<JobIdentifier>,
+    pub(crate) build_failures: BTreeSet<JobSetIdentifier>,
     pub(crate) node_meta: NodeMetadata,
 }
 
@@ -66,14 +66,14 @@ pub enum CancelResult {
 #[derive(Clone)]
 pub(crate) struct PendingJob {
     task: JobOrInit,
-    ident: JobIdentifier,
+    ident: JobSetIdentifier,
 }
 
 #[derive(From, Clone, Constructor, Debug, PartialEq)]
 pub(crate) struct TaskInfo {
     namespace: String,
     batch_name: String,
-    pub(crate) identifier: JobIdentifier,
+    pub(crate) identifier: JobSetIdentifier,
     pub(crate) task: JobOrInit,
 }
 
@@ -115,7 +115,7 @@ pub(crate) enum FetchedJob {
 pub(crate) struct BuildTaskInfo {
     pub(crate) namespace: String,
     pub(crate) batch_name: String,
-    pub(crate) identifier: JobIdentifier,
+    pub(crate) identifier: JobSetIdentifier,
     pub(crate) task: transport::BuildOpts,
 }
 
@@ -137,7 +137,7 @@ impl BuildTaskInfo {
 pub(crate) struct RunTaskInfo {
     pub(crate) namespace: String,
     pub(crate) batch_name: String,
-    pub(crate) identifier: JobIdentifier,
+    pub(crate) identifier: JobSetIdentifier,
     pub(crate) task: transport::JobOpt,
 }
 

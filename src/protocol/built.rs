@@ -34,7 +34,7 @@ pub(crate) struct ServerBuiltState {
     pub(super) namespace: String,
     pub(super) batch_name: String,
     // the job identifier we have scheduled to run
-    pub(super) job_identifier: server::JobIdentifier,
+    pub(super) job_identifier: server::JobSetIdentifier,
 }
 
 impl Machine<Built, ClientBuiltState> {

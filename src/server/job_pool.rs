@@ -1,4 +1,4 @@
-use super::schedule::{JobIdentifier, Schedule};
+use super::schedule::{JobSetIdentifier, Schedule};
 
 use super::pool_data::{CancelResult, JobRequest, JobResponse};
 
@@ -11,7 +11,7 @@ use derive_more::Constructor;
 pub(super) struct JobPool<T> {
     remaining_jobs: T,
     receive_requests: mpsc::Receiver<JobRequest>,
-    broadcast_cancel: broadcast::Sender<JobIdentifier>,
+    broadcast_cancel: broadcast::Sender<JobSetIdentifier>,
     total_nodes: usize,
 }
 
