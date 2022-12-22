@@ -236,9 +236,10 @@ impl Machine<Building, ServerBuildingState> {
 
     pub(crate) async fn into_built_state(self) -> super::built::ServerBuiltState {
         debug!(
-            "moving {} server compiling -> built",
-            self.state.common.node_meta
+            "moving {} server compiling -> built for job set name {} (ident: {})",
+            self.state.common.node_meta, self.state.batch_name, self.state.job_identifier,
         );
+
         let ServerBuildingState {
             conn,
             common,

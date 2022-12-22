@@ -325,7 +325,7 @@ impl Schedule for GpuPriority {
 
         if let Some(job_set) = self.map.get_mut(&ident) {
             info!(
-                "cancellation for {} corresponds to job name ",
+                "cancellation for identifier {ident} corresponds to batch name {}",
                 job_set.batch_name
             );
 
@@ -381,6 +381,7 @@ impl JobSet {
     }
 
     fn add_errored_job(&mut self, job: transport::JobOpt, base_path: &Path) {
+        debug!("called add_errored_job() on corresponding job set, removing job name {} from running set list", job.name());
         self.remove_running_job_by_name(job.name());
 
         match StoredJob::from_opt(job, base_path) {
@@ -398,7 +399,7 @@ impl JobSet {
             .map(|(idx, _)| idx)
             .next()
         {
-            self.remaining_jobs.remove(idx);
+            self.running_jobs.remove(idx);
             debug!(
                 "calling removing job of name {job_name} from current queue -> currently running jobs is now {}",
                 self.running_jobs.len()
@@ -410,6 +411,7 @@ impl JobSet {
     }
 
     fn job_finished(&mut self, job_name: &str) {
+        debug!("called job_finished() on corresponding job set, removing job name {job_name} from running set list");
         self.remove_running_job_by_name(job_name);
     }
 
@@ -553,7 +555,11 @@ mod tests {
     use crate::server::storage::OwnedJobSet;
     use crate::transport;
 
-    fn check_init(current_ident: &mut JobSetIdentifier, expected_ident: u64, response: JobResponse) {
+    fn check_init(
+        current_ident: &mut JobSetIdentifier,
+        expected_ident: u64,
+        response: JobResponse,
+    ) {
         match response {
             JobResponse::SetupOrRun(task) => {
                 task.task.unwrap_job_init();

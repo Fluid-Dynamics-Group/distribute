@@ -79,7 +79,7 @@ impl Machine<Built, ClientBuiltState> {
                 // return Machine<Executing, _>
 
                 debug!(
-                    "got executing instructions from the server for {}",
+                    "client got executing instructions from the server for job name {}",
                     job.name()
                 );
 
