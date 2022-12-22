@@ -28,7 +28,10 @@ pub async fn server_status(args: cli::ServerStatus) -> Result<(), Error> {
             let minutes = minutes % (hours * 60);
             let seconds = seconds % (((hours * 60) + minutes) * 60);
 
-            println!("\t\t{} ({}): {hours}h:{minutes}m:{seconds}s", job.job_name, job.node_meta);
+            println!(
+                "\t\t{} ({}): {hours}h:{minutes}m:{seconds}s",
+                job.job_name, job.node_meta
+            );
         }
     }
 

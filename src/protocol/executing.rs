@@ -287,7 +287,7 @@ impl Machine<Executing, ServerExecutingState> {
 
                 let finish_msg = server::pool_data::FinishJob {
                     ident: self.state.job_identifier(),
-                    job_name: self.state.job_name.clone()
+                    job_name: self.state.job_name.clone(),
                 };
 
                 let mark_finished_msg = server::JobRequest::FinishJob(finish_msg);
@@ -340,7 +340,10 @@ impl Machine<Executing, ServerExecutingState> {
         } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
-        debug!("moving {} client executing -> uninit", state.common.node_meta);
+        debug!(
+            "moving {} client executing -> uninit",
+            state.common.node_meta
+        );
 
         (Machine::from_state(state), task_info)
     }

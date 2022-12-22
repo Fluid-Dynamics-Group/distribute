@@ -119,7 +119,7 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
 
         let node_meta = pool_data::NodeMetadata {
             node_name: node.node_name,
-            node_address: transport_addr
+            node_address: transport_addr,
         };
 
         let common = Common::new(

@@ -35,10 +35,10 @@
 ///
 /// The only place we *do* need to worry about cancellations are in the execution phase.
 use crate::prelude::*;
+use crate::server::pool_data;
 use crate::server::JobIdentifier;
 use std::collections::BTreeSet;
 use tokio::sync::broadcast;
-use crate::server::pool_data;
 
 #[macro_export]
 #[doc(hidden)]

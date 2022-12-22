@@ -27,7 +27,11 @@ pub(crate) enum ServerError {
 }
 
 #[derive(thiserror::Error, Debug, From, Display)]
-#[display(fmt = "server version {} client version {}", server_version, client_version)]
+#[display(
+    fmt = "server version {} client version {}",
+    server_version,
+    client_version
+)]
 pub(crate) struct VersionMismatch {
     server_version: transport::Version,
     client_version: transport::Version,
@@ -165,7 +169,10 @@ impl Machine<Uninit, ServerUninitState> {
                 self
             );
 
-            let mismatch = VersionMismatch { server_version: our_version, client_version};
+            let mismatch = VersionMismatch {
+                server_version: our_version,
+                client_version,
+            };
 
             return Err((self, ServerError::VersionMismatch(mismatch)));
         }

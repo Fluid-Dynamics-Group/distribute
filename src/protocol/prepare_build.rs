@@ -117,8 +117,14 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         let build_job: server::pool_data::BuildTaskInfo = match job {
             server::pool_data::FetchedJob::Build(build) => build,
             server::pool_data::FetchedJob::Run(_run) => {
-                error!("got execution job on {} when we have not initialized anything. This is a bug", self.state.common.node_meta);
-                panic!("got execution job on {} when we have not initialized anything. This is a bug", self.state.common.node_meta);
+                error!(
+                    "got execution job on {} when we have not initialized anything. This is a bug",
+                    self.state.common.node_meta
+                );
+                panic!(
+                    "got execution job on {} when we have not initialized anything. This is a bug",
+                    self.state.common.node_meta
+                );
                 //
             }
             server::pool_data::FetchedJob::MissedKeepalive => {

@@ -27,7 +27,7 @@ pub(crate) enum JobRequest {
 #[derive(PartialEq)]
 pub(crate) struct FinishJob {
     pub(crate) ident: JobIdentifier,
-    pub(crate) job_name: String
+    pub(crate) job_name: String,
 }
 
 pub(crate) struct MarkBuildFailure {
@@ -152,12 +152,12 @@ pub(crate) enum JobOrInit {
 #[display(fmt = "{node_name} : {node_address}")]
 /// information about the compute node that is stored on the scheduling server.
 ///
-/// This is a nice wrapper that is shared in different places. It contains the 
-/// name of the node (as defined in the .yaml config file for the node) and the 
+/// This is a nice wrapper that is shared in different places. It contains the
+/// name of the node (as defined in the .yaml config file for the node) and the
 /// main transport address used to reach the node.
 pub(crate) struct NodeMetadata {
     pub(crate) node_name: String,
-    pub(crate) node_address: SocketAddr
+    pub(crate) node_address: SocketAddr,
 }
 
 #[cfg(test)]
@@ -165,14 +165,14 @@ impl NodeMetadata {
     pub(crate) fn by_name(name: &str) -> Self {
         Self {
             node_name: name.to_owned(),
-            node_address: ([0,0,0,0], 0).into()
+            node_address: ([0, 0, 0, 0], 0).into(),
         }
     }
 
     pub(crate) fn test_name() -> Self {
         Self {
             node_name: "Test Name".to_owned(),
-            node_address: ([0,0,0,0], 0).into()
+            node_address: ([0, 0, 0, 0], 0).into(),
         }
     }
 }
