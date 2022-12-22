@@ -675,8 +675,8 @@ async fn cancel_run() {
     // check the scheduler receiving pipe to ensure that it has been informed that
     // a job was cancelled
     let scheduler_msg = scheduler_rx.recv().await.unwrap();
-    if let server::pool_data::JobRequest::FinishJob(job_ident) = scheduler_msg {
-        assert!(job_ident == job_identifier)
+    if let server::pool_data::JobRequest::FinishJob(finish_msg) = scheduler_msg {
+        assert!(finish_msg.ident == job_identifier)
     } else {
         panic!("server did not correctly mark job as finished when it was cancelled")
     }

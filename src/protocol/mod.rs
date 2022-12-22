@@ -194,7 +194,7 @@ impl Common {
 
         let capabilities = Arc::new(vec![].into_iter().collect());
         let save_path = PathBuf::from("./tests/unittests");
-        let node_name = "Test Name".into();
+        let node_meta = server::pool_data::NodeMetadata::test_name();
         let errored_jobs = Default::default();
 
         // try to make the save path
@@ -204,7 +204,7 @@ impl Common {
             rx,
             capabilities,
             save_path,
-            node_name,
+            node_meta,
             keepalive_addr,
             transport_addr,
             cancel_addr,

@@ -610,7 +610,7 @@ mod tests {
                 reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
                 marker: std::marker::PhantomData,
             },
-            currently_running_jobs: 0,
+            //currently_running_jobs: 0,
             matrix_user: None,
         };
 
@@ -628,7 +628,7 @@ mod tests {
                 reqs: vec!["gpu".into()].into_iter().collect(),
                 marker: std::marker::PhantomData,
             },
-            currently_running_jobs: 0,
+            //currently_running_jobs: 0,
             matrix_user: None,
         };
 
@@ -640,6 +640,7 @@ mod tests {
     fn gpu_first() {
         let path = Path::new("gpu_first");
         std::fs::create_dir_all(path).unwrap();
+        let node_meta = NodeMetadata::test_name();
 
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
@@ -661,27 +662,27 @@ mod tests {
 
         let build_failures = Default::default();
 
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_init(&mut current_ident, 2, job);
 
         // the next job out of the queue should be jgpu
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_job(job, jgpu);
 
         // we have exhausted all the gpu jobs, we now expect to setup a cpu job
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_init(&mut current_ident, 1, job);
 
         // now we expectet it to be j2
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_job(job, j2);
 
         // now we expect j1
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_job(job, j1);
 
         // now there are no more jobs left
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_empty(job);
 
         std::fs::remove_dir_all(path).ok();
@@ -692,6 +693,7 @@ mod tests {
     fn gpu_added_later() {
         let path = Path::new("gpu_added_later");
         std::fs::create_dir_all(path).unwrap();
+        let node_meta = NodeMetadata::test_name();
 
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
@@ -712,33 +714,33 @@ mod tests {
 
         let mut current_ident = JobIdentifier::none();
 
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_init(&mut current_ident, 1, job);
 
         // the next job out of the queue should be jgpu
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_job(job, j2);
 
         scheduler.insert_new_batch(gpu_set).unwrap(); // 2
 
         // now that there are gpu jobs available we expect to initialize
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_init(&mut current_ident, 2, job);
 
         // and now run the gpu job
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_job(job, jgpu);
 
         // exhaused gpu jobs - now we run cpu job init again
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_init(&mut current_ident, 1, job);
 
         // now back to cpu - run j1
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_job(job, j1);
 
         // now there are no more jobs left
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_empty(job);
 
         std::fs::remove_dir_all(path).unwrap();
@@ -755,6 +757,8 @@ mod tests {
         let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
         let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
         let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+
+        let node_meta = NodeMetadata::test_name();
 
         let cpu_ident = 1;
         let gpu_ident = 2;
@@ -778,31 +782,31 @@ mod tests {
         let build_failures = Default::default();
 
         // cpu pulls a job - it should only be a cpu job
-        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures, node_meta.clone());
         check_init(&mut curr_cpu_ident, cpu_ident, job);
 
         // gpu pulls a job - it should be a GPU job
-        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures, node_meta.clone());
         check_init(&mut curr_gpu_ident, gpu_ident, job);
 
         // gpu job has built - we pull a job with those caps
-        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures, node_meta.clone());
         check_job(job, jgpu);
 
         // cpu job now pulls its first job
-        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures, node_meta.clone());
         check_job(job, j2);
 
         // gpu job has finished - it should get an initialization for the gpu job now
-        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures, node_meta.clone());
         check_init(&mut curr_gpu_ident, cpu_ident, job);
 
         // gpu init has finished - it pulls again and gets j1
-        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(curr_gpu_ident, caps_gpu.clone(), &build_failures, node_meta.clone());
         check_job(job, j1);
 
         // cpu task pulls and there is nothing left
-        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(curr_cpu_ident, caps_cpu.clone(), &build_failures, node_meta.clone());
         check_empty(job);
 
         std::fs::remove_dir_all(path).unwrap();
@@ -814,6 +818,7 @@ mod tests {
     fn dont_send_failed_builds() {
         let path = Path::new("dont_send_failed_builds");
         std::fs::create_dir_all(path).unwrap();
+        let node_meta = NodeMetadata::test_name();
 
         let (cpu_set, _gpu_set, mut scheduler) = init(path);
         scheduler.insert_new_batch(cpu_set).unwrap();
@@ -829,7 +834,7 @@ mod tests {
 
         let mut current_ident = JobIdentifier::none();
 
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         check_init(&mut current_ident, 1, job);
 
         // now we tell them that we failed to build the job
@@ -839,7 +844,7 @@ mod tests {
         scheduler.mark_build_failure(current_ident, 2);
 
         // ask for a new job, it should be a build request to the next job
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta.clone());
         assert_eq!(job, JobResponse::EmptyJobs);
 
         std::fs::remove_dir_all(path).ok();
@@ -855,6 +860,7 @@ mod tests {
         scheduler.insert_new_batch(cpu_set).unwrap();
 
         let build_failures = BTreeSet::new();
+        let node_meta = NodeMetadata::test_name();
 
         let caps = Arc::new(Requirements {
             reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
@@ -863,7 +869,7 @@ mod tests {
 
         let mut current_ident = JobIdentifier::none();
 
-        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures);
+        let job = scheduler.fetch_new_task(current_ident, caps.clone(), &build_failures, node_meta);
         check_init(&mut current_ident, 1, job);
 
         // now we tell them that we failed to build the job

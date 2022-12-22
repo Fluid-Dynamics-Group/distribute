@@ -137,7 +137,7 @@ async fn failed_keepalive() {
 
     dbg!(&jobs);
 
-    assert!(jobs[0].running_jobs == 0);
+    assert!(jobs[0].running_jobs.len() == 0);
     assert!(jobs[0].jobs_left.len() == 1);
 
     fs::remove_dir_all(&server_save_dir).ok();

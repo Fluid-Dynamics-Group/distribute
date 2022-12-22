@@ -159,3 +159,20 @@ pub(crate) struct NodeMetadata {
     pub(crate) node_name: String,
     pub(crate) node_address: SocketAddr
 }
+
+#[cfg(test)]
+impl NodeMetadata {
+    pub(crate) fn by_name(name: &str) -> Self {
+        Self {
+            node_name: name.to_owned(),
+            node_address: ([0,0,0,0], 0).into()
+        }
+    }
+
+    pub(crate) fn test_name() -> Self {
+        Self {
+            node_name: "Test Name".to_owned(),
+            node_address: ([0,0,0,0], 0).into()
+        }
+    }
+}

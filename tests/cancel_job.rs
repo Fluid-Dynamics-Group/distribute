@@ -108,7 +108,7 @@ async fn cancel_job() {
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
-    assert!(jobs[0].running_jobs == 1);
+    assert!(jobs[0].running_jobs.len() == 1);
 
     //
     // cancel the job set then
