@@ -405,7 +405,7 @@ impl Machine<SendFiles, ServerSendFilesState> {
         } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
-        debug!("moving server send files -> uninit");
+        debug!("moving {} server send files -> uninit", state.common.node_meta);
 
         (Machine::from_state(state), task_info)
     }

@@ -156,7 +156,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         let ServerPrepareBuildState { conn, common, .. } = self.state;
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
-        debug!("moving server prepare build -> uninit");
+        debug!("moving {} server prepare build -> uninit", state.common.node_meta);
         Machine::from_state(state)
     }
 
