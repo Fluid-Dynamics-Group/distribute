@@ -61,7 +61,7 @@ fn setup_logs(args: &cli::ArgsWrapper) -> Result<(), ErrorWrap> {
 
     if args.save_log {
         logger = logger.chain(
-            fern::log_file(&args.command.log_path())
+            fern::log_file(args.command.log_path())
                 .map_err(distribute::LogError::from)
                 .map_err(Error::from)?,
         )

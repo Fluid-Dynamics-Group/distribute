@@ -143,7 +143,7 @@ pub(crate) async fn run_python_job(
     let original_dir = enter_output_dir(base_path);
 
     let command = tokio::process::Command::new("python3")
-        .args(&["run.py", &num_cpus::get_physical().to_string()])
+        .args(["run.py", &num_cpus::get_physical().to_string()])
         .output();
 
     let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
@@ -201,7 +201,7 @@ pub(crate) async fn initialize_python_job(
     debug!("current file path is {:?}", std::env::current_dir());
 
     let command = tokio::process::Command::new("python3")
-        .args(&["run.py"])
+        .args(["run.py"])
         .output();
 
     let output_file_path = base_path.join(format!(
@@ -261,7 +261,7 @@ pub(crate) async fn run_apptainer_job(
     info!("binding argument for apptainer job is {}", bind_arg);
 
     let mut command = tokio::process::Command::new("apptainer");
-    command.args(&[
+    command.args([
         "run",
         "--nv",
         "--app",

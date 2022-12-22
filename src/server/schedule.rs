@@ -258,8 +258,8 @@ impl Schedule for GpuPriority {
 
     fn remaining_jobs(&self) -> Vec<RemainingJobs> {
         self.map
-            .iter()
-            .map(|(_, job_set)| job_set.remaining_jobs())
+            .values()
+            .map(|job_set| job_set.remaining_jobs())
             .collect()
     }
 
@@ -342,7 +342,7 @@ impl Schedule for GpuPriority {
     }
 }
 
-#[derive(Constructor, Debug)]
+#[derive(Debug)]
 pub(crate) struct JobSet {
     build: StoredJobInit,
     requirements: requirements::Requirements<requirements::JobRequiredCaps>,

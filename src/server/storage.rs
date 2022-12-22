@@ -30,7 +30,7 @@ impl StoredJob {
 
         // write the python setup file
 
-        let python_setup_file_path = output_dir.join(&format!("{}_py_job.dist", hash));
+        let python_setup_file_path = output_dir.join(format!("{}_py_job.dist", hash));
 
         trace!(
             "saving python lazy file to {}, current working directory is {}",
@@ -44,7 +44,7 @@ impl StoredJob {
         let mut required_files = vec![];
 
         for (i, file) in x.job_files.into_iter().enumerate() {
-            let path = output_dir.join(&format!("{}_{}_job.dist", hash, i));
+            let path = output_dir.join(format!("{}_{}_job.dist", hash, i));
 
             trace!("saving python dependent file to {}", path.display());
 
@@ -83,7 +83,7 @@ impl StoredJob {
         let mut required_files = vec![];
 
         for (i, file) in x.job_files.into_iter().enumerate() {
-            let path = output_dir.join(&format!("{}_{}_job.distribute", hash, i));
+            let path = output_dir.join(format!("{}_{}_job.distribute", hash, i));
 
             std::fs::write(&path, file.file_bytes)?;
 
@@ -192,14 +192,14 @@ impl StoredJobInit {
 
         // write the python setup file
 
-        let python_setup_file_path = output_dir.join(&format!("{}_py_setup.dist", hash));
+        let python_setup_file_path = output_dir.join(format!("{hash}_py_setup.dist"));
         std::fs::write(&python_setup_file_path, x.python_setup_file)?;
 
         // write the required files
         let mut required_files = vec![];
 
         for (i, file) in x.additional_build_files.into_iter().enumerate() {
-            let path = output_dir.join(&format!("{}_{}_setup.distribute", hash, i));
+            let path = output_dir.join(format!("{hash}_{i}_setup.distribute"));
 
             std::fs::write(&path, file.file_bytes)?;
 
@@ -233,14 +233,14 @@ impl StoredJobInit {
         let hash = sha.digest().to_string();
 
         // write a sif file
-        let sif_path = output_dir.join(&format!("{}_setup.distribute", hash));
+        let sif_path = output_dir.join(format!("{hash}_setup.distribute"));
         std::fs::write(&sif_path, &x.sif_bytes)?;
 
         // write the required files
         let mut required_files = vec![];
 
         for (i, file) in x.build_files.into_iter().enumerate() {
-            let path = output_dir.join(&format!("{}_{}_setup.distribute", hash, i));
+            let path = output_dir.join(format!("{hash}_{i}_setup.distribute"));
 
             std::fs::write(&path, file.file_bytes)?;
 

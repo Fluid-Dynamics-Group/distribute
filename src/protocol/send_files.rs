@@ -228,8 +228,8 @@ impl Machine<SendFiles, ServerSendFilesState> {
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
         // create the namesapce and batch name for this process
-        let namespace_dir = self.state.common.save_path.join(&self.state.namespace());
-        let batch_dir = namespace_dir.join(&self.state.batch_name());
+        let namespace_dir = self.state.common.save_path.join(self.state.namespace());
+        let batch_dir = namespace_dir.join(self.state.batch_name());
         let job_dir = batch_dir.join(&self.state.job_name);
 
         // create directories, with error handling

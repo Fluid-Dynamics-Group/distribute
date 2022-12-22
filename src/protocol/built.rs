@@ -307,8 +307,8 @@ impl Machine<Built, ServerBuiltState> {
 
         let save_location = common
             .save_path
-            .join(&namespace)
-            .join(&batch_name)
+            .join(namespace)
+            .join(batch_name)
             .join(&job_name);
 
         super::executing::ServerExecutingState {
