@@ -25,6 +25,7 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
                 config.namespace(),
                 config.batch_name(),
                 args.dry,
+                args.skip_folders,
             )
         }
         Some(cli::RegexFilter::Exclude { exclude }) => {
@@ -35,6 +36,7 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
                 config.namespace(),
                 config.batch_name(),
                 args.dry,
+                args.skip_folders,
             )
         }
         None => transport::PullFileRequest::new(
@@ -43,6 +45,7 @@ pub async fn pull(args: cli::Pull) -> Result<(), Error> {
             config.namespace(),
             config.batch_name(),
             args.dry,
+            args.skip_folders,
         ),
     };
 

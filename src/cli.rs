@@ -203,6 +203,13 @@ pub struct Pull {
     /// with the provided regular expressions
     pub(crate) dry: bool,
 
+    #[arg(long, short)]
+    /// dont create full folder structure when pulling a subset of files. This
+    /// option can only be used /after/ the full folder structure has been 
+    /// created by a previous `distribute pull` command that did not use this
+    /// option.
+    pub(crate) skip_folders: bool,
+
     #[arg(long, short, default_value=SERVER_PORT_STR)]
     /// The port of the server to connect to
     pub(crate) port: u16,

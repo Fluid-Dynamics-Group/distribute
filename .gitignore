@@ -4,10 +4,10 @@ run/
 **.sif
 **/*.distribute
 ./distribute-jobs.yaml
-./tests/apptainer_local/output
+tests/apptainer_local/output
 **/*.binary
-./tests/check_deallocate_jobs/workdir
+tests/check_deallocate_jobs/workdir
 tests/send_files_with_large_files
-./tests/check_pull/server
+tests/check_pull/server
 **/.venv
 pybind/distribute-jobs.yaml

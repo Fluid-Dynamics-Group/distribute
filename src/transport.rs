@@ -91,6 +91,8 @@ pub struct PullFileRequest {
     // whether or not to only pull matching and non-matching files and skip pulling
     // the actual data
     pub(crate) dry: bool,
+    // skip sending all folders since we have built a folder structure previously
+    pub(crate) skip_folders: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug, derive_more::From, derive_more::Unwrap, Display)]
