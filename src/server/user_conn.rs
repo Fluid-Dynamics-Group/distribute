@@ -520,6 +520,46 @@ mod tests {
     const DIR: &str = "./tests/filter_files";
     const DIR_PREFIX: &str = "./tests/";
 
+    fn check_files(actual_files: Vec<FilterResult>, expected_included_items: Vec<PathBuf>, expected_removed_items: Vec<PathBuf>) {
+
+        dbg!(&actual_files);
+
+        for file in actual_files {
+            match file {
+                FilterResult::Skip { abs: _, rel } => {
+                    if expected_included_items.contains(&rel) {
+                        panic!(
+                            "item {} was skipped, but we expected that it would be included",
+                            rel.display()
+                        );
+                    }
+
+                    if !expected_removed_items.contains(&rel) {
+                        panic!(
+                            "item {} was not marked to be skipped, but it was",
+                            rel.display()
+                        );
+                    }
+                }
+                FilterResult::Include { abs: _, rel } => {
+                    if expected_removed_items.contains(&rel) {
+                        panic!(
+                            "item {} was marked to be skipped, but it was included",
+                            rel.display()
+                        );
+                    }
+
+                    if !expected_included_items.contains(&rel) {
+                        panic!(
+                            "item {} was included, but it was not marked to be included",
+                            rel.display()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn include_folders() {
         let dir = PathBuf::from(DIR);
@@ -556,40 +596,7 @@ mod tests {
 
         let expected_removed_items: Vec<PathBuf> = vec![];
 
-        for file in files {
-            match file {
-                FilterResult::Skip { abs: _, rel } => {
-                    if expected_included_items.contains(&rel) {
-                        panic!(
-                            "item {} was skipped, but we expected that it would be included",
-                            rel.display()
-                        );
-                    }
-
-                    if !expected_removed_items.contains(&rel) {
-                        panic!(
-                            "item {} was not marked to be skipped, but it was",
-                            rel.display()
-                        );
-                    }
-                }
-                FilterResult::Include { abs: _, rel } => {
-                    if expected_removed_items.contains(&rel) {
-                        panic!(
-                            "item {} was marked to be skipped, but it was included",
-                            rel.display()
-                        );
-                    }
-
-                    if !expected_included_items.contains(&rel) {
-                        panic!(
-                            "item {} was included, but it was not marked to be included",
-                            rel.display()
-                        );
-                    }
-                }
-            }
-        }
+        check_files(files, expected_included_items, expected_removed_items)
     }
 
     #[test]
@@ -629,39 +636,6 @@ mod tests {
             .map(PathBuf::from)
             .collect::<Vec<_>>();
 
-        for file in files {
-            match file {
-                FilterResult::Skip { abs: _, rel } => {
-                    if expected_included_items.contains(&rel) {
-                        panic!(
-                            "item {} was skipped, but we expected that it would be included",
-                            rel.display()
-                        );
-                    }
-
-                    if !expected_removed_items.contains(&rel) {
-                        panic!(
-                            "item {} was not marked to be skipped, but it was",
-                            rel.display()
-                        );
-                    }
-                }
-                FilterResult::Include { abs: _, rel } => {
-                    if expected_removed_items.contains(&rel) {
-                        panic!(
-                            "item {} was marked to be skipped, but it was included",
-                            rel.display()
-                        );
-                    }
-
-                    if !expected_included_items.contains(&rel) {
-                        panic!(
-                            "item {} was included, but it was not marked to be included",
-                            rel.display()
-                        );
-                    }
-                }
-            }
-        }
+        check_files(files, expected_included_items, expected_removed_items)
     }
 }
