@@ -1,7 +1,7 @@
 use distribute::cli;
 use distribute::Error;
 
-use structopt::StructOpt;
+use clap::Parser;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
@@ -11,7 +11,7 @@ async fn main() {
 }
 
 async fn wrap_main() -> Result<(), ErrorWrap> {
-    let arguments = cli::ArgsWrapper::from_args();
+    let arguments = cli::ArgsWrapper::parse();
 
     setup_logs(&arguments)?;
 
