@@ -293,7 +293,7 @@ async fn pull_files(
         filters,
         pull_files.is_include_filter,
         namespace_path,
-        pull_files.skip_folders
+        pull_files.skip_folders,
     );
 
     // if we are executing a dry response and only sending the names of the
@@ -439,7 +439,7 @@ fn filter_files(
     filters: Vec<regex::Regex>,
     is_include_filter: bool,
     prefix_to_strip: PathBuf,
-    skip_folders: bool
+    skip_folders: bool,
 ) -> impl Iterator<Item = FilterResult> {
     dir_iter.filter_map(|x| x.ok()).map(move |x| {
         // if the file is a directory and we are skipping directories, just skip it
@@ -538,38 +538,54 @@ mod tests {
             filters,
             is_include_filter,
             dir_prefix,
-            skip_folders
-        ).collect::<Vec<_>>();
+            skip_folders,
+        )
+        .collect::<Vec<_>>();
 
         dbg!(&files);
 
-        let expected_included_items : Vec<PathBuf> = [
+        let expected_included_items: Vec<PathBuf> = [
             "filter_files/",
             "filter_files/README.md",
             "filter_files/nested_folder/",
             "filter_files/nested_folder/another_file.txt",
-        ].into_iter().map(PathBuf::from).collect::<Vec<_>>();
+        ]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
 
-        let expected_removed_items : Vec<PathBuf> = vec![];
+        let expected_removed_items: Vec<PathBuf> = vec![];
 
         for file in files {
             match file {
-                FilterResult::Skip {abs: _, rel } => {
+                FilterResult::Skip { abs: _, rel } => {
                     if expected_included_items.contains(&rel) {
-                        panic!("item {} was skipped, but we expected that it would be included", rel.display());
+                        panic!(
+                            "item {} was skipped, but we expected that it would be included",
+                            rel.display()
+                        );
                     }
 
                     if !expected_removed_items.contains(&rel) {
-                        panic!("item {} was not marked to be skipped, but it was", rel.display());
+                        panic!(
+                            "item {} was not marked to be skipped, but it was",
+                            rel.display()
+                        );
                     }
                 }
-                FilterResult::Include {abs: _, rel } => {
+                FilterResult::Include { abs: _, rel } => {
                     if expected_removed_items.contains(&rel) {
-                        panic!("item {} was marked to be skipped, but it was included", rel.display());
+                        panic!(
+                            "item {} was marked to be skipped, but it was included",
+                            rel.display()
+                        );
                     }
 
                     if !expected_included_items.contains(&rel) {
-                        panic!("item {} was included, but it was not marked to be included", rel.display());
+                        panic!(
+                            "item {} was included, but it was not marked to be included",
+                            rel.display()
+                        );
                     }
                 }
             }
@@ -594,39 +610,55 @@ mod tests {
             filters,
             is_include_filter,
             dir_prefix,
-            skip_folders
-        ).collect::<Vec<_>>();
+            skip_folders,
+        )
+        .collect::<Vec<_>>();
 
         dbg!(&files);
 
-        let expected_included_items : Vec<PathBuf> = [
+        let expected_included_items: Vec<PathBuf> = [
             "filter_files/README.md",
             "filter_files/nested_folder/another_file.txt",
-        ].into_iter().map(PathBuf::from).collect::<Vec<_>>();
+        ]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
 
-        let expected_removed_items : Vec<PathBuf> = [
-            "filter_files/",
-            "filter_files/nested_folder/",
-        ].into_iter().map(PathBuf::from).collect::<Vec<_>>();
+        let expected_removed_items: Vec<PathBuf> = ["filter_files/", "filter_files/nested_folder/"]
+            .into_iter()
+            .map(PathBuf::from)
+            .collect::<Vec<_>>();
 
         for file in files {
             match file {
-                FilterResult::Skip {abs: _, rel } => {
+                FilterResult::Skip { abs: _, rel } => {
                     if expected_included_items.contains(&rel) {
-                        panic!("item {} was skipped, but we expected that it would be included", rel.display());
+                        panic!(
+                            "item {} was skipped, but we expected that it would be included",
+                            rel.display()
+                        );
                     }
 
                     if !expected_removed_items.contains(&rel) {
-                        panic!("item {} was not marked to be skipped, but it was", rel.display());
+                        panic!(
+                            "item {} was not marked to be skipped, but it was",
+                            rel.display()
+                        );
                     }
                 }
-                FilterResult::Include {abs: _, rel } => {
+                FilterResult::Include { abs: _, rel } => {
                     if expected_removed_items.contains(&rel) {
-                        panic!("item {} was marked to be skipped, but it was included", rel.display());
+                        panic!(
+                            "item {} was marked to be skipped, but it was included",
+                            rel.display()
+                        );
                     }
 
                     if !expected_included_items.contains(&rel) {
-                        panic!("item {} was included, but it was not marked to be included", rel.display());
+                        panic!(
+                            "item {} was included, but it was not marked to be included",
+                            rel.display()
+                        );
                     }
                 }
             }

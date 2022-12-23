@@ -205,7 +205,7 @@ pub struct Pull {
 
     #[arg(long, short)]
     /// dont create full folder structure when pulling a subset of files. This
-    /// option can only be used /after/ the full folder structure has been 
+    /// option can only be used /after/ the full folder structure has been
     /// created by a previous `distribute pull` command that did not use this
     /// option.
     pub(crate) skip_folders: bool,
