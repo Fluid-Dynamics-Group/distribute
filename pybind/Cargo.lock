@@ -53,7 +53,7 @@ dependencies = [
 
 [[package]]
 name = "distribute"
-version = "0.11.1"
+version = "0.11.5"
 dependencies = [
  "derive_more",
  "matrix-notify",
@@ -163,7 +163,7 @@ checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
 [[package]]
 name = "matrix-notify"
 version = "0.1.0"
-source = "git+https://github.com/fluid-Dynamics-Group/matrix-notify?rev=c013d6c1c30030a4fd3d0e2e8c4a9fdc3223c29d#c013d6c1c30030a4fd3d0e2e8c4a9fdc3223c29d"
+source = "git+https://github.com/fluid-Dynamics-Group/matrix-notify?rev=f3d4def0b1386ab5ee686857a029fa5716151a00#f3d4def0b1386ab5ee686857a029fa5716151a00"
 dependencies = [
  "ruma-common",
 ]
@@ -247,8 +247,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3"
-version = "0.16.5"
-source = "git+https://github.com/PyO3/pyo3?rev=2b6d59f8898ed579a7cbd1c538f0fe2db65c659b#2b6d59f8898ed579a7cbd1c538f0fe2db65c659b"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "268be0c73583c183f2b14052337465768c07726936a260f480f0857cb95ba543"
 dependencies = [
  "cfg-if",
  "indoc",
@@ -263,8 +264,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-build-config"
-version = "0.16.5"
-source = "git+https://github.com/PyO3/pyo3?rev=2b6d59f8898ed579a7cbd1c538f0fe2db65c659b#2b6d59f8898ed579a7cbd1c538f0fe2db65c659b"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28fcd1e73f06ec85bf3280c48c67e731d8290ad3d730f8be9dc07946923005c8"
 dependencies = [
  "once_cell",
  "target-lexicon",
@@ -272,8 +274,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-ffi"
-version = "0.16.5"
-source = "git+https://github.com/PyO3/pyo3?rev=2b6d59f8898ed579a7cbd1c538f0fe2db65c659b#2b6d59f8898ed579a7cbd1c538f0fe2db65c659b"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f6cb136e222e49115b3c51c32792886defbfb0adead26a688142b346a0b9ffc"
 dependencies = [
  "libc",
  "pyo3-build-config",
@@ -281,8 +284,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-macros"
-version = "0.16.5"
-source = "git+https://github.com/PyO3/pyo3?rev=2b6d59f8898ed579a7cbd1c538f0fe2db65c659b#2b6d59f8898ed579a7cbd1c538f0fe2db65c659b"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94144a1266e236b1c932682136dc35a9dee8d3589728f68130c7c3861ef96b28"
 dependencies = [
  "proc-macro2",
  "pyo3-macros-backend",
@@ -292,8 +296,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-macros-backend"
-version = "0.16.5"
-source = "git+https://github.com/PyO3/pyo3?rev=2b6d59f8898ed579a7cbd1c538f0fe2db65c659b#2b6d59f8898ed579a7cbd1c538f0fe2db65c659b"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8df9be978a2d2f0cdebabb03206ed73b11314701a5bfe71b0d753b81997777f"
 dependencies = [
  "proc-macro2",
  "quote",
