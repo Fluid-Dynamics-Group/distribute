@@ -28,7 +28,7 @@ impl StoredJob {
             sha.update(&file.file_bytes);
         }
 
-        let hash: String = base64::encode(sha.finalize());
+        let hash : String = base16::encode_lower(&sha.finalize());
 
         // write the python setup file
 
@@ -79,7 +79,7 @@ impl StoredJob {
             sha.update(&file.file_bytes);
         }
 
-        let hash = base64::encode(sha.finalize());
+        let hash = base16::encode_lower(&sha.finalize());
 
         // write the required files
         let mut required_files = vec![];
@@ -190,7 +190,7 @@ impl StoredJobInit {
             sha.update(&file.file_bytes);
         }
 
-        let hash = base64::encode(sha.finalize());
+        let hash = base16::encode_lower(&sha.finalize());
 
         // write the python setup file
 
@@ -232,7 +232,7 @@ impl StoredJobInit {
             sha.update(&file.file_bytes);
         }
 
-        let hash = base64::encode(sha.finalize());
+        let hash = base16::encode_lower(&sha.finalize());
 
         // write a sif file
         let sif_path = output_dir.join(format!("{hash}_setup.distribute"));

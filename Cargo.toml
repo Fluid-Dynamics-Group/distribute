@@ -27,7 +27,7 @@ sha1 = { version = "0.10.5", optional = true }
 signal-hook = { version = "0.3.9", default_features = false, optional = true }
 regex = { version = "1.7.0", optional = true }
 clap = { version = "4.0.32", features = ["derive"], optional = true }
-base64 = "0.20.0"
+base16 = "0.2.1"
 
 [dependencies.matrix-notify]
 default_features = false
