@@ -6,6 +6,8 @@ use std::io;
 use crate::config;
 use transport::JobOpt;
 
+use sha1::Digest;
+
 /// stores job data on disk
 #[derive(Debug)]
 pub(crate) enum StoredJob {
@@ -26,7 +28,7 @@ impl StoredJob {
             sha.update(&file.file_bytes);
         }
 
-        let hash = sha.digest().to_string();
+        let hash : String = base16::encode_lower(&sha.finalize());
 
         // write the python setup file
 
@@ -77,7 +79,7 @@ impl StoredJob {
             sha.update(&file.file_bytes);
         }
 
-        let hash = sha.digest().to_string();
+        let hash = base16::encode_lower(&sha.finalize());
 
         // write the required files
         let mut required_files = vec![];
@@ -188,7 +190,7 @@ impl StoredJobInit {
             sha.update(&file.file_bytes);
         }
 
-        let hash = sha.digest().to_string();
+        let hash = base16::encode_lower(&sha.finalize());
 
         // write the python setup file
 
@@ -230,7 +232,7 @@ impl StoredJobInit {
             sha.update(&file.file_bytes);
         }
 
-        let hash = sha.digest().to_string();
+        let hash = base16::encode_lower(&sha.finalize());
 
         // write a sif file
         let sif_path = output_dir.join(format!("{hash}_setup.distribute"));
