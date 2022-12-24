@@ -28,7 +28,7 @@ impl StoredJob {
             sha.update(&file.file_bytes);
         }
 
-        let hash : String = base16::encode_lower(&sha.finalize());
+        let hash: String = base16::encode_lower(&sha.finalize());
 
         // write the python setup file
 

@@ -293,6 +293,7 @@ async fn pull_files(
         filters,
         pull_files.is_include_filter,
         namespace_path,
+        pull_files.skip_folders,
     );
 
     // if we are executing a dry response and only sending the names of the
@@ -438,10 +439,15 @@ fn filter_files(
     filters: Vec<regex::Regex>,
     is_include_filter: bool,
     prefix_to_strip: PathBuf,
+    skip_folders: bool,
 ) -> impl Iterator<Item = FilterResult> {
     dir_iter.filter_map(|x| x.ok()).map(move |x| {
+        // if the file is a directory and we are skipping directories, just skip it
+        if skip_folders && x.file_type().is_dir() {
+            FilterResult::skip(x.path().to_owned(), &prefix_to_strip)
+        }
         // always make sure that we include directories
-        if x.file_type().is_dir() {
+        else if x.file_type().is_dir() && !skip_folders {
             FilterResult::include(x.path().to_owned(), &prefix_to_strip)
         }
         // if the file is not a directory - cycle to make sure that we match on the regular
@@ -457,6 +463,7 @@ fn filter_files(
     })
 }
 
+#[derive(Debug)]
 enum FilterResult {
     Skip { abs: PathBuf, rel: PathBuf },
     Include { abs: PathBuf, rel: PathBuf },
@@ -503,5 +510,135 @@ fn filter_path<'a>(
         FilterResult::skip(path.to_owned(), prefix_to_strip)
     } else {
         FilterResult::include(path.to_owned(), prefix_to_strip)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DIR: &str = "./tests/filter_files";
+    const DIR_PREFIX: &str = "./tests/";
+
+    fn check_files(
+        actual_files: Vec<FilterResult>,
+        expected_included_items: Vec<PathBuf>,
+        expected_removed_items: Vec<PathBuf>,
+    ) {
+        dbg!(&actual_files);
+
+        for file in actual_files {
+            match file {
+                FilterResult::Skip { abs: _, rel } => {
+                    if expected_included_items.contains(&rel) {
+                        panic!(
+                            "item {} was skipped, but we expected that it would be included",
+                            rel.display()
+                        );
+                    }
+
+                    if !expected_removed_items.contains(&rel) {
+                        panic!(
+                            "item {} was not marked to be skipped, but it was",
+                            rel.display()
+                        );
+                    }
+                }
+                FilterResult::Include { abs: _, rel } => {
+                    if expected_removed_items.contains(&rel) {
+                        panic!(
+                            "item {} was marked to be skipped, but it was included",
+                            rel.display()
+                        );
+                    }
+
+                    if !expected_included_items.contains(&rel) {
+                        panic!(
+                            "item {} was included, but it was not marked to be included",
+                            rel.display()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn include_folders() {
+        let dir = PathBuf::from(DIR);
+        let dir_prefix = PathBuf::from(DIR_PREFIX);
+
+        let filters = vec![];
+        // make it an exclude filter so that the filters do not
+        // actually remove any files. If we did use an include filter then
+        // we would have to write regexes to ensure all files are pulled.
+        let is_include_filter = false;
+        let skip_folders = false;
+
+        let walk_dir = WalkDir::new(&dir);
+        let files = filter_files(
+            walk_dir.into_iter(),
+            filters,
+            is_include_filter,
+            dir_prefix,
+            skip_folders,
+        )
+        .collect::<Vec<_>>();
+
+        dbg!(&files);
+
+        let expected_included_items: Vec<PathBuf> = [
+            "filter_files/",
+            "filter_files/README.md",
+            "filter_files/nested_folder/",
+            "filter_files/nested_folder/another_file.txt",
+        ]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
+
+        let expected_removed_items: Vec<PathBuf> = vec![];
+
+        check_files(files, expected_included_items, expected_removed_items)
+    }
+
+    #[test]
+    fn skip_folders() {
+        let dir = PathBuf::from(DIR);
+        let dir_prefix = PathBuf::from(DIR_PREFIX);
+
+        let filters = vec![];
+        // make it an exclude filter so that the filters do not
+        // actually remove any files. If we did use an include filter then
+        // we would have to write regexes to ensure all files are pulled.
+        let is_include_filter = false;
+        let skip_folders = true;
+
+        let walk_dir = WalkDir::new(&dir);
+        let files = filter_files(
+            walk_dir.into_iter(),
+            filters,
+            is_include_filter,
+            dir_prefix,
+            skip_folders,
+        )
+        .collect::<Vec<_>>();
+
+        dbg!(&files);
+
+        let expected_included_items: Vec<PathBuf> = [
+            "filter_files/README.md",
+            "filter_files/nested_folder/another_file.txt",
+        ]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
+
+        let expected_removed_items: Vec<PathBuf> = ["filter_files/", "filter_files/nested_folder/"]
+            .into_iter()
+            .map(PathBuf::from)
+            .collect::<Vec<_>>();
+
+        check_files(files, expected_included_items, expected_removed_items)
     }
 }

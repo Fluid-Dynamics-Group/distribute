@@ -57,12 +57,16 @@ async fn check_pull() {
     fs::File::create(j2_1).unwrap();
     fs::File::create(j3_1).unwrap();
 
+    let dry = false;
+    let skip_folders = false;
+
     // initialize the pull and server commands as they would be read from the CLI
 
     let pull = Pull::new(
         addr,
         dir.join("distribute-jobs.yaml"),
-        false,
+        dry,
+        skip_folders,
         server_port,
         save_dir.clone(),
         None,
@@ -159,11 +163,14 @@ async fn pull_large_file() {
     dbg!(fs::metadata(&j1_1).unwrap().len());
 
     // initialize the pull and server commands as they would be read from the CLI
+    let dry = false;
+    let skip_folders = false;
 
     let pull = Pull::new(
         addr,
         dir.join("distribute-jobs.yaml"),
-        false,
+        dry,
+        skip_folders,
         server_port,
         save_dir.clone(),
         None,
