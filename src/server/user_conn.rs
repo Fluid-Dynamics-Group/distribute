@@ -520,8 +520,11 @@ mod tests {
     const DIR: &str = "./tests/filter_files";
     const DIR_PREFIX: &str = "./tests/";
 
-    fn check_files(actual_files: Vec<FilterResult>, expected_included_items: Vec<PathBuf>, expected_removed_items: Vec<PathBuf>) {
-
+    fn check_files(
+        actual_files: Vec<FilterResult>,
+        expected_included_items: Vec<PathBuf>,
+        expected_removed_items: Vec<PathBuf>,
+    ) {
         dbg!(&actual_files);
 
         for file in actual_files {
