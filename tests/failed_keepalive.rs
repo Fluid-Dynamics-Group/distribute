@@ -5,8 +5,6 @@ use distribute::cli::Client;
 use distribute::cli::Server;
 use distribute::cli::ServerStatus;
 
-use log::{error, info};
-
 use std::fs;
 use std::net::IpAddr;
 use std::path::PathBuf;

@@ -33,21 +33,25 @@ mod template;
 #[cfg(feature = "cli")]
 mod transport;
 
-#[cfg(test)]
+#[cfg(feature = "cli")]
 use prelude::*;
 
 #[cfg(feature = "cli")]
-pub use error::{Error, LogError, RunErrorLocal};
+pub use error::{CreateFile, Error, LogError, RunErrorLocal};
 
 #[macro_use]
 #[cfg(feature = "cli")]
-extern crate log;
+extern crate tracing;
 
+#[cfg(feature = "cli")]
+use tracing::level_filters::LevelFilter;
+
+#[cfg(feature = "config")]
 pub use config::*;
+
 pub use serde_yaml;
 
-pub use matrix_notify::OwnedUserId;
-pub use matrix_notify::UserId;
+pub use matrix_notify::{OwnedUserId, UserId};
 
 #[cfg(feature = "cli")]
 pub use {
@@ -76,29 +80,64 @@ mod reexports {
 // helper function to setup logging in some integration tests
 #[cfg(feature = "cli")]
 pub fn logger() {
-    fern::Dispatch::new()
-        // Perform allocation-free log formatting
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        // Add blanket level filter -
-        .level(log::LevelFilter::Trace)
-        // - and per-module overrides
-        .level_for("hyper", log::LevelFilter::Info)
-        //.level_for("distribute::transport", log::LevelFilter::Debug)
-        .level_for("mio", log::LevelFilter::Info)
-        // Output to stdout, files, and other Dispatch configurations
-        .chain(std::io::stdout())
-        // Apply globally
-        .apply()
-        .map_err(LogError::from)
-        .unwrap();
+    logger_cfg(LoggingOutput::Stdout, true);
+}
+
+#[cfg(feature = "cli")]
+pub enum LoggingOutput {
+    Stdout,
+    StdoutAndFile(fs::File),
+    File(fs::File),
+    None,
+}
+
+#[cfg(feature = "cli")]
+impl LoggingOutput {
+    fn level(&self) -> LevelFilter {
+        match self {
+            Self::None => LevelFilter::OFF,
+            _ => LevelFilter::DEBUG,
+        }
+    }
+}
+
+// helper macro to create the subscriber since each individual `$writer` is a distinct type,
+// and they are difficult / impossible to express as boxed trait objects
+macro_rules! subscriber_helper {
+    ($writer:expr, $with_filename:expr, $level:expr) => {
+        let subscriber = tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level($level)
+            .with_file($with_filename)
+            .with_writer($writer)
+            .finish();
+
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("setting default subscriber failed");
+    };
+}
+
+#[cfg(feature = "cli")]
+pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
+    let stdout = std::io::stdout;
+    let logging_level = logging_output.level();
+
+    match logging_output {
+        LoggingOutput::None | LoggingOutput::Stdout => {
+            let writer = stdout;
+
+            // if the logging output is none, then the logging_level will be set to
+            // off, and this case will handle itself
+            subscriber_helper!(writer, with_filename, logging_level);
+        }
+        LoggingOutput::StdoutAndFile(file_writer) => {
+            let writer = tracing_subscriber::fmt::writer::Tee::new(file_writer, stdout);
+            subscriber_helper!(writer, with_filename, logging_level);
+        }
+        LoggingOutput::File(file_writer) => {
+            let writer = file_writer;
+            subscriber_helper!(writer, with_filename, logging_level);
+        }
+    }
 }
 
 #[cfg(test)]

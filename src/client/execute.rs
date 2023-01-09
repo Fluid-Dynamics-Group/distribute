@@ -1,11 +1,8 @@
 use super::utils;
-use crate::{error, error::Error, transport};
+use crate::prelude::*;
+use error::Error;
 
 use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
-
-use tokio::io::AsyncWriteExt;
-use tokio::sync::broadcast;
 
 pub(crate) struct BindingFolderState {
     counter: usize,
@@ -33,7 +30,7 @@ impl BindingFolderState {
             }
 
             if let Err(e) = tokio::fs::create_dir(&host_path).await {
-                error!("failed to create a directory for the host FS bindings. This will create errors in the future: {}", e);
+                tracing::error!("failed to create a directory for the host FS bindings. This will create errors in the future: {}", e);
             }
 
             self.counter += 1;
@@ -55,7 +52,7 @@ impl BindingFolderState {
     // this function cannot be async because we also use it in the Drop impl
     fn remove_dir_with_logging(path: &Path) {
         if let Err(e) = std::fs::remove_dir_all(path) {
-            error!(
+            tracing::error!(
                 "failed to remove old container path binding at host path {} - error: {}",
                 path.display(),
                 e
@@ -114,9 +111,8 @@ pub(crate) async fn run_python_job(
     let file_path = base_path.join("run.py");
     let mut file = tokio::fs::File::create(&file_path)
         .await
-        .map_err(|full_error| error::RunJobError::CreateFile {
-            full_error,
-            path: file_path.clone(),
+        .map_err(|full_error| {
+            error::RunJobError::CreateFile(error::CreateFile::new(full_error, file_path.clone()))
         })?;
 
     debug!("created run file");

@@ -3,6 +3,7 @@
 #[cfg(test)]
 pub(crate) use crate::add_port;
 
+pub(crate) use crate::cli;
 pub(crate) use crate::client;
 pub(crate) use crate::config;
 pub(crate) use crate::config::requirements::{NodeProvidedCaps, Requirements};
@@ -13,6 +14,7 @@ pub(crate) use crate::transport;
 
 pub(crate) use crate::server::JobSetIdentifier;
 
+pub(crate) use std::fs;
 pub(crate) use std::path::Path;
 pub(crate) use std::path::PathBuf;
 pub(crate) use tokio::io::{AsyncRead, AsyncWrite};

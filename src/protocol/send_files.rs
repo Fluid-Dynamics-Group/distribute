@@ -448,7 +448,7 @@ impl transport::AssociatedMessage for ClientMsg {
 #[tokio::test]
 #[serial_test::serial]
 async fn transport_files_with_large_file() {
-    if false {
+    if true {
         crate::logger()
     }
 

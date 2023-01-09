@@ -1,7 +1,8 @@
 use super::execute::FileMetadata;
 use crate::error;
 use futures::StreamExt;
-use std::path::{Path, PathBuf};
+
+use crate::prelude::*;
 
 /// clean out the tmp files from a build script from the output directory
 /// and recreate the distributed_save folder
