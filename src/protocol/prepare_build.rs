@@ -39,6 +39,7 @@ pub(crate) enum ServerError {
 }
 
 impl Machine<PrepareBuild, ClientPrepareBuildState> {
+    #[instrument(skip(self), fields(working_dir = %self.state.working_dir.display()))]
     pub(crate) async fn receive_job(
         mut self,
     ) -> Result<Machine<Building, ClientBuildingState>, (Self, ClientError)> {
@@ -98,6 +99,12 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
     ///
     /// This method is also responsible for creating direcories for the namespace and batch name
     /// that this job will store its results in
+    #[instrument(
+        skip(self, scheduler_tx), 
+        fields(
+            node_meta = %self.state.common.node_meta,
+        )
+    )]
     pub(crate) async fn send_job(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,

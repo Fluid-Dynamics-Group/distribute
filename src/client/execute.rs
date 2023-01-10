@@ -4,6 +4,7 @@ use error::Error;
 
 use std::fmt::Write as _;
 
+#[derive(Debug)]
 pub(crate) struct BindingFolderState {
     counter: usize,
     folders: Vec<BindedFolder>,
@@ -69,6 +70,7 @@ impl std::ops::Drop for BindingFolderState {
 }
 
 /// describes the mapping from a host FS to a container FS
+#[derive(Debug)]
 pub(crate) struct BindedFolder {
     pub(crate) host_path: PathBuf,
     pub(crate) container_path: PathBuf,

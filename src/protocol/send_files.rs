@@ -10,7 +10,7 @@ const LARGE_FILE_BYTE_THRESHOLD: u64 = 10u64.pow(9);
 #[cfg(test)]
 const LARGE_FILE_BYTE_THRESHOLD: u64 = 1000;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct SendFiles;
 
 pub(crate) struct ClientSendFilesState {
@@ -70,6 +70,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
     ///
     /// if there is an error reading a file, that file will be logged but not sent. The
     /// only possible error from this function is if the TCP connection is cut.
+    #[instrument(skip(self), fields(job_name=self.state.job_name))]
     pub(crate) async fn send_files(
         mut self,
     ) -> Result<Machine<Built, ClientBuiltState>, (Self, ClientError)> {
@@ -223,6 +224,15 @@ impl Machine<SendFiles, ClientSendFilesState> {
 impl Machine<SendFiles, ServerSendFilesState> {
     /// listen for the compute node to send us all the files that are in the ./distribute_save
     /// directory after the job has been completed
+    #[instrument(
+        skip(self, scheduler_tx), 
+        fields(
+            node_meta = %self.state.common.node_meta,
+            namespace = self.state.task_info.namespace,
+            batch_name = self.state.task_info.batch_name,
+            job_name = self.state.job_name,
+        )
+    )]
     pub(crate) async fn receive_files(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
