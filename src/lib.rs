@@ -46,7 +46,6 @@ extern crate tracing;
 #[cfg(feature = "cli")]
 use tracing::level_filters::LevelFilter;
 
-#[cfg(feature = "config")]
 pub use config::*;
 
 pub use serde_yaml;
