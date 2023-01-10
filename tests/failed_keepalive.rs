@@ -11,6 +11,8 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
+use tracing::{info,error};
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn failed_keepalive() {
     println!("starting failed keepalive test");
