@@ -20,6 +20,11 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         .await
         .map_err(error::ClientInitError::from)?;
 
+    // ensure that `apptainer` was included in the path of the executable
+    if let Err(e) = utils::verify_apptainer_in_path().await {
+        error!(error = %e, "failed to verify that `apptainer` was in the $PATH environment variable - further execution will cause errors");
+    }
+
     let addr = SocketAddr::from(([0, 0, 0, 0], client.transport_port));
     let listener = TcpListener::bind(addr)
         .await
@@ -68,16 +73,16 @@ async fn run_job(
     loop {
         match run_job_inner(machine).await {
             Ok(_) => {
-                error!("hitting unreachable state - panicking");
+                tracing::error!("hitting unreachable state - panicking");
                 unreachable!("hitting unreachable state - panicking")
             }
             // error state if there was an issue with the TCP connection
             Err((_uninit, e)) if e.is_tcp_error() => {
-                error!("TCP connection error from uninit detected, returning to main loop to accept new connection: {}", e);
+                tracing::error!("TCP connection error from uninit detected, returning to main loop to accept new connection: {}", e);
                 return Err(());
             }
             Err((_uninit, e)) => {
-                error!("non TCP error when executing: {}", e);
+                tracing::error!("non TCP error when executing: {}", e);
                 machine = _uninit;
             }
         }
@@ -96,7 +101,7 @@ async fn inner_prepare_build_to_compile_result(
     let building_state = match prepare_build.receive_job().await {
         Ok(building) => building,
         Err((prepare_build, err)) => {
-            error!("error when trying to get a job to build : {}", err);
+            tracing::error!("error when trying to get a job to build : {}", err);
             return Err((prepare_build.into_uninit(), err.into()));
         }
     };
@@ -104,7 +109,7 @@ async fn inner_prepare_build_to_compile_result(
     let building_state_or_prepare = match building_state.build_job().await {
         Ok(built) => built,
         Err((prepare_build, err)) => {
-            error!("error when trying to get a job to build: {}", err);
+            tracing::error!("error when trying to get a job to build: {}", err);
             return Err((prepare_build.into_uninit(), err.into()));
         }
     };
@@ -152,7 +157,7 @@ async fn execute_and_send_files(
             return Ok(protocol::Either::Left(prepare_build))
         }
         Err((execute, err)) => {
-            error!("error executing the job: {}", err);
+            tracing::error!("error executing the job: {}", err);
             return Err((execute.into_uninit(), err.into()));
         }
     };
@@ -160,7 +165,7 @@ async fn execute_and_send_files(
     let built = match send_files.send_files().await {
         Ok(built) => built,
         Err((send_files, err)) => {
-            error!("error sending result files from the job: {}", err);
+            tracing::error!("error sending result files from the job: {}", err);
             return Err((send_files.into_uninit(), err.into()));
         }
     };
@@ -175,7 +180,7 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
     let prepare_build = match uninit.connect_to_host().await {
         Ok(prep) => prep,
         Err((uninit, err)) => {
-            error!(
+            tracing::error!(
                 "error when trying to connect from the uninit client: {}",
                 err
             );
@@ -195,7 +200,7 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
                 continue;
             }
             Err((built, err)) => {
-                error!("error from built client: {}", err);
+                tracing::error!("error from built client: {}", err);
                 return Err((built.into_uninit(), err.into()));
             }
         };
@@ -240,7 +245,7 @@ pub(crate) async fn start_keepalive_checker(
                     answer_query_connection(&mut connection).await.ok();
                 }
                 Err(e) => {
-                    error!(
+                    tracing::error!(
                         "error with client keepalive monitor while accepting a connection: {}",
                         e
                     );
@@ -339,7 +344,7 @@ pub(crate) async fn return_on_cancellation(addr: SocketAddr) -> Result<(), error
             Ok(_) => {
                 return Ok(());
             }
-            Err(e) => error!("error when accepting cancellation connection: {e}"),
+            Err(e) => tracing::error!("error when accepting cancellation connection: {e}"),
         }
     }
 }

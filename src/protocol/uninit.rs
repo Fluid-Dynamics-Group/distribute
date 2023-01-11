@@ -2,15 +2,17 @@ use super::prepare_build;
 use super::Machine;
 use crate::prelude::*;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct Uninit;
 
+#[derive(Debug)]
 pub(crate) struct ClientUninitState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
     pub(super) cancel_addr: SocketAddr,
 }
 
+#[derive(Debug)]
 pub(crate) struct ServerUninitState {
     pub(super) conn: transport::Connection<ServerMsg>,
     pub(super) common: super::Common,
@@ -48,6 +50,7 @@ pub(crate) enum ClientError {
 impl Machine<Uninit, ClientUninitState> {
     /// on the compute node, wait for a connection from the host and load the connected state
     /// once it has been made
+    #[instrument(skip(self), fields(working_dir = %self.state.working_dir.display()))]
     pub(crate) async fn connect_to_host(
         mut self,
     ) -> Result<
@@ -98,6 +101,7 @@ impl Machine<Uninit, ClientUninitState> {
         }
     }
 
+    #[instrument(skip(conn))]
     pub(crate) fn new(
         conn: tokio::net::TcpStream,
         working_dir: PathBuf,
@@ -140,6 +144,12 @@ impl Machine<Uninit, ClientUninitState> {
 
 impl Machine<Uninit, ServerUninitState> {
     /// on the master node, try to connect to the compute node
+    #[instrument(
+        skip(self), 
+        fields(
+            node_meta = %self.state.common.node_meta,
+        )
+    )]
     pub(crate) async fn connect_to_node(
         mut self,
     ) -> Result<

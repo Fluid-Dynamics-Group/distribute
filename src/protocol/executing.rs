@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 
 use super::send_files::{ClientSendFilesState, SendFiles};
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct Executing;
 
 pub(crate) struct ClientExecutingState {
@@ -22,7 +22,7 @@ pub(crate) struct ServerExecutingState {
     pub(super) common: super::Common,
     pub(super) job_name: String,
     pub(super) save_location: PathBuf,
-    // pub(crate) here so we can pull this out of the state if we need to
+    // pub(super) here so we can pull this out of the state if we need to
     pub(super) task_info: server::pool_data::RunTaskInfo,
 }
 
@@ -55,6 +55,7 @@ pub(crate) enum ServerError {
 }
 
 impl Machine<Executing, ClientExecutingState> {
+    #[instrument(skip(self), fields(job_name=self.state.job.name()))]
     pub(crate) async fn execute_job(
         mut self,
     ) -> Result<
@@ -215,6 +216,15 @@ impl Machine<Executing, ClientExecutingState> {
 }
 
 impl Machine<Executing, ServerExecutingState> {
+    #[instrument(
+        skip(self, scheduler_tx), 
+        fields(
+            node_meta = %self.state.common.node_meta,
+            namespace = self.state.task_info.namespace,
+            batch_name = self.state.task_info.batch_name,
+            job_name = self.state.job_name,
+        )
+    )]
     pub(crate) async fn wait_job_execution(
         mut self,
         // the handler to the job scheduler that we can use

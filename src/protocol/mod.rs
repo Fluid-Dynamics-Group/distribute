@@ -81,6 +81,7 @@ pub(crate) type BuiltServer = Machine<built::Built, built::ServerBuiltState>;
 pub(crate) type ExecuteServer = Machine<executing::Executing, executing::ServerExecutingState>;
 pub(crate) type SendFilesServer = Machine<send_files::SendFiles, send_files::ServerSendFilesState>;
 
+#[derive(Debug)]
 pub(crate) struct Machine<StateMarker, State> {
     _marker: StateMarker,
     state: State,
@@ -167,7 +168,7 @@ type ClientEitherPrepareBuild<T> =
 type ServerEitherPrepareBuild<T> =
     Either<Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>, T>;
 
-#[derive(Constructor)]
+#[derive(Constructor, Debug)]
 pub(crate) struct Common {
     receive_cancellation: broadcast::Receiver<JobSetIdentifier>,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,

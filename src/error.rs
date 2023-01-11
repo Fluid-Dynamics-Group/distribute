@@ -19,7 +19,7 @@ pub enum Error {
     InitJob(#[from] InitJobError),
     #[error("{0}")]
     Server(#[from] ServerError),
-    #[error("{0}")]
+    #[error("Failed to setup logging: {0}")]
     Log(#[from] LogError),
     #[error("{0}")]
     ClientInit(#[from] ClientInitError),
@@ -86,11 +86,10 @@ pub struct Deserialization {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunJobError {
-    #[error("could not create / edit the job run script ({path}) (this should not happen). Error: `{full_error}`")]
-    CreateFile {
-        path: std::path::PathBuf,
-        full_error: std::io::Error,
-    },
+    #[error(
+        "could not create / edit the job run script file (this should not happen). Error: `{0}`"
+    )]
+    CreateFile(CreateFile),
     #[error("{0}")]
     CreateDir(CreateDir),
     #[error("could not open file `{path}`, full error: {full_error}")]
@@ -169,6 +168,17 @@ pub struct OpenFile {
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
 #[display(
+    fmt = "Failed to open create file {} - error: {}",
+    "path.display()",
+    error
+)]
+pub struct CreateFile {
+    error: std::io::Error,
+    path: PathBuf,
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
     fmt = "Could not serialize config file at {} - error: {}",
     "path.display()",
     error
@@ -233,7 +243,7 @@ pub enum LogError {
     #[error("`{0}`")]
     Io(std::io::Error),
     #[error("`{0}`")]
-    SetLogger(log::SetLoggerError),
+    CreateFile(CreateFile),
 }
 
 #[derive(Debug, From, thiserror::Error)]
@@ -399,4 +409,12 @@ pub enum RunErrorLocal {
 pub struct TimeoutError {
     addr: std::net::SocketAddr,
     name: String,
+}
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "`{executable}` executable could not be found in `PATH`: `{err}`")]
+/// Apptainer executable was not found
+pub struct ExecutableMissing {
+    executable: String,
+    err: std::io::Error,
 }

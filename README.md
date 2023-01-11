@@ -53,3 +53,11 @@ Therefore, to run all tests in the repo, you must run:
 ```
 cargo test
 ```
+
+## Features
+
+One of the following features *must* be selected for the crate to compile
+
+* `cli` (default)
+* `python` 
+* `config`

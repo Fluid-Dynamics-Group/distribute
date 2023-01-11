@@ -1,5 +1,6 @@
 use distribute::cli;
 use distribute::Error;
+use std::fs;
 
 use clap::Parser;
 
@@ -38,40 +39,30 @@ async fn wrap_main() -> Result<(), ErrorWrap> {
 }
 
 fn setup_logs(args: &cli::ArgsWrapper) -> Result<(), ErrorWrap> {
-    let mut logger = fern::Dispatch::new()
-        // Perform allocation-free log formatting
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        // Add blanket level filter -
-        .level(log::LevelFilter::Debug)
-        // - and per-module overrides
-        .level_for("distribute::transport", log::LevelFilter::Debug)
-        .level_for("hyper", log::LevelFilter::Info);
-
-    if args.show_logs {
-        logger = logger.chain(std::io::stdout())
-    }
-
-    if args.save_log {
-        logger = logger.chain(
-            fern::log_file(args.command.log_path())
+    let logging_output = match (args.save_log, args.show_logs) {
+        // saving a log, and creating a log file
+        (true, true) => {
+            let file = fs::File::create(args.command.log_path())
+                .map_err(|e| distribute::CreateFile::new(e, args.command.log_path()))
                 .map_err(distribute::LogError::from)
-                .map_err(Error::from)?,
-        )
-    }
+                .map_err(distribute::Error::from)?;
+            distribute::LoggingOutput::StdoutAndFile(file)
+        }
+        // saving a log, not showing the logs
+        (true, false) => {
+            let file = fs::File::create(args.command.log_path())
+                .map_err(|e| distribute::CreateFile::new(e, args.command.log_path()))
+                .map_err(distribute::LogError::from)
+                .map_err(distribute::Error::from)?;
+            distribute::LoggingOutput::File(file)
+        }
+        // not saving a log, showing a log
+        (false, true) => distribute::LoggingOutput::Stdout,
+        // not saving a log, not showing a log
+        (false, false) => distribute::LoggingOutput::None,
+    };
 
-    logger
-        // Apply globally
-        .apply()
-        .map_err(distribute::LogError::from)
-        .map_err(Error::from)?;
+    distribute::logger_cfg(logging_output, false);
 
     Ok(())
 }

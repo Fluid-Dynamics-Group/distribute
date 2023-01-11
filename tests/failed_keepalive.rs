@@ -5,13 +5,13 @@ use distribute::cli::Client;
 use distribute::cli::Server;
 use distribute::cli::ServerStatus;
 
-use log::{error, info};
-
 use std::fs;
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
+
+use tracing::{error, info};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn failed_keepalive() {

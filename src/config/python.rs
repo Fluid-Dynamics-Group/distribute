@@ -1,11 +1,13 @@
 use super::LoadJobsError;
 use super::NormalizePaths;
 use super::ReadBytesError;
-use derive_more::Constructor;
 
 #[cfg(feature = "cli")]
-use crate::transport;
+use crate::prelude::*;
 
+// event though these are included in the prelude, the prelude only exists for the cli
+// feature
+use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

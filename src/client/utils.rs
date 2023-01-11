@@ -1,7 +1,8 @@
 use super::execute::FileMetadata;
 use crate::error;
 use futures::StreamExt;
-use std::path::{Path, PathBuf};
+
+use crate::prelude::*;
 
 /// clean out the tmp files from a build script from the output directory
 /// and recreate the distributed_save folder
@@ -97,4 +98,34 @@ pub(crate) fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {
             is_file: x.file_type().is_file(),
         })
         .collect()
+}
+
+/// ensure that the `apptainer` executable is properly included in the $PATH
+pub(crate) async fn verify_apptainer_in_path() -> Result<(), error::ExecutableMissing> {
+    verify_executable_in_path("apptainer").await
+}
+
+/// ensure that a given executable is properly included in $PATH
+async fn verify_executable_in_path(executable: &str) -> Result<(), error::ExecutableMissing> {
+    let command = tokio::process::Command::new(executable).output().await;
+
+    command
+        .map(|_| ())
+        .map_err(|e| error::ExecutableMissing::new(executable.into(), e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn apptainer_exists() {
+        verify_apptainer_in_path().await.unwrap();
+    }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn apptainer_not_exists() {
+        verify_executable_in_path("apptainer2").await.unwrap();
+    }
 }

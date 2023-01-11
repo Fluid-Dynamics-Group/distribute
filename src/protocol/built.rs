@@ -18,9 +18,10 @@ pub(crate) enum ServerError {
     MissedKeepalive,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct Built;
 
+#[derive(Debug)]
 pub(crate) struct ClientBuiltState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
@@ -28,6 +29,7 @@ pub(crate) struct ClientBuiltState {
     pub(super) cancel_addr: SocketAddr,
 }
 
+#[derive(Debug)]
 pub(crate) struct ServerBuiltState {
     pub(super) conn: transport::Connection<ServerMsg>,
     pub(super) common: super::Common,
@@ -39,6 +41,7 @@ pub(crate) struct ServerBuiltState {
 
 impl Machine<Built, ClientBuiltState> {
     /// wait for the node to return information on the job we are to run
+    #[instrument(skip(self), fields(working_dir = %self.state.working_dir.display()))]
     pub(crate) async fn get_execute_instructions(
         mut self,
     ) -> Result<
@@ -167,6 +170,14 @@ impl Machine<Built, ClientBuiltState> {
 impl Machine<Built, ServerBuiltState> {
     /// fetch job details form the scheduler and inform the compute node of the data that is
     /// required to build the job
+    #[instrument(
+        skip(self, scheduler_tx), 
+        fields(
+            node_meta = %self.state.common.node_meta,
+            namespace = self.state.namespace,
+            batch_name = self.state.batch_name,
+        )
+    )]
     pub(crate) async fn send_job_execution_instructions(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,

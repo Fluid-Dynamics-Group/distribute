@@ -1,8 +1,7 @@
-use super::schedule::{JobSetIdentifier, Schedule};
-
 use super::pool_data::{CancelResult, JobRequest, JobResponse};
+use super::schedule::{JobSetIdentifier, Schedule};
+use crate::prelude::*;
 
-use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
 
 use derive_more::Constructor;
