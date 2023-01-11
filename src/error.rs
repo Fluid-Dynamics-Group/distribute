@@ -410,3 +410,11 @@ pub struct TimeoutError {
     addr: std::net::SocketAddr,
     name: String,
 }
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "`{executable}` executable could not be found in `PATH`: `{err}`")]
+/// Apptainer executable was not found
+pub struct ExecutableMissing {
+    executable: String,
+    err: std::io::Error,
+}

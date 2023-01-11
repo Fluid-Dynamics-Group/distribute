@@ -20,6 +20,11 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         .await
         .map_err(error::ClientInitError::from)?;
 
+    // ensure that `apptainer` was included in the path of the executable
+    if let Err(e) = utils::verify_apptainer_in_path().await {
+        error!(error = %e, "failed to verify that `apptainer` was in the $PATH environment variable - further execution will cause errors");
+    }
+
     let addr = SocketAddr::from(([0, 0, 0, 0], client.transport_port));
     let listener = TcpListener::bind(addr)
         .await
