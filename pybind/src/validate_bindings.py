@@ -44,5 +44,21 @@ jobs = [job_1, job_2]
 
 description = distribute.description(initialize, jobs)
 
-jobset = distribute.apptainer_config(meta, description)
+
+# set up some parameters so that we can run this job with slurm
+slurm = distribute.slurm(
+    output = "output.txt", 
+    nodes = 1, 
+    ntasks = 4, 
+    cpus_per_task = 1, 
+    # 10 megabytes of memory allocated
+    mem_per_cpu = "10M",
+    hint = "nomultithread",
+    # 30 minutes of runtime
+    time = "00:30:00",
+    partition = "cpu-core-0",
+    account = "my_account"
+)
+
+jobset = distribute.apptainer_config(meta, description, slurm = slurm)
 distribute.write_config_to_file(jobset,"./distribute-jobs.yaml")
