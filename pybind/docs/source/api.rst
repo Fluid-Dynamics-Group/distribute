@@ -1,7 +1,7 @@
 API Reference
 =============
 
-The recommended way to use the API is to start by looking at the final function :func:`write_config_to_file` and work backwards 
+The recommended way to use the API is to start by looking at the final function :func:`distribute_compute_config.write_config_to_file` and work backwards 
 to all the constituent functions.
 
 .. autofunction:: distribute_compute_config.apptainer_config(meta: Meta, description: Description, slurm: Optional[Slurm] = None) -> ApptainerConfig

@@ -288,6 +288,21 @@ pub fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<
 ///
 /// Example:
 ///
+/// .. code-block::
+///
+///     slurm = distribute.slurm(
+///         output = "output.txt", 
+///         nodes = 1, 
+///         ntasks = 4, 
+///         cpus_per_task = 1, 
+///         # 10 megabytes of memory allocated
+///         mem_per_cpu = "10M",
+///         hint = "nomultithread",
+///         # 30 minutes of runtime
+///         time = "00:30:00",
+///         partition = "cpu-core-0",
+///         account = "my_account"
+///     )
 ///
 pub fn slurm(
     job_name: Option<String>,
