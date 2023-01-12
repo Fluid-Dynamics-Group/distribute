@@ -96,7 +96,7 @@ pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
 
         create_dir_ok_if_exists(&job_folder)?;
         create_dir_ok_if_exists(&job_input_folder)?;
-        create_dir_ok_if_exists(&job_output_folder)?;
+        create_dir_ok_if_exists(job_output_folder)?;
 
         create_mounts_at_basepath(&job_folder, &mounts)?;
 
@@ -121,8 +121,8 @@ pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
         //
         for file in job.required_files() {
             let filename_or_alias = file.filename()?;
-            let destination = job_input_folder.join(&filename_or_alias);
-            copy(file.path(), &destination)?;
+            let destination = job_input_folder.join(filename_or_alias);
+            copy(file.path(), destination)?;
         }
 
         // now, symlink all the input files `overall_files` to the input directory
@@ -177,7 +177,7 @@ fn create_mounts_at_basepath(basepath: &Path, mounts: &[Mount]) -> Result<(), er
 }
 
 fn create_dir_ok_if_exists<T: AsRef<Path>>(dir: T) -> Result<(), error::CreateDir> {
-    ok_if_exists(fs::create_dir(&dir.as_ref()))
+    ok_if_exists(fs::create_dir(dir.as_ref()))
         .map_err(|e| error::CreateDir::new(e, dir.as_ref().to_owned()))?;
 
     Ok(())
@@ -238,7 +238,7 @@ fn slurm_footer<W: Write>(mut writer: W, mounts: &[Mount], tasks: usize) -> Resu
     writeln!(&mut writer, "\nmodule load singularity")?;
     write!(&mut writer, "\napptainer run --nv --app distribute")?;
 
-    if mounts.len() > 0 {
+    if !mounts.is_empty() {
         write!(&mut writer, " --bind ")?;
     }
     
@@ -253,12 +253,7 @@ fn slurm_footer<W: Write>(mut writer: W, mounts: &[Mount], tasks: usize) -> Resu
         .peekable();
     
     // have to use a loop {} here so that we can take advantage of peekable iterators
-    loop {
-        let mount = if let Some(mount) = mounts_iter.next() {
-            mount
-        } else {
-            break
-        };
+    while let Some(mount) = mounts_iter.next() {
 
         // TODO: may need to make this host_fs path relative to the root folder instead of just the
         // name, since purely the name of the folder may make this job unable to launch from

@@ -571,7 +571,8 @@ impl Slurm {
     }
 
     pub(crate) fn set_default_job_name(&mut self, job_name: &str) {
-        self.job_name = self.job_name.as_ref().or(Some(&job_name.to_string())).cloned();
+        let job_name = job_name.to_string();
+        self.job_name = self.job_name.as_ref().or(Some(&job_name)).cloned();
     }
 
     pub(crate) fn write_slurm_config<W: Write>(&self, mut writer: W) -> Result<(), std::io::Error> {
