@@ -61,7 +61,52 @@ fn slurm_output_verify() {
 
     distribute::slurm(slurm_command).unwrap();
 
+    let task1_dir = output_dir.join("first_job");
+    let task2_dir = output_dir.join("job_2");
 
-    panic!()
-    //fs::remove_dir_all(output_dir).unwrap();
+    assert!(output_dir.join("apptainer.sif").exists());
+
+    // output should look like
+    // ├── apptainer.sif
+    // ├── first_job
+    // │   ├── input
+    // │   │   ├── hello.txt -> ../../input/hello.txt
+    // │   │   └── input.txt
+    // │   ├── mnt_00
+    // │   ├── mnt_01
+    // │   ├── output
+    // │   └── slurm_input.sl
+    // ├── input
+    // │   └── hello.txt
+    // └── job_2
+    //     ├── input
+    //     │   ├── hello.txt -> ../../input/hello.txt
+    //     │   └── input.txt
+    //     ├── mnt_00
+    //     ├── mnt_01
+    //     ├── output
+    //     └── slurm_input.sl
+
+    verify_basic_output(&task1_dir);
+    verify_basic_output(&task2_dir);
+
+    fs::remove_dir_all(output_dir).unwrap();
+}
+
+fn verify_basic_output(task_dir: &std::path::Path) {
+    assert!(task_dir.exists());
+
+    let mnt_1 = task_dir.join("mnt_00");
+    let mnt_2 = task_dir.join("mnt_01");
+    let output = task_dir.join("output");
+    let input = task_dir.join("input");
+
+    for path in [&mnt_1, &mnt_2, &output, &input] {
+        assert!(path.exists());
+    }
+
+    for file in ["hello.txt", "input.txt"] {
+        assert!(input.join(file).exists());
+    }
+
 }
