@@ -223,12 +223,19 @@ pub struct Pull {
 
 #[derive(Parser, PartialEq, Debug, Eq)]
 pub enum RegexFilter {
-    /// files to include in the pulling operation
+    /// files to include in the pulling operation. all --include flags are included with an OR
+    /// basis.
+    ///
+    /// --include "file_1" --include "file_2" will include matches for both file_1 or file_2
     Include {
         #[structopt(long, short)]
         include: Vec<String>,
     },
-    /// files to exlclude in the pulling operation
+    /// files to exlclude in the pulling operation. all --exclude flags are included with an OR
+    /// basis.
+    ///
+    /// --exclude "file_1" --exclude "file_2" will exclude matches for both file_1 or file_2
+
     Exclude {
         #[structopt(long, short)]
         exclude: Vec<String>,
