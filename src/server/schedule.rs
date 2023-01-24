@@ -463,7 +463,6 @@ impl JobSet {
             build,
             requirements,
             remaining_jobs,
-            //currently_running_jobs,
             batch_name,
             matrix_user,
             namespace,
