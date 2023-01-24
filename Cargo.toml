@@ -55,3 +55,7 @@ config = ["matrix-notify/userid"]
 [[bin]]
 name = "distribute"
 required-features = ["cli"]
+
+
+[profile.release]
+debug = true

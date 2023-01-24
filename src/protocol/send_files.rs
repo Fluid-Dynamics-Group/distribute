@@ -2,6 +2,7 @@ use super::Machine;
 use crate::prelude::*;
 use client::utils;
 use tokio::io::AsyncWriteExt;
+use crate::server::pool_data::NodeMetadata;
 
 use super::built::{Built, ClientBuiltState, ServerBuiltState};
 
@@ -13,7 +14,8 @@ const LARGE_FILE_BYTE_THRESHOLD: u64 = 1000;
 #[derive(Default, Debug)]
 pub(crate) struct SendFiles;
 
-pub(crate) struct ClientSendFilesState {
+// in the job execution process, this is the client
+pub(crate) struct SenderState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
     pub(super) job_name: String,
@@ -21,16 +23,31 @@ pub(crate) struct ClientSendFilesState {
     pub(super) cancel_addr: SocketAddr,
 }
 
-pub(crate) struct ServerSendFilesState {
+// in the job execution process, this is the server
+pub(crate) struct ReceiverState<T> {
     pub(super) conn: transport::Connection<ServerMsg>,
-    pub(super) common: super::Common,
-    pub(super) job_name: String,
     /// where the results of the job should be stored
     pub(super) save_location: PathBuf,
-    pub(super) task_info: server::pool_data::RunTaskInfo,
+    pub(super) extra: T
 }
 
-impl ServerSendFilesState {
+/// additional state used when performing file transfer 
+struct FinalStore {
+    pub(super) job_name: String,
+    pub(super) task_info: server::pool_data::RunTaskInfo,
+    pub(super) common: super::Common,
+}
+
+trait SendLogging {
+    fn job_identifier(&self) -> JobSetIdentifier;
+    fn namespace(&self) -> &str;
+    fn save_dir_with_base(&self, base_dir: &Path) -> PathBuf;
+    fn batch_name(&self) -> &str;
+    fn job_name(&self) -> &str;
+    fn node_meta(&self) -> &NodeMetadata;
+}
+
+impl SendLogging for FinalStore {
     fn job_identifier(&self) -> JobSetIdentifier {
         self.task_info.identifier
     }
@@ -39,10 +56,75 @@ impl ServerSendFilesState {
         &self.task_info.namespace
     }
 
+    fn save_dir_with_base(&self, base_dir: &Path) -> PathBuf {
+        base_dir.join(self.task_info.namespace)
+    }
+
     fn batch_name(&self) -> &str {
         &self.task_info.batch_name
     }
+
+    fn job_name(&self) -> &str {
+        &self.job_name
+    }
+
+    fn node_meta(&self) -> &NodeMetadata {
+        &self.common.node_meta
+    }
 }
+
+trait NextState {
+    type Next;
+    type Marker;
+
+    fn next_state(self) -> Self::Next;
+}
+
+impl NextState for ReceiverState<FinalStore> {
+    type Next = super::built::ServerBuiltState;
+    type Marker = super::built::Built;
+
+    fn next_state(self) -> Self::Next {
+        debug!(
+            "moving {} server send files -> built",
+            self.extra.node_meta()
+        );
+
+        let ReceiverState {
+            conn,
+            extra,
+            ..
+        } = self;
+
+        let FinalStore {
+            common,
+            task_info,
+            ..
+        } = extra;
+
+        let namespace = task_info.namespace;
+        let batch_name = task_info.batch_name;
+        let job_identifier = task_info.identifier;
+
+        #[allow(unused_mut)]
+        let mut conn = conn.update_state();
+
+        //#[cfg(test)]
+        //{
+        //    info!("checking for remaining bytes on server side...");
+        //    assert!(conn.bytes_left().await == 0);
+        //}
+
+        super::built::ServerBuiltState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier,
+        }
+    }
+}
+
 
 #[derive(thiserror::Error, Debug, From)]
 pub(crate) enum ClientError {
@@ -65,7 +147,7 @@ impl From<(PathBuf, std::io::Error)> for ServerError {
     }
 }
 
-impl Machine<SendFiles, ClientSendFilesState> {
+impl Machine<SendFiles, SenderState> {
     /// read and send all files in the ./distribute_save folder that the job has left
     ///
     /// if there is an error reading a file, that file will be logged but not sent. The
@@ -180,7 +262,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
     }
 
     pub(crate) fn into_uninit(self) -> super::UninitClient {
-        let ClientSendFilesState {
+        let SenderState {
             conn,
             working_dir,
             cancel_addr,
@@ -198,7 +280,7 @@ impl Machine<SendFiles, ClientSendFilesState> {
 
     async fn into_built_state(self) -> super::built::ClientBuiltState {
         info!("moving client send files -> built");
-        let ClientSendFilesState {
+        let SenderState {
             conn,
             working_dir,
             folder_state,
@@ -221,26 +303,31 @@ impl Machine<SendFiles, ClientSendFilesState> {
     }
 }
 
-impl Machine<SendFiles, ServerSendFilesState> {
+impl <T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>> 
+   where T: SendLogging,
+         ReceiverState<T> : NextState<Next = NEXT, Marker=MARKER>,
+         MARKER: Default
+{
+
     /// listen for the compute node to send us all the files that are in the ./distribute_save
     /// directory after the job has been completed
     #[instrument(
         skip(self, scheduler_tx), 
         fields(
-            node_meta = %self.state.common.node_meta,
-            namespace = self.state.task_info.namespace,
-            batch_name = self.state.task_info.batch_name,
-            job_name = self.state.job_name,
+            node_meta = %self.state.extra.node_meta(),
+            namespace = self.state.extra.namespace(),
+            batch_name = self.state.extra.batch_name(),
+            job_name = self.state.extra.job_name(),
         )
     )]
     pub(crate) async fn receive_files(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
-    ) -> Result<Machine<Built, ServerBuiltState>, (Self, ServerError)> {
+    ) -> Result<Machine<MARKER, NEXT>, (Self, ServerError)> {
         // create the namesapce and batch name for this process
-        let namespace_dir = self.state.common.save_path.join(self.state.namespace());
-        let batch_dir = namespace_dir.join(self.state.batch_name());
-        let job_dir = batch_dir.join(&self.state.job_name);
+        let namespace_dir = self.state.extra.save_dir_with_base(&self.state.save_location);
+        let batch_dir = namespace_dir.join(self.state.extra.batch_name());
+        let job_dir = batch_dir.join(&self.state.extra.job_name());
 
         // create directories, with error handling
         let create_dir = server::create_dir_helper::<ServerError>(&namespace_dir);
@@ -262,8 +349,8 @@ impl Machine<SendFiles, ServerSendFilesState> {
                         debug!(
                             "creating file {} on {} for {}",
                             path.display(),
-                            self.state.common.node_meta,
-                            self.state.job_name
+                            self.state.extra.node_meta(),
+                            self.state.extra.job_name()
                         );
 
                         // save the file
@@ -282,8 +369,8 @@ impl Machine<SendFiles, ServerSendFilesState> {
                         debug!(
                             "creating directory {} on {} for {}",
                             path.display(),
-                            self.state.common.node_meta,
-                            self.state.job_name
+                            self.state.extra.node_meta(),
+                            self.state.extra.job_name()
                         );
 
                         // create the directory for the file
@@ -339,8 +426,8 @@ impl Machine<SendFiles, ServerSendFilesState> {
                 ClientMsg::FinishFiles => {
                     // first, tell the scheduler that this job has finished
                     let finish_msg = server::pool_data::FinishJob {
-                        ident: self.state.job_identifier(),
-                        job_name: self.state.job_name.clone(),
+                        ident: self.state.extra.job_identifier(),
+                        job_name: self.state.extra.job_name().to_string(),
                     };
                     if let Err(_e) = scheduler_tx
                         .send(server::pool_data::JobRequest::FinishJob(finish_msg))
@@ -348,16 +435,16 @@ impl Machine<SendFiles, ServerSendFilesState> {
                     {
                         error!(
                             "scheduler is down - cannot transmit that job {} has finished on {}",
-                            self.state.job_name, self.state.common.node_meta
+                            self.state.extra.job_name(), self.state.extra.node_meta()
                         );
                         panic!(
                             "scheduler is down - cannot transmit that job {} has finished on {}",
-                            self.state.job_name, self.state.common.node_meta
+                            self.state.extra.job_name(), self.state.extra.node_meta()
                         );
                     }
 
                     // we are now done receiving files
-                    let built_state = self.into_built_state().await;
+                    let built_state = self.state.next_state();
                     let machine = Machine::from_state(built_state);
                     return Ok(machine);
                 }
@@ -371,50 +458,25 @@ impl Machine<SendFiles, ServerSendFilesState> {
             throw_error_with_self!(tmp, self);
         }
     }
+}
 
-    async fn into_built_state(self) -> super::built::ServerBuiltState {
-        debug!(
-            "moving {} server send files -> built",
-            self.state.common.node_meta
-        );
-        let ServerSendFilesState {
-            conn,
-            common,
-            task_info,
-            ..
-        } = self.state;
-
-        let namespace = task_info.namespace;
-        let batch_name = task_info.batch_name;
-        let job_identifier = task_info.identifier;
-
-        #[allow(unused_mut)]
-        let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        {
-            info!("checking for remaining bytes on server side...");
-            assert!(conn.bytes_left().await == 0);
-        }
-
-        super::built::ServerBuiltState {
-            conn,
-            common,
-            namespace,
-            batch_name,
-            job_identifier,
-        }
-    }
-
+impl  Machine<SendFiles, ReceiverState<FinalStore>> {
     pub(crate) fn into_uninit(self) -> (super::UninitServer, server::pool_data::RunTaskInfo) {
-        let ServerSendFilesState {
+        let ReceiverState {
             conn,
+            extra,
+            ..
+        } = self.state;
+
+        let FinalStore {
             common,
             task_info,
             ..
-        } = self.state;
+        } = extra;
+
         let conn = conn.update_state();
         let state = super::uninit::ServerUninitState { conn, common };
+
         debug!(
             "moving {} server send files -> uninit",
             state.common.node_meta
@@ -424,11 +486,11 @@ impl Machine<SendFiles, ServerSendFilesState> {
     }
 
     pub(crate) fn node_name(&self) -> &str {
-        &self.state.common.node_meta.node_name
+        &self.state.extra.common.node_meta.node_name
     }
 
     pub(crate) fn job_name(&self) -> &str {
-        &self.state.job_name
+        &self.state.extra.job_name
     }
 }
 

@@ -25,14 +25,17 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         error!(error = %e, "failed to verify that `apptainer` was in the $PATH environment variable - further execution will cause errors");
     }
 
+    debug!(transport_port = client.transport_port, "starting transport port");
     let addr = SocketAddr::from(([0, 0, 0, 0], client.transport_port));
     let listener = TcpListener::bind(addr)
         .await
         .map_err(error::TcpConnection::from)?;
 
+    debug!(keepalive_port = client.keepalive_port, "starting keepalive port");
     let keepalive_addr = SocketAddr::from(([0, 0, 0, 0], client.keepalive_port));
     start_keepalive_checker(keepalive_addr).await?;
 
+    debug!(cancel_port = client.cancel_port, "starting cancel port");
     let cancel_addr = SocketAddr::from(([0, 0, 0, 0], client.cancel_port));
 
     info!("starting client listener on port {}", addr);
