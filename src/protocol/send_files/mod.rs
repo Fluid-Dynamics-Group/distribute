@@ -10,7 +10,7 @@ use crate::server::pool_data::NodeMetadata;
 use super::built::{Built, ClientBuiltState, ServerBuiltState};
 
 pub(crate) use receiver::{ReceiverState, ReceiverFinalStore};
-pub(crate) use sender::SenderState;
+pub(crate) use sender::{SenderState, SenderFinalStore};
 
 #[cfg(not(test))]
 const LARGE_FILE_BYTE_THRESHOLD: u64 = 10u64.pow(9);

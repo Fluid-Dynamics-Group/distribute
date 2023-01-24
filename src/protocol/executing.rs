@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering;
 use super::send_files::{self, SendFiles};
 
 type ServerSendFilesState = send_files::ReceiverState<send_files::ReceiverFinalStore>;
-type ClientSendFilesState = send_files::SenderState;
+type ClientSendFilesState = send_files::SenderState<send_files::SenderFinalStore>;
 
 #[derive(Default, Debug)]
 pub(crate) struct Executing;
@@ -187,12 +187,17 @@ impl Machine<Executing, ClientExecutingState> {
         assert!(conn.bytes_left().await == 0);
 
         let job_name = job.name().to_string();
-        ClientSendFilesState {
-            conn,
+
+        let extra = send_files::SenderFinalStore {
             working_dir,
             job_name,
             folder_state,
             cancel_addr,
+        };
+
+        ClientSendFilesState {
+            conn,
+            extra
         }
     }
 

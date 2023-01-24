@@ -72,7 +72,7 @@ pub(crate) type PrepareBuildClient =
     Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>;
 pub(crate) type BuiltClient = Machine<built::Built, built::ClientBuiltState>;
 pub(crate) type ExecuteClient = Machine<executing::Executing, executing::ClientExecutingState>;
-pub(crate) type SendFilesClient = Machine<send_files::SendFiles, send_files::SenderState>;
+pub(crate) type SendFilesClient<T> = Machine<send_files::SendFiles, send_files::SenderState<T>>;
 
 pub(crate) type UninitServer = Machine<uninit::Uninit, uninit::ServerUninitState>;
 pub(crate) type PrepareBuildServer =

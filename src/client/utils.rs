@@ -100,6 +100,17 @@ pub(crate) fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {
         .collect()
 }
 
+pub(crate) fn read_folder_files(path: &Path) -> Vec<FileMetadata> {
+    walkdir::WalkDir::new(path)
+        .into_iter()
+        .flat_map(|x| x.ok())
+        .map(|x| FileMetadata {
+            file_path: x.path().to_owned(),
+            is_file: x.file_type().is_file(),
+        })
+        .collect()
+}
+
 /// ensure that the `apptainer` executable is properly included in the $PATH
 pub(crate) async fn verify_apptainer_in_path() -> Result<(), error::ExecutableMissing> {
     verify_executable_in_path("apptainer").await
