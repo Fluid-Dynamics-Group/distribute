@@ -4,7 +4,10 @@ use crate::prelude::*;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
-use super::send_files::{ClientSendFilesState, SendFiles};
+use super::send_files::{self, SendFiles};
+
+type ServerSendFilesState = send_files::ReceiverState<send_files::ReceiverFinalStore>;
+type ClientSendFilesState = send_files::SenderState;
 
 #[derive(Default, Debug)]
 pub(crate) struct Executing;
@@ -167,7 +170,7 @@ impl Machine<Executing, ClientExecutingState> {
         Machine::from_state(state)
     }
 
-    async fn into_send_files_state(self) -> super::send_files::ClientSendFilesState {
+    async fn into_send_files_state(self) -> ClientSendFilesState {
         debug!("moving client executing -> send files");
         let ClientExecutingState {
             conn,
@@ -184,7 +187,7 @@ impl Machine<Executing, ClientExecutingState> {
         assert!(conn.bytes_left().await == 0);
 
         let job_name = job.name().to_string();
-        super::send_files::ClientSendFilesState {
+        ClientSendFilesState {
             conn,
             working_dir,
             job_name,
@@ -230,7 +233,7 @@ impl Machine<Executing, ServerExecutingState> {
         // the handler to the job scheduler that we can use
         // to notify if any issues arise
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
-    ) -> Result<Either<super::PrepareBuildServer, super::SendFilesServer>, (Self, ServerError)>
+    ) -> Result<Either<super::PrepareBuildServer, super::SendFilesServer<send_files::ReceiverFinalStore>>, (Self, ServerError)>
     {
         let mut cancelled = false;
 
@@ -358,7 +361,7 @@ impl Machine<Executing, ServerExecutingState> {
         (Machine::from_state(state), task_info)
     }
 
-    async fn into_send_files_state(self) -> super::send_files::ServerSendFilesState {
+    async fn into_send_files_state(self) -> ServerSendFilesState {
         debug!(
             "moving {} server executing -> send files",
             self.state.common.node_meta
@@ -377,12 +380,16 @@ impl Machine<Executing, ServerExecutingState> {
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
 
-        super::send_files::ServerSendFilesState {
-            conn,
+        let extra = send_files::ReceiverFinalStore {
             common,
             task_info,
             job_name,
+        };
+
+        ServerSendFilesState {
+            conn,
             save_location,
+            extra
         }
     }
 

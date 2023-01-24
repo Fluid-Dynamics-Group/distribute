@@ -9,7 +9,7 @@ use crate::server::pool_data::NodeMetadata;
 
 use super::built::{Built, ClientBuiltState, ServerBuiltState};
 
-pub(crate) use receiver::{ReceiverState, FinalStore};
+pub(crate) use receiver::{ReceiverState, ReceiverFinalStore};
 pub(crate) use sender::SenderState;
 
 #[cfg(not(test))]
@@ -20,25 +20,12 @@ const LARGE_FILE_BYTE_THRESHOLD: u64 = 1000;
 #[derive(Default, Debug)]
 pub(crate) struct SendFiles;
 
-
-trait SendLogging {
-    fn job_identifier(&self) -> JobSetIdentifier;
-    fn namespace(&self) -> &str;
-    fn save_dir_with_base(&self, base_dir: &Path) -> PathBuf;
-    fn batch_name(&self) -> &str;
-    fn job_name(&self) -> &str;
-    fn node_meta(&self) -> &NodeMetadata;
-}
-
-
-trait NextState {
+pub(crate) trait NextState {
     type Next;
     type Marker;
 
     fn next_state(self) -> Self::Next;
 }
-
-
 
 #[derive(thiserror::Error, Debug, From)]
 pub(crate) enum ClientError {

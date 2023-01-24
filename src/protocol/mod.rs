@@ -72,14 +72,14 @@ pub(crate) type PrepareBuildClient =
     Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>;
 pub(crate) type BuiltClient = Machine<built::Built, built::ClientBuiltState>;
 pub(crate) type ExecuteClient = Machine<executing::Executing, executing::ClientExecutingState>;
-pub(crate) type SendFilesClient = Machine<send_files::SendFiles, send_files::ClientSendFilesState>;
+pub(crate) type SendFilesClient = Machine<send_files::SendFiles, send_files::SenderState>;
 
 pub(crate) type UninitServer = Machine<uninit::Uninit, uninit::ServerUninitState>;
 pub(crate) type PrepareBuildServer =
     Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>;
 pub(crate) type BuiltServer = Machine<built::Built, built::ServerBuiltState>;
 pub(crate) type ExecuteServer = Machine<executing::Executing, executing::ServerExecutingState>;
-pub(crate) type SendFilesServer = Machine<send_files::SendFiles, send_files::ServerSendFilesState>;
+pub(crate) type SendFilesServer<T> = Machine<send_files::SendFiles, send_files::ReceiverState<T>>;
 
 #[derive(Debug)]
 pub(crate) struct Machine<StateMarker, State> {

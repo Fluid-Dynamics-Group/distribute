@@ -8,24 +8,33 @@ use super::super::built::{self, Built, ClientBuiltState, ServerBuiltState};
 use super::super::uninit::{self, Uninit, ClientUninitState};
 use super::super::UninitServer;
 use super::{SendFiles, ClientMsg, ServerMsg, ServerError, LARGE_FILE_BYTE_THRESHOLD};
-use super::{NextState, SendLogging};
+use super::NextState;
 
 // in the job execution process, this is the server
 pub(crate) struct ReceiverState<T> {
-    pub(super) conn: transport::Connection<ServerMsg>,
+    pub(crate) conn: transport::Connection<ServerMsg>,
     /// where the results of the job should be stored
-    pub(super) save_location: PathBuf,
-    pub(super) extra: T
+    pub(crate) save_location: PathBuf,
+    pub(crate) extra: T
 }
 
 /// additional state used when performing file transfer 
-pub(crate) struct FinalStore {
-    pub(super) job_name: String,
-    pub(super) task_info: server::pool_data::RunTaskInfo,
-    pub(super) common: super::super::Common,
+pub(crate) struct ReceiverFinalStore {
+    pub(crate) job_name: String,
+    pub(crate) task_info: server::pool_data::RunTaskInfo,
+    pub(crate) common: super::super::Common,
 }
 
-impl SendLogging for FinalStore {
+pub(crate) trait SendLogging {
+    fn job_identifier(&self) -> JobSetIdentifier;
+    fn namespace(&self) -> &str;
+    fn save_dir_with_base(&self, base_dir: &Path) -> PathBuf;
+    fn batch_name(&self) -> &str;
+    fn job_name(&self) -> &str;
+    fn node_meta(&self) -> &NodeMetadata;
+}
+
+impl SendLogging for ReceiverFinalStore {
     fn job_identifier(&self) -> JobSetIdentifier {
         self.task_info.identifier
     }
@@ -35,7 +44,7 @@ impl SendLogging for FinalStore {
     }
 
     fn save_dir_with_base(&self, base_dir: &Path) -> PathBuf {
-        base_dir.join(self.task_info.namespace)
+        base_dir.join(&self.task_info.namespace)
     }
 
     fn batch_name(&self) -> &str {
@@ -51,7 +60,7 @@ impl SendLogging for FinalStore {
     }
 }
 
-impl NextState for ReceiverState<FinalStore> {
+impl NextState for ReceiverState<ReceiverFinalStore> {
     type Next = built::ServerBuiltState;
     type Marker = built::Built;
 
@@ -67,7 +76,7 @@ impl NextState for ReceiverState<FinalStore> {
             ..
         } = self;
 
-        let FinalStore {
+        let ReceiverFinalStore {
             common,
             task_info,
             ..
@@ -253,7 +262,7 @@ impl <T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>>
     }
 }
 
-impl  Machine<SendFiles, ReceiverState<FinalStore>> {
+impl  Machine<SendFiles, ReceiverState<ReceiverFinalStore>> {
     pub(crate) fn into_uninit(self) -> (UninitServer, server::pool_data::RunTaskInfo) {
         let ReceiverState {
             conn,
@@ -261,7 +270,7 @@ impl  Machine<SendFiles, ReceiverState<FinalStore>> {
             ..
         } = self.state;
 
-        let FinalStore {
+        let ReceiverFinalStore {
             common,
             task_info,
             ..

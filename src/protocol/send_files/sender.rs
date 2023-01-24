@@ -11,11 +11,11 @@ use super::{SendFiles, ClientMsg, ServerMsg, ClientError, LARGE_FILE_BYTE_THRESH
 
 // in the job execution process, this is the client
 pub(crate) struct SenderState {
-    pub(super) conn: transport::Connection<ClientMsg>,
-    pub(super) working_dir: PathBuf,
-    pub(super) job_name: String,
-    pub(super) folder_state: client::BindingFolderState,
-    pub(super) cancel_addr: SocketAddr,
+    pub(crate) conn: transport::Connection<ClientMsg>,
+    pub(crate) working_dir: PathBuf,
+    pub(crate) job_name: String,
+    pub(crate) folder_state: client::BindingFolderState,
+    pub(crate) cancel_addr: SocketAddr,
 }
 
 impl Machine<SendFiles, SenderState> {
