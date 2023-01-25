@@ -171,3 +171,15 @@ where
         Err(e) => Err(T::from((path.to_owned(), e))),
     }
 }
+
+pub(crate) fn create_dir_all_helper<T>(path: &Path) -> Result<(), T>
+where
+    T: From<(PathBuf, std::io::Error)>,
+{
+    debug!("creating directory (recursively) at {}", path.display());
+
+    match ok_if_exists(std::fs::create_dir_all(path)) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(T::from((path.to_owned(), e))),
+    }
+}

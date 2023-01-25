@@ -129,12 +129,16 @@ async fn transport_files_with_large_file() {
     let server_conn = transport::Connection::from_connection(server_conn);
     let client_conn = transport::Connection::from_connection(client_conn);
 
-    let client_state = ClientSendFilesState {
-        conn: client_conn,
+    let extra = SenderFinalStore {
         working_dir: base_dir.clone(),
         job_name: "test job name".into(),
         folder_state: client::BindingFolderState::new(),
         cancel_addr,
+    };
+
+    let client_state = SenderState {
+        conn: client_conn,
+        extra,
     };
 
     let namespace = "namespace".to_string();
@@ -153,12 +157,20 @@ async fn transport_files_with_large_file() {
         add_port(client_keepalive),
         cancel_addr,
     );
-    let server_state = ServerSendFilesState {
-        conn: server_conn,
+
+    //
+    // setup server state
+    //
+    let extra = ReceiverFinalStore {
         common,
         task_info,
         job_name,
+    };
+
+    let server_state = ReceiverState {
+        conn: server_conn,
         save_location: save_path.clone(),
+        extra,
     };
 
     let server_machine = Machine::from_state(server_state);

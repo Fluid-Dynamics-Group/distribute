@@ -28,7 +28,6 @@ pub(crate) struct ReceiverFinalStore {
 pub(crate) trait SendLogging {
     fn job_identifier(&self) -> JobSetIdentifier;
     fn namespace(&self) -> &str;
-    fn save_dir_with_base(&self, base_dir: &Path) -> PathBuf;
     fn batch_name(&self) -> &str;
     fn job_name(&self) -> &str;
     fn node_meta(&self) -> &NodeMetadata;
@@ -41,10 +40,6 @@ impl SendLogging for ReceiverFinalStore {
 
     fn namespace(&self) -> &str {
         &self.task_info.namespace
-    }
-
-    fn save_dir_with_base(&self, base_dir: &Path) -> PathBuf {
-        base_dir.join(&self.task_info.namespace)
     }
 
     fn batch_name(&self) -> &str {
@@ -126,17 +121,10 @@ impl <T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>>
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<Machine<MARKER, NEXT>, (Self, ServerError)> {
-        // create the namesapce and batch name for this process
-        let namespace_dir = self.state.extra.save_dir_with_base(&self.state.save_location);
-        let batch_dir = namespace_dir.join(self.state.extra.batch_name());
-        let job_dir = batch_dir.join(&self.state.extra.job_name());
+        let save_location = &self.state.save_location;
 
-        // create directories, with error handling
-        let create_dir = server::create_dir_helper::<ServerError>(&namespace_dir);
-        throw_error_with_self!(create_dir, self);
-        let create_dir = server::create_dir_helper::<ServerError>(&batch_dir);
-        throw_error_with_self!(create_dir, self);
-        let create_dir = server::create_dir_helper::<ServerError>(&job_dir);
+        // create directories recursively, with error handling
+        let create_dir = server::create_dir_all_helper::<ServerError>(&save_location);
         throw_error_with_self!(create_dir, self);
 
         loop {
@@ -145,14 +133,13 @@ impl <T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>>
 
             match msg {
                 ClientMsg::SaveFile(file) => {
-                    let path = self.state.save_location.join(file.file_path);
+                    let path = self.state.save_location.join(&file.file_path);
 
                     if file.is_file {
                         debug!(
-                            "creating file {} on {} for {}",
+                            "creating file {} (orig. path {}",
                             path.display(),
-                            self.state.extra.node_meta(),
-                            self.state.extra.job_name()
+                            file.file_path.display()
                         );
 
                         // save the file

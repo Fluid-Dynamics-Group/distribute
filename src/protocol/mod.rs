@@ -53,7 +53,7 @@ macro_rules! throw_error_with_self {
         match $result {
             Ok(x) => x,
             Err(e) => {
-                debug!("just threw with error");
+                error!("just threw with error");
                 return Err(($_self, e.into()));
             }
         }
