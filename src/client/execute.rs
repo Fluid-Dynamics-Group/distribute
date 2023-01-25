@@ -77,23 +77,24 @@ pub(crate) struct BindedFolder {
 }
 
 pub(crate) struct FileMetadata {
-    pub file_path: PathBuf,
+    pub absolute_file_path: PathBuf,
+    pub relative_file_path: PathBuf,
     pub is_file: bool,
 }
 
 impl FileMetadata {
     pub(crate) fn into_send_file(self) -> Result<transport::SendFile, error::ReadBytes> {
-        let Self { file_path, is_file } = self;
+        let Self { absolute_file_path, is_file,  relative_file_path } = self;
 
         // if its a file read the bytes, otherwise skip it
         let bytes = if is_file {
-            std::fs::read(&file_path).map_err(|e| error::ReadBytes::new(e, file_path.to_owned()))?
+            std::fs::read(&absolute_file_path).map_err(|e| error::ReadBytes::new(e, absolute_file_path.to_owned()))?
         } else {
             vec![]
         };
 
         Ok(transport::SendFile {
-            file_path,
+            file_path: relative_file_path,
             is_file,
             bytes,
         })

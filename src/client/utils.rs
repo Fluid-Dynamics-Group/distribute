@@ -89,23 +89,13 @@ pub(crate) fn remove_path_prefixes(path: PathBuf, distribute_save_path: &Path) -
     path.strip_prefix(distribute_save_path).unwrap().to_owned()
 }
 
-pub(crate) fn read_save_folder(base_path: &Path) -> Vec<FileMetadata> {
-    walkdir::WalkDir::new(base_path.join("distribute_save"))
-        .into_iter()
-        .flat_map(|x| x.ok())
-        .map(|x| FileMetadata {
-            file_path: x.path().to_owned(),
-            is_file: x.file_type().is_file(),
-        })
-        .collect()
-}
-
 pub(crate) fn read_folder_files(path: &Path) -> Vec<FileMetadata> {
     walkdir::WalkDir::new(path)
         .into_iter()
         .flat_map(|x| x.ok())
         .map(|x| FileMetadata {
-            file_path: x.path().to_owned(),
+            absolute_file_path: x.path().to_owned(),
+            relative_file_path: remove_path_prefixes(x.path().to_owned(), path),
             is_file: x.file_type().is_file(),
         })
         .collect()

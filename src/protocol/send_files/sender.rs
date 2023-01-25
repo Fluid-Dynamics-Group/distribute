@@ -8,6 +8,7 @@ use super::super::built::{Built, ClientBuiltState};
 use super::super::uninit::{Uninit, ClientUninitState};
 use super::super::UninitClient;
 use super::{SendFiles, ClientMsg, ServerMsg, ClientError, LARGE_FILE_BYTE_THRESHOLD, NextState};
+use crate::client::execute::FileMetadata;
 
 // in the job execution process, this is the client
 pub(crate) struct SenderState<T> {
@@ -18,6 +19,7 @@ pub(crate) struct SenderState<T> {
 pub(crate) trait FileSender {
     fn folder_to_send(&self) -> PathBuf;
     fn job_name(&self) -> &str;
+    fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send>;
 }
 
 /// additional state used when performing file transfer 
@@ -34,6 +36,11 @@ impl FileSender for SenderFinalStore {
     }
     fn job_name(&self) -> &str {
         &self.job_name
+    }
+    fn files_to_send(&self) ->  Box<dyn Iterator<Item = FileMetadata> + Send> {
+        let folder_files_to_send = self.working_dir.join("distribute_save");
+        let files = utils::read_folder_files(&folder_files_to_send);
+        Box::new(files.into_iter().skip(1))
     }
 }
 
@@ -86,25 +93,24 @@ where T: FileSender,
     pub(crate) async fn send_files(
         mut self,
     ) -> Result<Machine<MARKER, NEXT>, (Self, ClientError)> {
-        let folder_files_to_send = self.state.extra.folder_to_send();
-
-        let files = utils::read_folder_files(&folder_files_to_send);
         let job_name = self.state.extra.job_name();
+        let files_to_send = self.state.extra.files_to_send();
 
-        for metadata in files.into_iter().skip(1) {
+        for metadata in files_to_send {
             // remove leading directories up until (and including) distribute_save
 
             info!(
-                "sending {}",
-                metadata.file_path.display(),
+                "sending {} (relative: {})",
+                metadata.absolute_file_path.display(),
+                metadata.relative_file_path.display(),
             );
 
-            let fs_meta = if let Ok(fs_meta) = tokio::fs::metadata(&metadata.file_path).await {
+            let fs_meta = if let Ok(fs_meta) = tokio::fs::metadata(&metadata.absolute_file_path).await {
                 fs_meta
             } else {
                 error!(
                     "could not read metadata for {} - skipping",
-                    metadata.file_path.display()
+                    metadata.absolute_file_path.display()
                 );
                 continue;
             };
@@ -116,12 +122,10 @@ where T: FileSender,
                 let file_len = fs_meta.len();
                 debug!("number of bytes being transported : {}", file_len);
 
-                let path = metadata.file_path.clone();
+                let path = metadata.absolute_file_path.clone();
 
                 // strip out the useless prefixes to the path so it saves nicely on the other side
-                let abbreviated_path =
-                    utils::remove_path_prefixes(metadata.file_path, &folder_files_to_send);
-                let file = ClientMsg::FileMarker(transport::FileMarker::new(abbreviated_path));
+                let file = ClientMsg::FileMarker(transport::FileMarker::new(metadata.relative_file_path));
                 throw_error_with_self!(self.state.conn.transport_data(&file).await, self);
 
                 let msg = throw_error_with_self!(self.state.conn.receive_data().await, self);
@@ -155,12 +159,9 @@ where T: FileSender,
             // file is small - send the file in memory
             //
             else {
+                // .into_send_file() will take care of stripping the correct path prefixes for us
                 match metadata.into_send_file() {
                     Ok(mut send_file) => {
-                        // strip the path prefix so the other side does not botch the path to save
-                        send_file.file_path =
-                            utils::remove_path_prefixes(send_file.file_path, &folder_files_to_send);
-
                         let msg = ClientMsg::SaveFile(send_file);
                         let tmp = self.state.conn.transport_data(&msg).await;
                         throw_error_with_self!(tmp, self);
