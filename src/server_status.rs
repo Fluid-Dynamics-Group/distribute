@@ -1,8 +1,8 @@
 use crate::{
     cli,
     error::{self, Error},
+    prelude::*,
     transport,
-    prelude::*
 };
 
 use std::net::SocketAddr;
@@ -23,13 +23,9 @@ pub async fn server_status(args: cli::ServerStatus) -> Result<(), Error> {
         println!("\t:jobs running now:");
 
         for job in batch.running_jobs {
-
             let runtime = HourMinuteSecond::from(job.duration);
 
-            println!(
-                "\t\t{} ({}): {runtime}",
-                job.job_name, job.node_meta
-            );
+            println!("\t\t{} ({}): {runtime}", job.job_name, job.node_meta);
         }
     }
 
@@ -67,7 +63,7 @@ impl From<Duration> for HourMinuteSecond {
         Self {
             hours,
             minutes,
-            seconds
+            seconds,
         }
     }
 }
@@ -102,7 +98,11 @@ mod tests {
         let total_seconds = seconds + (60 * (minutes + (60 * hours)));
         let duration = Duration::from_secs(total_seconds);
 
-        let expected = HourMinuteSecond { hours, minutes, seconds };
+        let expected = HourMinuteSecond {
+            hours,
+            minutes,
+            seconds,
+        };
         let actual = HourMinuteSecond::from(duration);
 
         assert_eq!(expected, actual);
@@ -117,7 +117,11 @@ mod tests {
         let total_seconds = seconds + (60 * (minutes + (60 * hours)));
         let duration = Duration::from_secs(total_seconds);
 
-        let expected = HourMinuteSecond { hours, minutes, seconds };
+        let expected = HourMinuteSecond {
+            hours,
+            minutes,
+            seconds,
+        };
         let actual = HourMinuteSecond::from(duration);
 
         assert_eq!(expected, actual);
@@ -132,7 +136,11 @@ mod tests {
         let total_seconds = seconds + (60 * (minutes + (60 * hours)));
         let duration = Duration::from_secs(total_seconds);
 
-        let expected = HourMinuteSecond { hours, minutes, seconds };
+        let expected = HourMinuteSecond {
+            hours,
+            minutes,
+            seconds,
+        };
         let actual = HourMinuteSecond::from(duration);
 
         assert_eq!(expected, actual);
@@ -147,7 +155,11 @@ mod tests {
         let total_seconds = seconds + (60 * (minutes + (60 * hours)));
         let duration = Duration::from_secs(total_seconds);
 
-        let expected = HourMinuteSecond { hours, minutes, seconds };
+        let expected = HourMinuteSecond {
+            hours,
+            minutes,
+            seconds,
+        };
         let actual = HourMinuteSecond::from(duration);
 
         assert_eq!(expected, actual);
@@ -162,7 +174,11 @@ mod tests {
         let total_seconds = seconds + (60 * (minutes + (60 * hours)));
         let duration = Duration::from_secs(total_seconds);
 
-        let expected = HourMinuteSecond { hours, minutes, seconds };
+        let expected = HourMinuteSecond {
+            hours,
+            minutes,
+            seconds,
+        };
         let actual = HourMinuteSecond::from(duration);
 
         assert_eq!(expected, actual);

@@ -195,10 +195,7 @@ impl Machine<Executing, ClientExecutingState> {
             cancel_addr,
         };
 
-        ClientSendFilesState {
-            conn,
-            extra
-        }
+        ClientSendFilesState { conn, extra }
     }
 
     async fn into_prepare_build_state(self) -> super::prepare_build::ClientPrepareBuildState {
@@ -238,8 +235,10 @@ impl Machine<Executing, ServerExecutingState> {
         // the handler to the job scheduler that we can use
         // to notify if any issues arise
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
-    ) -> Result<Either<super::PrepareBuildServer, super::SendFilesServer<send_files::ReceiverFinalStore>>, (Self, ServerError)>
-    {
+    ) -> Result<
+        Either<super::PrepareBuildServer, super::SendFilesServer<send_files::ReceiverFinalStore>>,
+        (Self, ServerError),
+    > {
         let mut cancelled = false;
 
         let job_identifier = self.state.job_identifier();
@@ -394,7 +393,7 @@ impl Machine<Executing, ServerExecutingState> {
         ServerSendFilesState {
             conn,
             save_location,
-            extra
+            extra,
         }
     }
 

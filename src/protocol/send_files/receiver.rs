@@ -1,24 +1,24 @@
 use super::Machine;
 use crate::prelude::*;
+use crate::server::pool_data::NodeMetadata;
 use client::utils;
 use tokio::io::AsyncWriteExt;
-use crate::server::pool_data::NodeMetadata;
 
 use super::super::built::{self, Built, ClientBuiltState, ServerBuiltState};
-use super::super::uninit::{self, Uninit, ClientUninitState};
+use super::super::uninit::{self, ClientUninitState, Uninit};
 use super::super::UninitServer;
-use super::{SendFiles, ClientMsg, ServerMsg, ServerError, LARGE_FILE_BYTE_THRESHOLD};
 use super::NextState;
+use super::{ClientMsg, SendFiles, ServerError, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};
 
 // in the job execution process, this is the server
 pub(crate) struct ReceiverState<T> {
     pub(crate) conn: transport::Connection<ServerMsg>,
     /// where the results of the job should be stored
     pub(crate) save_location: PathBuf,
-    pub(crate) extra: T
+    pub(crate) extra: T,
 }
 
-/// additional state used when performing file transfer 
+/// additional state used when performing file transfer
 pub(crate) struct ReceiverFinalStore {
     pub(crate) job_name: String,
     pub(crate) task_info: server::pool_data::RunTaskInfo,
@@ -65,16 +65,10 @@ impl NextState for ReceiverState<ReceiverFinalStore> {
             self.extra.node_meta()
         );
 
-        let ReceiverState {
-            conn,
-            extra,
-            ..
-        } = self;
+        let ReceiverState { conn, extra, .. } = self;
 
         let ReceiverFinalStore {
-            common,
-            task_info,
-            ..
+            common, task_info, ..
         } = extra;
 
         let namespace = task_info.namespace;
@@ -100,12 +94,12 @@ impl NextState for ReceiverState<ReceiverFinalStore> {
     }
 }
 
-impl <T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>> 
-   where T: SendLogging,
-         ReceiverState<T> : NextState<Next = NEXT, Marker=MARKER>,
-         MARKER: Default
+impl<T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>>
+where
+    T: SendLogging,
+    ReceiverState<T>: NextState<Next = NEXT, Marker = MARKER>,
+    MARKER: Default,
 {
-
     /// listen for the compute node to send us all the files that are in the ./distribute_save
     /// directory after the job has been completed
     #[instrument(
@@ -224,11 +218,13 @@ impl <T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>>
                     {
                         error!(
                             "scheduler is down - cannot transmit that job {} has finished on {}",
-                            self.state.extra.job_name(), self.state.extra.node_meta()
+                            self.state.extra.job_name(),
+                            self.state.extra.node_meta()
                         );
                         panic!(
                             "scheduler is down - cannot transmit that job {} has finished on {}",
-                            self.state.extra.job_name(), self.state.extra.node_meta()
+                            self.state.extra.job_name(),
+                            self.state.extra.node_meta()
                         );
                     }
 
@@ -249,18 +245,12 @@ impl <T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>>
     }
 }
 
-impl  Machine<SendFiles, ReceiverState<ReceiverFinalStore>> {
+impl Machine<SendFiles, ReceiverState<ReceiverFinalStore>> {
     pub(crate) fn into_uninit(self) -> (UninitServer, server::pool_data::RunTaskInfo) {
-        let ReceiverState {
-            conn,
-            extra,
-            ..
-        } = self.state;
+        let ReceiverState { conn, extra, .. } = self.state;
 
         let ReceiverFinalStore {
-            common,
-            task_info,
-            ..
+            common, task_info, ..
         } = extra;
 
         let conn = conn.update_state();

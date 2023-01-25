@@ -109,7 +109,7 @@ async fn check_deallocate_jobs() {
     dbg!(&jobs);
     dbg!(&jobs.len());
 
-    // in the vector of all the job sets added (1 at most in length), 
+    // in the vector of all the job sets added (1 at most in length),
     // we should have no jobs set information remaining because all the jobs
     // were deallocated
     assert_eq!(jobs.len(), 0);

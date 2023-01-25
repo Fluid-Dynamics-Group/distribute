@@ -84,11 +84,16 @@ pub(crate) struct FileMetadata {
 
 impl FileMetadata {
     pub(crate) fn into_send_file(self) -> Result<transport::SendFile, error::ReadBytes> {
-        let Self { absolute_file_path, is_file,  relative_file_path } = self;
+        let Self {
+            absolute_file_path,
+            is_file,
+            relative_file_path,
+        } = self;
 
         // if its a file read the bytes, otherwise skip it
         let bytes = if is_file {
-            std::fs::read(&absolute_file_path).map_err(|e| error::ReadBytes::new(e, absolute_file_path.to_owned()))?
+            std::fs::read(&absolute_file_path)
+                .map_err(|e| error::ReadBytes::new(e, absolute_file_path.to_owned()))?
         } else {
             vec![]
         };

@@ -1,16 +1,16 @@
-mod sender;
 mod receiver;
+mod sender;
 
 use super::Machine;
 use crate::prelude::*;
+use crate::server::pool_data::NodeMetadata;
 use client::utils;
 use tokio::io::AsyncWriteExt;
-use crate::server::pool_data::NodeMetadata;
 
 use super::built::{Built, ClientBuiltState, ServerBuiltState};
 
-pub(crate) use receiver::{ReceiverState, ReceiverFinalStore};
-pub(crate) use sender::{SenderState, SenderFinalStore};
+pub(crate) use receiver::{ReceiverFinalStore, ReceiverState};
+pub(crate) use sender::{SenderFinalStore, SenderState};
 
 #[cfg(not(test))]
 const LARGE_FILE_BYTE_THRESHOLD: u64 = 10u64.pow(9);
@@ -47,7 +47,6 @@ impl From<(PathBuf, std::io::Error)> for ServerError {
         Self::from(err)
     }
 }
-
 
 #[derive(Serialize, Deserialize, Unwrap)]
 #[allow(clippy::enum_variant_names)]

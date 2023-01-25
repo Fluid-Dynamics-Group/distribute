@@ -1,19 +1,19 @@
 use super::Machine;
 use crate::prelude::*;
+use crate::server::pool_data::NodeMetadata;
 use client::utils;
 use tokio::io::AsyncWriteExt;
-use crate::server::pool_data::NodeMetadata;
 
 use super::super::built::{Built, ClientBuiltState};
-use super::super::uninit::{Uninit, ClientUninitState};
+use super::super::uninit::{ClientUninitState, Uninit};
 use super::super::UninitClient;
-use super::{SendFiles, ClientMsg, ServerMsg, ClientError, LARGE_FILE_BYTE_THRESHOLD, NextState};
+use super::{ClientError, ClientMsg, NextState, SendFiles, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};
 use crate::client::execute::FileMetadata;
 
 // in the job execution process, this is the client
 pub(crate) struct SenderState<T> {
     pub(crate) conn: transport::Connection<ClientMsg>,
-    pub(crate) extra: T
+    pub(crate) extra: T,
 }
 
 pub(crate) trait FileSender {
@@ -22,7 +22,7 @@ pub(crate) trait FileSender {
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send>;
 }
 
-/// additional state used when performing file transfer 
+/// additional state used when performing file transfer
 pub(crate) struct SenderFinalStore {
     pub(crate) job_name: String,
     pub(crate) folder_state: client::BindingFolderState,
@@ -37,7 +37,7 @@ impl FileSender for SenderFinalStore {
     fn job_name(&self) -> &str {
         &self.job_name
     }
-    fn files_to_send(&self) ->  Box<dyn Iterator<Item = FileMetadata> + Send> {
+    fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
         let folder_files_to_send = self.working_dir.join("distribute_save");
         let files = utils::read_folder_files(&folder_files_to_send);
         Box::new(files.into_iter().skip(1))
@@ -50,11 +50,7 @@ impl NextState for SenderState<SenderFinalStore> {
 
     fn next_state(self) -> Self::Next {
         info!("moving client send files -> built");
-        let SenderState {
-            conn,
-            extra,
-            ..
-        } = self;
+        let SenderState { conn, extra, .. } = self;
 
         let SenderFinalStore {
             working_dir,
@@ -80,19 +76,18 @@ impl NextState for SenderState<SenderFinalStore> {
     }
 }
 
-impl <T, NEXT, MARKER> Machine<SendFiles, SenderState<T>>
-where T: FileSender,
-      SenderState<T> : NextState<Marker = MARKER, Next = NEXT>,
-      MARKER: Default
+impl<T, NEXT, MARKER> Machine<SendFiles, SenderState<T>>
+where
+    T: FileSender,
+    SenderState<T>: NextState<Marker = MARKER, Next = NEXT>,
+    MARKER: Default,
 {
     /// read and send all files in the ./distribute_save folder that the job has left
     ///
     /// if there is an error reading a file, that file will be logged but not sent. The
     /// only possible error from this function is if the TCP connection is cut.
     #[instrument(skip(self), fields(job_name=self.state.extra.job_name()))]
-    pub(crate) async fn send_files(
-        mut self,
-    ) -> Result<Machine<MARKER, NEXT>, (Self, ClientError)> {
+    pub(crate) async fn send_files(mut self) -> Result<Machine<MARKER, NEXT>, (Self, ClientError)> {
         let job_name = self.state.extra.job_name();
         let files_to_send = self.state.extra.files_to_send();
 
@@ -105,15 +100,16 @@ where T: FileSender,
                 metadata.relative_file_path.display(),
             );
 
-            let fs_meta = if let Ok(fs_meta) = tokio::fs::metadata(&metadata.absolute_file_path).await {
-                fs_meta
-            } else {
-                error!(
-                    "could not read metadata for {} - skipping",
-                    metadata.absolute_file_path.display()
-                );
-                continue;
-            };
+            let fs_meta =
+                if let Ok(fs_meta) = tokio::fs::metadata(&metadata.absolute_file_path).await {
+                    fs_meta
+                } else {
+                    error!(
+                        "could not read metadata for {} - skipping",
+                        metadata.absolute_file_path.display()
+                    );
+                    continue;
+                };
 
             //
             // check if this file is very large
@@ -125,7 +121,8 @@ where T: FileSender,
                 let path = metadata.absolute_file_path.clone();
 
                 // strip out the useless prefixes to the path so it saves nicely on the other side
-                let file = ClientMsg::FileMarker(transport::FileMarker::new(metadata.relative_file_path));
+                let file =
+                    ClientMsg::FileMarker(transport::FileMarker::new(metadata.relative_file_path));
                 throw_error_with_self!(self.state.conn.transport_data(&file).await, self);
 
                 let msg = throw_error_with_self!(self.state.conn.receive_data().await, self);
@@ -194,15 +191,9 @@ where T: FileSender,
     }
 }
 
-impl Machine<SendFiles, SenderState<SenderFinalStore>>
-where
-{
+impl Machine<SendFiles, SenderState<SenderFinalStore>> {
     pub(crate) fn into_uninit(self) -> UninitClient {
-        let SenderState {
-            conn,
-            extra,
-            ..
-        } = self.state;
+        let SenderState { conn, extra, .. } = self.state;
 
         let SenderFinalStore {
             working_dir,
