@@ -78,11 +78,11 @@ pub(crate) struct FlatFileList {
 }
 
 impl NextState for SenderState<FlatFileList> {
-    type Next = ();
+    type Next = transport::Connection<ClientMsg>;
     type Marker = ();
 
     fn next_state(self) -> Self::Next {
-        ()
+        self.conn
     }
 }
 

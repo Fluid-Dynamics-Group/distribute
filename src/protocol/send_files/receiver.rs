@@ -94,12 +94,12 @@ impl NextState for ReceiverState<ReceiverFinalStore> {
     }
 }
 
-struct Nothing {
+pub(crate) struct Nothing {
     node_meta: NodeMetadata
 }
 
 impl Nothing {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let node_meta = NodeMetadata::new("USER".into(), ([0,0,0,0],0).into());
         Self {node_meta}
     }
@@ -107,11 +107,11 @@ impl Nothing {
 
 
 impl NextState for ReceiverState<Nothing> {
-    type Next = ();
+    type Next = transport::Connection<ServerMsg>;
     type Marker = ();
 
     fn next_state(self) -> Self::Next {
-        ()
+        self.conn
     }
 }
 

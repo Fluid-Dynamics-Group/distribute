@@ -66,8 +66,9 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     let req_clone = request_job.clone();
     let caps_clone = node_caps.clone();
     let save_path = server.save_path.clone();
+    let job_input_file_dir = server.temp_dir.clone();
     tokio::spawn(async move {
-        user_conn::handle_user_requests(port, req_clone, caps_clone, save_path).await;
+        user_conn::handle_user_requests(port, req_clone, caps_clone, save_path, job_input_file_dir).await;
     });
 
     //

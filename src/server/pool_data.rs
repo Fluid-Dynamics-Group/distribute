@@ -17,7 +17,7 @@ pub(crate) enum JobRequest {
     /// a client failed a keepalive check while it was
     /// executing
     DeadNode(RunTaskInfo),
-    AddJobSet(storage::OwnedJobSet),
+    AddJobSet(config::Jobs),
     QueryRemainingJobs(RemainingJobsQuery),
     CancelBatchByName(CancelBatchQuery),
     MarkBuildFailure(MarkBuildFailure),

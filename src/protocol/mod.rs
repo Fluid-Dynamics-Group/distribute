@@ -91,11 +91,26 @@ impl<StateMarker, State> Machine<StateMarker, State>
 where
     StateMarker: Default,
 {
-    fn from_state(state: State) -> Self {
+    pub(crate) fn from_state(state: State) -> Self {
         Self {
             state,
             _marker: StateMarker::default(),
         }
+    }
+}
+
+impl<StateMarker, T> Machine<StateMarker, transport::Connection<T>>
+where
+{
+    pub(crate) fn into_inner(self) -> transport::Connection<T>{
+        self.state
+    }
+}
+
+impl<T> SendFilesServer<T>
+{
+    pub(crate) fn into_connection(self) -> transport::Connection<send_files::ServerMsg>{
+        self.state.conn
     }
 }
 

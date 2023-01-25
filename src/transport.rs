@@ -124,6 +124,8 @@ pub enum ServerResponseToUser {
     FileMarker(FileMarker),
     #[display(fmt = "Finished sending all files")]
     FinishFiles,
+    #[display(fmt = "Continue sending init / job files")]
+    Continue
 }
 
 #[derive(Serialize, Debug, Clone, Deserialize, Display, Constructor)]
