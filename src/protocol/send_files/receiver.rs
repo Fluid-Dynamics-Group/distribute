@@ -94,6 +94,49 @@ impl NextState for ReceiverState<ReceiverFinalStore> {
     }
 }
 
+struct Nothing {
+    node_meta: NodeMetadata
+}
+
+impl Nothing {
+    fn new() -> Self {
+        let node_meta = NodeMetadata::new("USER".into(), ([0,0,0,0],0).into());
+        Self {node_meta}
+    }
+}
+
+
+impl NextState for ReceiverState<Nothing> {
+    type Next = ();
+    type Marker = ();
+
+    fn next_state(self) -> Self::Next {
+        ()
+    }
+}
+
+impl SendLogging for Nothing {
+    fn job_identifier(&self) -> JobSetIdentifier {
+        JobSetIdentifier::none()
+    }
+
+    fn namespace(&self) -> &str {
+        "USER"
+    }
+
+    fn batch_name(&self) -> &str {
+        "USER"
+    }
+
+    fn job_name(&self) -> &str {
+        "USER"
+    }
+
+    fn node_meta(&self) -> &NodeMetadata {
+        &self.node_meta
+    }
+}
+
 impl<T, NEXT, MARKER> Machine<SendFiles, ReceiverState<T>>
 where
     T: SendLogging,

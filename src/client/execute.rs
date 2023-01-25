@@ -76,6 +76,7 @@ pub(crate) struct BindedFolder {
     pub(crate) container_path: PathBuf,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct FileMetadata {
     pub absolute_file_path: PathBuf,
     pub relative_file_path: PathBuf,

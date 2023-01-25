@@ -17,7 +17,6 @@ pub(crate) struct SenderState<T> {
 }
 
 pub(crate) trait FileSender {
-    fn folder_to_send(&self) -> PathBuf;
     fn job_name(&self) -> &str;
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send>;
 }
@@ -31,9 +30,6 @@ pub(crate) struct SenderFinalStore {
 }
 
 impl FileSender for SenderFinalStore {
-    fn folder_to_send(&self) -> PathBuf {
-        self.working_dir.join("distribute_save")
-    }
     fn job_name(&self) -> &str {
         &self.job_name
     }
@@ -73,6 +69,29 @@ impl NextState for SenderState<SenderFinalStore> {
             folder_state,
             cancel_addr,
         }
+    }
+}
+
+/// additional state used when performing file transfer
+pub(crate) struct FlatFileList {
+    pub(crate) files: Vec<FileMetadata>,
+}
+
+impl NextState for SenderState<FlatFileList> {
+    type Next = ();
+    type Marker = ();
+
+    fn next_state(self) -> Self::Next {
+        ()
+    }
+}
+
+impl FileSender for FlatFileList {
+    fn job_name(&self) -> &str {
+        "user_file_send"
+    }
+    fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
+        Box::new(self.files.clone().into_iter())
     }
 }
 
@@ -158,7 +177,7 @@ where
             else {
                 // .into_send_file() will take care of stripping the correct path prefixes for us
                 match metadata.into_send_file() {
-                    Ok(mut send_file) => {
+                    Ok(send_file) => {
                         let msg = ClientMsg::SaveFile(send_file);
                         let tmp = self.state.conn.transport_data(&msg).await;
                         throw_error_with_self!(tmp, self);

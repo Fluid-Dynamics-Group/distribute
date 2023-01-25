@@ -15,7 +15,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     check_has_duplicates(&jobs.job_names())?;
 
     debug!("loading job information from files");
-    let loaded_jobs = jobs.load_jobs().await.map_err(error::ServerError::from)?;
+    let loaded_jobs = jobs.jobset_files().await.map_err(error::ServerError::from)?;
 
     debug!("loading build information from files");
     let loaded_build = jobs.load_build().await.map_err(error::ServerError::from)?;
@@ -71,19 +71,16 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     // construct the job set and send it off
     //
 
-    let job_set = server::OwnedJobSet::new(
-        loaded_build,
-        jobs.capabilities().clone(),
-        loaded_jobs,
-        jobs.batch_name(),
-        jobs.matrix_user(),
-        jobs.namespace(),
-    );
-
     if !args.dry {
         debug!("sending job set to server");
-        conn.transport_data(&transport::UserMessageToServer::AddJobSet(job_set))
+        conn.transport_data(&transport::UserMessageToServer::AddJobSet(jobs))
             .await?;
+
+        // need to overhaul this with a receive notification from the server,
+        // followed by sending init files,
+        // then another notification from the server
+        // followed by sending the job files
+        todo!();
 
         match conn.receive_data().await {
             Ok(transport::ServerResponseToUser::JobSetAdded) => (),

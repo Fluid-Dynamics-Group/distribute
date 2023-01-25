@@ -11,6 +11,9 @@ use super::common::load_from_file;
 use super::common::File;
 
 #[cfg(feature = "cli")]
+use crate::client::execute::FileMetadata;
+
+#[cfg(feature = "cli")]
 use crate::transport;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
@@ -27,38 +30,47 @@ impl Description {
         self.jobs.len()
     }
 
-    pub(crate) async fn load_jobs(&self) -> Result<Vec<transport::ApptainerJob>, LoadJobsError> {
-        let mut out = Vec::with_capacity(self.jobs.len());
+    pub(crate) async fn jobset_files(&self) -> Result<Vec<FileMetadata>, LoadJobsError> {
+        todo!()
+        //let mut out = Vec::with_capacity(self.jobs.len());
 
-        for job in &self.jobs {
-            let job_files = load_from_file(&job.required_files).await?;
+        //for job in &self.jobs {
+        //    for file in required_files {
+        //        let job = transport::ApptainerJob {
+        //            job_name: job.name.clone(),
+        //            job_files,
+        //        };
 
-            let job = transport::ApptainerJob {
-                job_name: job.name.clone(),
-                job_files,
-            };
-            out.push(job)
-        }
+        //        let file = FileMetadata {
+        //            is_file: true,
+        //            absolute_file_path: 
+        //            relative_file_path: 
+        //        };
 
-        Ok(out)
+        //        out.push(job)
+        //    }
+        //}
+
+        //Ok(out)
     }
 
     pub(crate) async fn load_build(
         &self,
         batch_name: String,
-    ) -> Result<transport::ApptainerJobInit, LoadJobsError> {
-        let sif_bytes = tokio::fs::read(&self.initialize.sif)
-            .await
-            .map_err(|e| ReadBytesError::new(e, self.initialize.sif.clone()))?;
+    ) -> Result<Vec<FileMetadata>, LoadJobsError> {
+        todo!()
+        //let sif_bytes = tokio::fs::read(&self.initialize.sif)
+        //    .await
+        //    .map_err(|e| ReadBytesError::new(e, self.initialize.sif.clone()))?;
 
-        let build_files = load_from_file(&self.initialize.required_files).await?;
+        //let build_files = load_from_file(&self.initialize.required_files).await?;
 
-        Ok(transport::ApptainerJobInit {
-            sif_bytes,
-            batch_name,
-            build_files,
-            container_bind_paths: self.initialize.required_mounts.clone(),
-        })
+        //Ok(transport::ApptainerJobInit {
+        //    sif_bytes,
+        //    batch_name,
+        //    build_files,
+        //    container_bind_paths: self.initialize.required_mounts.clone(),
+        //})
     }
 }
 

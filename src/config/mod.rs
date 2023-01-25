@@ -6,6 +6,9 @@ pub mod requirements;
 #[cfg(feature = "cli")]
 use crate::transport;
 
+#[cfg(feature = "cli")]
+use crate::client::execute::FileMetadata;
+
 use derive_more::{Constructor, Display, From, Unwrap};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -182,34 +185,29 @@ impl Jobs {
             Self::Apptainer(apptainer_config) => apptainer_config.description.len_jobs(),
         }
     }
-    pub async fn load_jobs(&self) -> Result<JobOpts, LoadJobsError> {
+    pub async fn jobset_files(&self) -> Result<Vec<FileMetadata>, LoadJobsError> {
         match &self {
             Self::Python(pyconfig) => {
-                let py_jobs = pyconfig.description.load_jobs().await?;
-                Ok(py_jobs.into())
+                pyconfig.description.jobset_files().await
             }
             Self::Apptainer(apptainer_config) => {
-                let sin_jobs = apptainer_config.description.load_jobs().await?;
-                Ok(sin_jobs.into())
+                apptainer_config.description.jobset_files().await
             }
         }
     }
 
-    pub async fn load_build(&self) -> Result<transport::BuildOpts, LoadJobsError> {
+    pub async fn load_build(&self) -> Result<Vec<FileMetadata>, LoadJobsError> {
         match &self {
             Self::Python(pyconfig) => {
-                let py_build = pyconfig
+                pyconfig
                     .description
-                    .load_build(pyconfig.meta.batch_name.clone())
-                    .await?;
-                Ok(py_build.into())
+                    .load_build(pyconfig.meta.batch_name.clone()).await
             }
             Self::Apptainer(apptainer_config) => {
-                let sin_build = apptainer_config
+                apptainer_config
                     .description
                     .load_build(apptainer_config.meta.batch_name.clone())
-                    .await?;
-                Ok(sin_build.into())
+                    .await
             }
         }
     }

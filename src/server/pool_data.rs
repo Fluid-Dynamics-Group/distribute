@@ -148,7 +148,7 @@ pub(crate) enum JobOrInit {
     JobInit(transport::BuildOpts),
 }
 
-#[derive(Display, Clone, Debug, Serialize, Deserialize)]
+#[derive(Display, Clone, Debug, Serialize, Deserialize, Constructor)]
 #[display(fmt = "{node_name} : {node_address}")]
 /// information about the compute node that is stored on the scheduling server.
 ///

@@ -15,6 +15,9 @@ use std::path::PathBuf;
 use super::common::load_from_file;
 use super::common::File;
 
+#[cfg(feature = "cli")]
+use crate::client::execute::FileMetadata;
+
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
 pub struct Description {
@@ -28,47 +31,49 @@ impl Description {
         self.jobs.len()
     }
 
-    pub(crate) async fn load_jobs(&self) -> Result<Vec<transport::PythonJob>, LoadJobsError> {
-        let mut out = Vec::with_capacity(self.jobs.len());
+    pub(crate) async fn jobset_files(&self) -> Result<Vec<FileMetadata>, LoadJobsError> {
+        todo!()
+        //let mut out = Vec::with_capacity(self.jobs.len());
 
-        for job in &self.jobs {
-            let bytes = tokio::fs::read(&job.python_job_file).await.map_err(|e| {
-                LoadJobsError::from(ReadBytesError::new(e, job.python_job_file.clone()))
-            })?;
+        //for job in &self.jobs {
+        //    let bytes = tokio::fs::read(&job.python_job_file).await.map_err(|e| {
+        //        LoadJobsError::from(ReadBytesError::new(e, job.python_job_file.clone()))
+        //    })?;
 
-            let job_files = load_from_file(&job.required_files).await?;
+        //    let job_files = load_from_file(&job.required_files).await?;
 
-            let job = transport::PythonJob {
-                python_file: bytes,
-                job_name: job.name.clone(),
-                job_files,
-            };
-            out.push(job)
-        }
+        //    let job = transport::PythonJob {
+        //        python_file: bytes,
+        //        job_name: job.name.clone(),
+        //        job_files,
+        //    };
+        //    out.push(job)
+        //}
 
-        Ok(out)
+        //Ok(out)
     }
 
     pub(crate) async fn load_build(
         &self,
         batch_name: String,
-    ) -> Result<transport::PythonJobInit, LoadJobsError> {
-        let bytes = tokio::fs::read(&self.initialize.python_build_file_path)
-            .await
-            .map_err(|e| ReadBytesError::new(e, self.initialize.python_build_file_path.clone()))?;
+    ) -> Result<Vec<FileMetadata>, LoadJobsError> {
+        todo!()
+        //let bytes = tokio::fs::read(&self.initialize.python_build_file_path)
+        //    .await
+        //    .map_err(|e| ReadBytesError::new(e, self.initialize.python_build_file_path.clone()))?;
 
-        let additional_build_files = load_from_file(&self.initialize.required_files).await?;
+        //let additional_build_files = load_from_file(&self.initialize.required_files).await?;
 
-        debug!(
-            "number of initial files included: {}",
-            additional_build_files.len()
-        );
+        //debug!(
+        //    "number of initial files included: {}",
+        //    additional_build_files.len()
+        //);
 
-        Ok(transport::PythonJobInit {
-            batch_name,
-            python_setup_file: bytes,
-            additional_build_files,
-        })
+        //Ok(transport::PythonJobInit {
+        //    batch_name,
+        //    python_setup_file: bytes,
+        //    additional_build_files,
+        //})
     }
 }
 
