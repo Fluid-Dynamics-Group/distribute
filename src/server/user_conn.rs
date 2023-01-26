@@ -127,27 +127,7 @@ async fn add_job_set(
     let (mut tx, rx) = mpsc::channel(5);
 
     //
-    // first, receive the initialization files
-    //
-
-    let extra = protocol::send_files::Nothing::new();
-    let state = protocol::send_files::ReceiverState {
-        conn,
-        save_location: distribute_file_save_location.to_path_buf(),
-        extra
-    };
-
-    let machine = protocol::Machine::from_state(state);
-    let conn = match machine.receive_files(&mut tx).await {
-        Ok(conn) => conn.into_inner(),
-        Err((machine, e)) => {
-            error!("error receiving a file from the user when adding a job set: {}", e);
-            return machine.into_connection().update_state();
-        }
-    };
-
-    //
-    // then, get the second round of files from the user
+    // receive all the files from the user
     //
 
     let extra = protocol::send_files::Nothing::new();

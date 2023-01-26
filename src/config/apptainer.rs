@@ -16,11 +16,15 @@ use crate::client::execute::FileMetadata;
 #[cfg(feature = "cli")]
 use crate::transport;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+use getset::{Getters, Setters, MutGetters};
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Description {
+    #[getset(get = "pub(crate)")]
     pub initialize: Initialize,
+    #[getset(get = "pub(crate)")]
     pub jobs: Vec<Job>,
 }
 
@@ -96,26 +100,22 @@ impl NormalizePaths for Description {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Initialize {
-    sif: PathBuf,
+    pub sif: PathBuf,
     #[serde(default)]
-    required_files: Vec<File>,
+    pub required_files: Vec<File>,
     /// paths in the folder that need to have mount points to
     /// the host file system
     #[serde(default)]
-    required_mounts: Vec<PathBuf>,
+    pub required_mounts: Vec<PathBuf>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Job {
+    #[getset(get = "pub(crate)")]
     name: String,
     #[serde(default)]
-    required_files: Vec<File>,
-}
-
-impl Job {
-    pub(crate) fn name(&self) -> &str {
-        &self.name
-    }
+    #[getset(get = "pub(crate)")]
+    pub required_files: Vec<File>,
 }

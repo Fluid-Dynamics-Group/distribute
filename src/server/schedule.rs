@@ -20,7 +20,7 @@ pub(crate) trait Schedule {
         node_meta: NodeMetadata,
     ) -> JobResponse;
 
-    fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError>;
+    fn insert_new_batch(&mut self, jobs: config::Jobs) -> Result<(), ScheduleError>;
 
     fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobSetIdentifier);
 
@@ -188,7 +188,7 @@ impl Schedule for GpuPriority {
         }
     }
 
-    fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError> {
+    fn insert_new_batch(&mut self, jobs: config::Jobs) -> Result<(), ScheduleError> {
         let jobs = JobSet::from_owned(jobs, &self.base_path).map_err(error::StoreSet::from)?;
 
         self.last_identifier += 1;
@@ -456,29 +456,28 @@ impl JobSet {
     }
 
     pub(crate) fn from_owned(
-        owned: storage::OwnedJobSet,
+        config: config::Jobs,
         base_path: &Path,
     ) -> Result<Self, std::io::Error> {
-        let storage::OwnedJobSet {
-            build,
-            requirements,
-            remaining_jobs,
-            batch_name,
-            matrix_user,
-            namespace,
-        } = owned;
+        let namespace = config.namespace();
+        let batch_name = config.batch_name();
+        let requirements = config.capabilities().clone();
+        let matrix_user = config.matrix_user();
 
-        let build = StoredJobInit::from_opt(build, base_path)?;
-        let remaining_jobs = match remaining_jobs {
-            config::JobOpts::Python(python_jobs) => {
+        let build = StoredJobInit::from_opt(&config, base_path)?;
+
+        let remaining_jobs = match config {
+            config::Jobs::Python(python) => {
                 let mut out = vec![];
+
                 for job in python_jobs {
                     let stored_job = StoredJob::from_python(job, base_path)?;
                     out.push(stored_job);
                 }
+
                 out
             }
-            config::JobOpts::Apptainer(python_jobs) => {
+            config::Jobs::Apptainer(apptainer) => {
                 let mut out = vec![];
                 for job in python_jobs {
                     let stored_job = StoredJob::from_apptainer(job, base_path)?;

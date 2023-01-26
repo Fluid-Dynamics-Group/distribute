@@ -53,7 +53,7 @@ where
                     }
                     // the server got a request to add a new job set
                     JobRequest::AddJobSet(set) => {
-                        info!("added new job set `{}` to scheduler", set.batch_name);
+                        info!("added new job set `{}` to scheduler", set.batch_name());
                         if let Err(e) = self.remaining_jobs.insert_new_batch(set) {
                             error!("failed to insert now job set: {}", e);
                         }

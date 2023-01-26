@@ -100,27 +100,26 @@ impl NormalizePaths for Description {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
 pub struct Initialize {
     #[serde(rename = "build_file")]
+    #[getset(get = "pub(crate)")]
     pub python_build_file_path: PathBuf,
     #[serde(default)]
+    #[getset(get = "pub(crate)")]
     required_files: Vec<File>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
 pub struct Job {
+    #[getset(get = "pub(crate)")]
     name: String,
     #[serde(rename = "file")]
+    #[getset(get = "pub(crate)")]
     python_job_file: PathBuf,
     #[serde(default)]
+    #[getset(get = "pub(crate)")]
     required_files: Vec<File>,
-}
-
-impl Job {
-    pub(crate) fn name(&self) -> &str {
-        &self.name
-    }
 }

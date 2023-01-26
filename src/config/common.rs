@@ -10,12 +10,12 @@ use std::path::PathBuf;
 #[cfg(feature = "cli")]
 use crate::transport;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, getset::Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
-//#[cfg_attr(feature = "python", derive(pyo3::FromPyObject))]
 pub struct File {
     // the path to the file locally
+    #[getset(get = "pub(crate)")]
     path: PathBuf,
     // the save name of the file in the root
     // directory once it has been transported to the client
@@ -65,10 +65,6 @@ impl File {
         Self { path, alias: None }
     }
 
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
     pub fn alias(&self) -> Option<&String> {
         self.alias.as_ref()
     }
@@ -88,6 +84,15 @@ impl File {
 
     pub(crate) fn normalize_paths(&mut self, base_path: PathBuf) {
         self.path = normalize_pathbuf(self.path.clone(), base_path);
+    }
+
+    pub(crate) fn hashed_file(&mut self, hash: String) -> Result<(), LoadJobsError> {
+        let filename = self.filename()?;
+
+        self.alias = Some(filename);
+        self.path = PathBuf::from(hash);
+
+        Ok(())
     }
 }
 

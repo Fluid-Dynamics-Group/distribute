@@ -149,12 +149,13 @@ pub enum Jobs {
     Apptainer(ApptainerConfig),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters, getset::MutGetters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct ApptainerConfig {
     meta: Meta,
     #[serde(rename = "apptainer")]
+    #[getset(get = "pub(crate)", get_mut = "pub(crate)")]
     description: apptainer::Description,
 }
 
@@ -244,8 +245,8 @@ impl Jobs {
 
     pub fn job_names(&self) -> Vec<&str> {
         match self {
-            Self::Python(py) => py.description.jobs.iter().map(|job| job.name()).collect(),
-            Self::Apptainer(apt) => apt.description.jobs.iter().map(|job| job.name()).collect(),
+            Self::Python(py) => py.description.jobs.iter().map(|job| job.name().as_str()).collect(),
+            Self::Apptainer(apt) => apt.description.jobs.iter().map(|job| job.name().as_str()).collect(),
         }
     }
 }

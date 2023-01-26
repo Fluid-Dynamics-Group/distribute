@@ -178,46 +178,9 @@ pub(crate) enum StoredJobInit {
 
 impl StoredJobInit {
     pub(crate) fn from_python(
-        x: transport::PythonJobInit,
-        output_dir: &Path,
+        config: &config::PythonConfig,
     ) -> Result<Self, io::Error> {
-        // compute the hash
-        let mut sha = sha1::Sha1::new();
-        sha.update(&x.python_setup_file);
-        sha.update(x.batch_name.as_bytes());
-        for file in &x.additional_build_files {
-            sha.update(file.file_name.as_bytes());
-            sha.update(&file.file_bytes);
-        }
-
-        let hash = base16::encode_lower(&sha.finalize());
-
-        // write the python setup file
-
-        let python_setup_file_path = output_dir.join(format!("{hash}_py_setup.dist"));
-        std::fs::write(&python_setup_file_path, x.python_setup_file)?;
-
-        // write the required files
-        let mut required_files = vec![];
-
-        for (i, file) in x.additional_build_files.into_iter().enumerate() {
-            let path = output_dir.join(format!("{hash}_{i}_setup.distribute"));
-
-            std::fs::write(&path, file.file_bytes)?;
-
-            required_files.push(LazyFile {
-                file_name: file.file_name,
-                path,
-            });
-        }
-
-        let job = LazyPythonInit {
-            batch_name: x.batch_name,
-            python_setup_file_path,
-            required_files,
-        };
-
-        Ok(Self::Python(job))
+        let initialize = config.initialize;
     }
 
     pub(crate) fn from_apptainer(

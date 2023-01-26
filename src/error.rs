@@ -287,6 +287,8 @@ pub enum AddError {
     NoCompatableNodes,
     #[error("Could not add the job set on the server side. This is generally a really really bad error. You should tell brooks about this.")]
     FailedToAdd,
+    #[error("Failed to send jobs to the server")]
+    FailedSend,
     #[error("There were no actual jobs specified in the configuration file")]
     NoJobsToAdd,
     #[error("Duplicate job name `{0}` appeared in config file. Job names must be unique")]
