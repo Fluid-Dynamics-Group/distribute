@@ -18,10 +18,14 @@ use super::common::File;
 #[cfg(feature = "cli")]
 use crate::client::execute::FileMetadata;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+use getset::Getters;
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 pub struct Description {
+    #[getset(get = "pub(crate)")]
     pub initialize: Initialize,
+    #[getset(get = "pub(crate)")]
     pub jobs: Vec<Job>,
 }
 

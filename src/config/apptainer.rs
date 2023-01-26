@@ -16,7 +16,7 @@ use crate::client::execute::FileMetadata;
 #[cfg(feature = "cli")]
 use crate::transport;
 
-use getset::{Getters, Setters, MutGetters};
+use getset::{Getters, MutGetters, Setters};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
@@ -47,8 +47,8 @@ impl Description {
 
         //        let file = FileMetadata {
         //            is_file: true,
-        //            absolute_file_path: 
-        //            relative_file_path: 
+        //            absolute_file_path:
+        //            relative_file_path:
         //        };
 
         //        out.push(job)

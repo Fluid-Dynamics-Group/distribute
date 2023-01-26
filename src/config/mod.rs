@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
 
+use getset::Getters;
+
 macro_rules! const_port {
     ($NUMERIC:ident, $STR:ident, $value:expr) => {
         pub const $NUMERIC: u16 = $value;
@@ -149,30 +151,37 @@ pub enum Jobs {
     Apptainer(ApptainerConfig),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters, getset::MutGetters)]
+#[derive(
+    Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters, getset::MutGetters,
+)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct ApptainerConfig {
+    #[getset(get = "pub(crate)")]
     meta: Meta,
     #[serde(rename = "apptainer")]
     #[getset(get = "pub(crate)", get_mut = "pub(crate)")]
     description: apptainer::Description,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct PythonConfig {
+    #[getset(get = "pub(crate)")]
     meta: Meta,
     #[serde(rename = "python")]
+    #[getset(get = "pub(crate)")]
     description: python::Description,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Meta {
+    #[getset(get = "pub(crate)")]
     pub batch_name: String,
+    #[getset(get = "pub(crate)")]
     pub namespace: String,
     pub matrix: Option<matrix_notify::OwnedUserId>,
     pub capabilities: requirements::Requirements<requirements::JobRequiredCaps>,
@@ -188,12 +197,8 @@ impl Jobs {
     }
     pub async fn jobset_files(&self) -> Result<Vec<FileMetadata>, LoadJobsError> {
         match &self {
-            Self::Python(pyconfig) => {
-                pyconfig.description.jobset_files().await
-            }
-            Self::Apptainer(apptainer_config) => {
-                apptainer_config.description.jobset_files().await
-            }
+            Self::Python(pyconfig) => pyconfig.description.jobset_files().await,
+            Self::Apptainer(apptainer_config) => apptainer_config.description.jobset_files().await,
         }
     }
 
@@ -202,7 +207,8 @@ impl Jobs {
             Self::Python(pyconfig) => {
                 pyconfig
                     .description
-                    .load_build(pyconfig.meta.batch_name.clone()).await
+                    .load_build(pyconfig.meta.batch_name.clone())
+                    .await
             }
             Self::Apptainer(apptainer_config) => {
                 apptainer_config
@@ -245,8 +251,18 @@ impl Jobs {
 
     pub fn job_names(&self) -> Vec<&str> {
         match self {
-            Self::Python(py) => py.description.jobs.iter().map(|job| job.name().as_str()).collect(),
-            Self::Apptainer(apt) => apt.description.jobs.iter().map(|job| job.name().as_str()).collect(),
+            Self::Python(py) => py
+                .description
+                .jobs
+                .iter()
+                .map(|job| job.name().as_str())
+                .collect(),
+            Self::Apptainer(apt) => apt
+                .description
+                .jobs
+                .iter()
+                .map(|job| job.name().as_str())
+                .collect(),
         }
     }
 }

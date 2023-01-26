@@ -17,49 +17,22 @@ pub(crate) enum StoredJob {
 
 impl StoredJob {
     pub(crate) fn from_python(
-        x: transport::PythonJob,
-        output_dir: &Path,
+        job: &config::python::Job,
+        distribute_input_files_base_path: &Path,
     ) -> Result<Self, io::Error> {
-        let mut sha = sha1::Sha1::new();
-        sha.update(&x.python_file);
-        sha.update(x.job_name.as_bytes());
-        for file in &x.job_files {
-            sha.update(file.file_name.as_bytes());
-            sha.update(&file.file_bytes);
-        }
-
-        let hash: String = base16::encode_lower(&sha.finalize());
-
-        // write the python setup file
-
-        let python_setup_file_path = output_dir.join(format!("{}_py_job.dist", hash));
-
-        trace!(
-            "saving python lazy file to {}, current working directory is {}",
-            python_setup_file_path.display(),
-            std::env::current_dir().unwrap().display()
-        );
-
-        std::fs::write(&python_setup_file_path, x.python_file)?;
-
-        // write the required files
-        let mut required_files = vec![];
-
-        for (i, file) in x.job_files.into_iter().enumerate() {
-            let path = output_dir.join(format!("{}_{}_job.dist", hash, i));
-
-            trace!("saving python dependent file to {}", path.display());
-
-            std::fs::write(&path, file.file_bytes)?;
-
-            required_files.push(LazyFile {
-                file_name: file.file_name,
-                path,
-            });
-        }
+        let job_name = job.name().to_string();
+        let python_setup_file_path = job.python_job_file().to_owned();
+        let required_files = job.required_files().into_iter()
+            .map(|file| {
+                LazyFile {
+                    // alias will have been properly set on the `add`
+                    file_name: file.filename().unwrap(),
+                    path: distribute_input_files_base_path.join(file.path()),
+                }
+            }).collect();
 
         let job = LazyPythonJob {
-            job_name: x.job_name,
+            job_name,
             python_setup_file_path,
             required_files,
         };
@@ -68,47 +41,34 @@ impl StoredJob {
     }
 
     pub(crate) fn from_apptainer(
-        x: transport::ApptainerJob,
-        output_dir: &Path,
+        job: &config::apptainer::Job,
+        distribute_input_files_base_path: &Path,
     ) -> Result<Self, io::Error> {
-        // compute the hash
-        let mut sha = sha1::Sha1::new();
-        sha.update(x.job_name.as_bytes());
-        for file in &x.job_files {
-            sha.update(file.file_name.as_bytes());
-            sha.update(&file.file_bytes);
-        }
+        let job_name = job.name().to_string();
 
-        let hash = base16::encode_lower(&sha.finalize());
-
-        // write the required files
-        let mut required_files = vec![];
-
-        for (i, file) in x.job_files.into_iter().enumerate() {
-            let path = output_dir.join(format!("{}_{}_job.distribute", hash, i));
-
-            std::fs::write(&path, file.file_bytes)?;
-
-            required_files.push(LazyFile {
-                file_name: file.file_name,
-                path,
-            });
-        }
+        let required_files = job.required_files().into_iter()
+            .map(|file| {
+                LazyFile {
+                    // alias will have been properly set on the `add`
+                    file_name: file.filename().unwrap(),
+                    path: distribute_input_files_base_path.join(file.path()),
+                }
+            }).collect();
 
         let job = LazyApptainerJob {
-            job_name: x.job_name,
+            job_name,
             required_files,
         };
 
         Ok(Self::Apptainer(job))
     }
 
-    pub(crate) fn from_opt(x: JobOpt, path: &Path) -> Result<Self, io::Error> {
-        match x {
-            JobOpt::Python(python) => Self::from_python(python, path),
-            JobOpt::Apptainer(sing) => Self::from_apptainer(sing, path),
-        }
-    }
+    //pub(crate) fn from_opt(config: &config::Jobs, path: &Path) -> Result<Self, io::Error> {
+    //    match config {
+    //        config::Jobs::Python(python) => Self::from_python(python, path),
+    //        config::Jobs::Apptainer(sing) => Self::from_apptainer(sing, path),
+    //    }
+    //}
 
     pub(crate) fn load_job(self) -> Result<JobOpt, io::Error> {
         match self {
@@ -179,50 +139,59 @@ pub(crate) enum StoredJobInit {
 impl StoredJobInit {
     pub(crate) fn from_python(
         config: &config::PythonConfig,
-    ) -> Result<Self, io::Error> {
-        let initialize = config.initialize;
+        distribute_input_files_base_path: &Path
+    ) -> Self {
+        let batch_name = config.meta().batch_name().to_string();
+        let initialize = config.description().initialize();
+        let python_setup_file_path = initialize.python_build_file_path().to_owned();
+        let required_files = initialize
+            .required_files()
+            .into_iter()
+            .map(|file| {
+                LazyFile {
+                    // alias will have been properly set on the `add`
+                    file_name: file.filename().unwrap(),
+                    path: distribute_input_files_base_path.join(file.path()),
+                }
+            })
+            .collect();
+
+        let lazy = LazyPythonInit {
+            batch_name,
+            required_files,
+            python_setup_file_path,
+        };
+
+        StoredJobInit::Python(lazy)
     }
 
     pub(crate) fn from_apptainer(
-        x: transport::ApptainerJobInit,
-        output_dir: &Path,
-    ) -> Result<Self, io::Error> {
-        // compute the hash
-        let mut sha = sha1::Sha1::new();
-        sha.update(x.batch_name.as_bytes());
-        for file in &x.build_files {
-            sha.update(file.file_name.as_bytes());
-            sha.update(&file.file_bytes);
-        }
+        config: &config::ApptainerConfig,
+        distribute_input_files_base_path: &Path
+    ) -> Self {
+        let batch_name = config.meta().batch_name().to_string();
+        let initialize = config.description().initialize();
 
-        let hash = base16::encode_lower(&sha.finalize());
+        let sif_path = initialize.sif.clone();
+        let required_files = initialize.required_files.iter()
+            .map(|file| {
+                LazyFile {
+                    // alias will have been properly set on the `add`
+                    file_name: file.filename().unwrap(),
+                    path: distribute_input_files_base_path.join(file.path()),
+                }
+            }).collect();
 
-        // write a sif file
-        let sif_path = output_dir.join(format!("{hash}_setup.distribute"));
-        std::fs::write(&sif_path, &x.sif_bytes)?;
+        let container_bind_paths = initialize.required_mounts.clone();
 
-        // write the required files
-        let mut required_files = vec![];
-
-        for (i, file) in x.build_files.into_iter().enumerate() {
-            let path = output_dir.join(format!("{hash}_{i}_setup.distribute"));
-
-            std::fs::write(&path, file.file_bytes)?;
-
-            required_files.push(LazyFile {
-                file_name: file.file_name,
-                path,
-            });
-        }
-
-        let job = LazyApptainerInit {
-            batch_name: x.batch_name,
+        let lazy = LazyApptainerInit {
+            batch_name,
             sif_path,
             required_files,
-            container_bind_paths: x.container_bind_paths,
+            container_bind_paths
         };
 
-        Ok(Self::Apptainer(job))
+        StoredJobInit::Apptainer(lazy)
     }
 
     pub(crate) fn load_build(&self) -> Result<transport::BuildOpts, io::Error> {
@@ -242,12 +211,12 @@ impl StoredJobInit {
     }
 
     pub(crate) fn from_opt(
-        opt: transport::BuildOpts,
-        output_dir: &Path,
-    ) -> Result<Self, io::Error> {
+        opt: &config::Jobs, 
+        distribute_input_files_base_path: &Path
+    ) -> Self {
         match opt {
-            transport::BuildOpts::Apptainer(s) => Self::from_apptainer(s, output_dir),
-            transport::BuildOpts::Python(s) => Self::from_python(s, output_dir),
+            config::Jobs::Apptainer(s) => Self::from_apptainer(s, distribute_input_files_base_path),
+            config::Jobs::Python(s) => Self::from_python(&s, distribute_input_files_base_path),
         }
     }
 }

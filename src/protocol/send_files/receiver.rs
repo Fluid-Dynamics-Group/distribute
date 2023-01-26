@@ -95,16 +95,15 @@ impl NextState for ReceiverState<ReceiverFinalStore> {
 }
 
 pub(crate) struct Nothing {
-    node_meta: NodeMetadata
+    node_meta: NodeMetadata,
 }
 
 impl Nothing {
     pub(crate) fn new() -> Self {
-        let node_meta = NodeMetadata::new("USER".into(), ([0,0,0,0],0).into());
-        Self {node_meta}
+        let node_meta = NodeMetadata::new("USER".into(), ([0, 0, 0, 0], 0).into());
+        Self { node_meta }
     }
 }
-
 
 impl NextState for ReceiverState<Nothing> {
     type Next = transport::Connection<ServerMsg>;

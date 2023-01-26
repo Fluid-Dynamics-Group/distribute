@@ -381,13 +381,14 @@ impl JobSet {
     }
 
     fn add_errored_job(&mut self, job: transport::JobOpt, base_path: &Path) {
-        debug!("called add_errored_job() on corresponding job set, removing job name {} from running set list", job.name());
-        self.remove_running_job_by_name(job.name());
+        todo!()
+        //debug!("called add_errored_job() on corresponding job set, removing job name {} from running set list", job.name());
+        //self.remove_running_job_by_name(job.name());
 
-        match StoredJob::from_opt(job, base_path) {
-            Ok(job) => self.remaining_jobs.push(job),
-            Err(e) => error!("could not add job back to lazy storage: {}", e),
-        }
+        //match StoredJob::from_opt(job, base_path) {
+        //    Ok(job) => self.remaining_jobs.push(job),
+        //    Err(e) => error!("could not add job back to lazy storage: {}", e),
+        //}
     }
 
     fn remove_running_job_by_name(&mut self, job_name: &str) {
@@ -464,28 +465,22 @@ impl JobSet {
         let requirements = config.capabilities().clone();
         let matrix_user = config.matrix_user();
 
-        let build = StoredJobInit::from_opt(&config, base_path)?;
+        let build = StoredJobInit::from_opt(&config, base_path);
 
         let remaining_jobs = match config {
             config::Jobs::Python(python) => {
-                let mut out = vec![];
-
-                for job in python_jobs {
-                    let stored_job = StoredJob::from_python(job, base_path)?;
-                    out.push(stored_job);
-                }
-
-                out
+                python.description().jobs()
+                    .into_iter()
+                    .map(|job| StoredJob::from_python(job, base_path))
+                    .collect::<Result<Vec<_>, _>>()
             }
             config::Jobs::Apptainer(apptainer) => {
-                let mut out = vec![];
-                for job in python_jobs {
-                    let stored_job = StoredJob::from_apptainer(job, base_path)?;
-                    out.push(stored_job);
-                }
-                out
+                apptainer.description().jobs()
+                    .into_iter()
+                    .map(|job| StoredJob::from_apptainer(job, base_path))
+                    .collect::<Result<Vec<_>, _>>()
             }
-        };
+        }?;
 
         Ok(Self {
             build,

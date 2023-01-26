@@ -99,17 +99,14 @@ where
     }
 }
 
-impl<StateMarker, T> Machine<StateMarker, transport::Connection<T>>
-where
-{
-    pub(crate) fn into_inner(self) -> transport::Connection<T>{
+impl<StateMarker, T> Machine<StateMarker, transport::Connection<T>> {
+    pub(crate) fn into_inner(self) -> transport::Connection<T> {
         self.state
     }
 }
 
-impl<T> SendFilesServer<T>
-{
-    pub(crate) fn into_connection(self) -> transport::Connection<send_files::ServerMsg>{
+impl<T> SendFilesServer<T> {
+    pub(crate) fn into_connection(self) -> transport::Connection<send_files::ServerMsg> {
         self.state.conn
     }
 }

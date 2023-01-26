@@ -11,7 +11,7 @@ pub(crate) async fn handle_user_requests(
     tx: mpsc::Sender<JobRequest>,
     node_capabilities: Vec<Arc<Requirements<NodeProvidedCaps>>>,
     results_directory: PathBuf,
-    job_input_file_dir: PathBuf
+    job_input_file_dir: PathBuf,
 ) {
     debug!("binding to listener");
 
@@ -41,7 +41,14 @@ pub(crate) async fn handle_user_requests(
         let job_input_file_dir_own = job_input_file_dir.to_owned();
 
         tokio::spawn(async move {
-            single_user_request(conn, tx_c, node_c, results_directory_own, job_input_file_dir_own).await;
+            single_user_request(
+                conn,
+                tx_c,
+                node_c,
+                results_directory_own,
+                job_input_file_dir_own,
+            )
+            .await;
             info!("user connection has closed");
         });
     }
@@ -54,7 +61,7 @@ async fn single_user_request(
     tx: mpsc::Sender<JobRequest>,
     node_capabilities: Vec<Arc<Requirements<NodeProvidedCaps>>>,
     results_directory: PathBuf,
-    job_input_file_dir: PathBuf
+    job_input_file_dir: PathBuf,
 ) {
     loop {
         let request = match conn.receive_data().await {
@@ -111,18 +118,21 @@ async fn add_job_set(
     tx: &mpsc::Sender<JobRequest>,
     set: config::Jobs,
     mut conn: transport::Connection<transport::ServerResponseToUser>,
-    distribute_file_save_location: &Path
+    distribute_file_save_location: &Path,
 ) -> transport::Connection<transport::ServerResponseToUser> {
-    if let Err(e) = conn.transport_data(&transport::ServerResponseToUser::Continue).await {
+    if let Err(e) = conn
+        .transport_data(&transport::ServerResponseToUser::Continue)
+        .await
+    {
         error!("failed to notifiy user to continue sending init files");
-        return conn
+        return conn;
     }
 
     // the connection is now in a state to receive files
     let conn = conn.update_state();
-    
+
     // need some of these channels since the send_files state machine currently expects
-    // to tell the scheduler at the end that it has finished the job and we have not 
+    // to tell the scheduler at the end that it has finished the job and we have not
     // broken that portion of the code into its own state machine yet
     let (mut tx, rx) = mpsc::channel(5);
 
@@ -134,21 +144,24 @@ async fn add_job_set(
     let state = protocol::send_files::ReceiverState {
         conn,
         save_location: distribute_file_save_location.to_path_buf(),
-        extra
+        extra,
     };
 
     let machine = protocol::Machine::from_state(state);
     let conn = match machine.receive_files(&mut tx).await {
         Ok(conn) => conn.into_inner(),
         Err((machine, e)) => {
-            error!("error receiving a file from the user when adding a job set: {}", e);
+            error!(
+                "error receiving a file from the user when adding a job set: {}",
+                e
+            );
             return machine.into_connection().update_state();
         }
     };
 
     // convert the connection into a user-facing connection again
     let mut conn = conn.update_state();
-    
+
     //
     // add the job set to the scheduler
     //
@@ -192,7 +205,7 @@ async fn add_job_set(
             .ok();
     }
 
-    return conn
+    return conn;
 }
 
 async fn query_capabilities(
