@@ -116,7 +116,7 @@ async fn single_user_request(
 
 async fn add_job_set(
     tx: &mpsc::Sender<JobRequest>,
-    set: config::Jobs,
+    set: config::Jobs<config::common::HashedFile>,
     mut conn: transport::Connection<transport::ServerResponseToUser>,
     distribute_file_save_location: &Path,
 ) -> transport::Connection<transport::ServerResponseToUser> {

@@ -10,6 +10,10 @@ use std::path::PathBuf;
 #[cfg(feature = "cli")]
 use crate::transport;
 
+use derive_more::Constructor;
+
+use super::NormalizePaths;
+
 #[derive(Debug, Clone, Deserialize, Serialize, getset::Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
@@ -68,7 +72,7 @@ impl File {
     pub fn alias(&self) -> Option<&String> {
         self.alias.as_ref()
     }
-    pub(crate) fn filename(&self) -> Result<String, LoadJobsError> {
+    pub(crate) fn filename(&self) -> Result<String, MissingFileNameError> {
         if let Some(alias) = &self.alias {
             Ok(alias.to_string())
         } else {
@@ -82,10 +86,6 @@ impl File {
         }
     }
 
-    pub(crate) fn normalize_paths(&mut self, base_path: PathBuf) {
-        self.path = normalize_pathbuf(self.path.clone(), base_path);
-    }
-
     pub(crate) fn hashed_file(&mut self, hash: String) -> Result<(), LoadJobsError> {
         let filename = self.filename()?;
 
@@ -93,6 +93,12 @@ impl File {
         self.path = PathBuf::from(hash);
 
         Ok(())
+    }
+}
+
+impl NormalizePaths for File {
+    fn normalize_paths(&mut self, base: PathBuf) {
+        self.path = normalize_pathbuf(self.path.clone(), base);
     }
 }
 
@@ -121,5 +127,27 @@ pub(crate) fn normalize_pathbuf(pathbuf: PathBuf, base_path: PathBuf) -> PathBuf
         base_path.join(pathbuf)
     } else {
         pathbuf
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, getset::Getters, Constructor)]
+pub struct HashedFile {
+    // the path to the file locally
+    #[getset(get = "pub(crate)")]
+    hashed_filename: String,
+    //
+    path: PathBuf,
+}
+
+#[cfg(feature = "cli")]
+impl HashedFile {
+    pub(crate) fn lazy_file_unchecked(&self) -> crate::server::LazyFile {
+        crate::server::LazyFile::new(self.hashed_filename.clone(), self.path.clone())
+    }
+}
+
+impl NormalizePaths for HashedFile {
+    fn normalize_paths(&mut self, base: PathBuf) {
+        self.path = normalize_pathbuf(self.path.clone(), base);
     }
 }

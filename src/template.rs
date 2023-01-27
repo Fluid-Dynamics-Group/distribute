@@ -42,7 +42,7 @@ fn python_template() -> Result<String, TemplateError> {
 
     let python = python::Description::new(initialize, vec![job_1]);
     let meta = meta();
-    let desc: config::Jobs = config::PythonConfig::new(meta, python).into();
+    let desc: config::Jobs<common::File> = config::PythonConfig::new(meta, python).into();
     let serialized = serde_yaml::to_string(&desc)?;
 
     Ok(serialized)
@@ -72,7 +72,7 @@ fn apptainer_template() -> Result<String, TemplateError> {
 
     let apptainer = apptainer::Description::new(initialize, vec![job_1]);
     let meta = meta();
-    let desc: config::Jobs = config::ApptainerConfig::new(meta, apptainer).into();
+    let desc: config::Jobs<common::File> = config::ApptainerConfig::new(meta, apptainer).into();
     let serialized = serde_yaml::to_string(&desc)?;
 
     Ok(serialized)

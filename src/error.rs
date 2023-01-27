@@ -293,6 +293,10 @@ pub enum AddError {
     NoJobsToAdd,
     #[error("Duplicate job name `{0}` appeared in config file. Job names must be unique")]
     DuplicateJobName(String),
+    #[error("{0}")]
+    MissingFilename(config::MissingFileNameError),
+    #[error("{0}")]
+    ConfigError(config::ConfigErrorReason),
 }
 
 #[derive(Debug, From, thiserror::Error)]

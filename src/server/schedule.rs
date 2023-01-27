@@ -20,7 +20,10 @@ pub(crate) trait Schedule {
         node_meta: NodeMetadata,
     ) -> JobResponse;
 
-    fn insert_new_batch(&mut self, jobs: config::Jobs) -> Result<(), ScheduleError>;
+    fn insert_new_batch(
+        &mut self,
+        jobs: config::Jobs<config::common::HashedFile>,
+    ) -> Result<(), ScheduleError>;
 
     fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobSetIdentifier);
 
@@ -188,7 +191,11 @@ impl Schedule for GpuPriority {
         }
     }
 
-    fn insert_new_batch(&mut self, jobs: config::Jobs) -> Result<(), ScheduleError> {
+    fn insert_new_batch(
+        &mut self,
+        jobs: config::Jobs<config::common::HashedFile>,
+    ) -> Result<(), ScheduleError> {
+        // todo: update jobs with the base bath of the temp directory
         let jobs = JobSet::from_owned(jobs, &self.base_path).map_err(error::StoreSet::from)?;
 
         self.last_identifier += 1;
@@ -457,7 +464,7 @@ impl JobSet {
     }
 
     pub(crate) fn from_owned(
-        config: config::Jobs,
+        config: config::Jobs<config::common::HashedFile>,
         base_path: &Path,
     ) -> Result<Self, std::io::Error> {
         let namespace = config.namespace();
@@ -468,18 +475,18 @@ impl JobSet {
         let build = StoredJobInit::from_opt(&config, base_path);
 
         let remaining_jobs = match config {
-            config::Jobs::Python(python) => {
-                python.description().jobs()
-                    .into_iter()
-                    .map(|job| StoredJob::from_python(job, base_path))
-                    .collect::<Result<Vec<_>, _>>()
-            }
-            config::Jobs::Apptainer(apptainer) => {
-                apptainer.description().jobs()
-                    .into_iter()
-                    .map(|job| StoredJob::from_apptainer(job, base_path))
-                    .collect::<Result<Vec<_>, _>>()
-            }
+            config::Jobs::Python(python) => python
+                .description()
+                .jobs()
+                .into_iter()
+                .map(|job| StoredJob::from_python(job, base_path))
+                .collect::<Result<Vec<_>, _>>(),
+            config::Jobs::Apptainer(apptainer) => apptainer
+                .description()
+                .jobs()
+                .into_iter()
+                .map(|job| StoredJob::from_apptainer(job, base_path))
+                .collect::<Result<Vec<_>, _>>(),
         }?;
 
         Ok(Self {

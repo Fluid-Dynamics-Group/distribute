@@ -1,6 +1,5 @@
 use crate::error::{self, Error};
 use crate::prelude::*;
-use sha1::Digest;
 
 use crate::client::execute::FileMetadata;
 
@@ -8,7 +7,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files
     //
-    let mut jobs = config::load_config::<config::Jobs>(&args.jobs)?;
+    let mut jobs = config::load_config::<config::Jobs<config::common::File>>(&args.jobs)?;
 
     if jobs.len_jobs() == 0 {
         return Err(Error::Add(error::AddError::NoJobsToAdd));
@@ -17,14 +16,9 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     // ensure that there are no duplicate job names
     check_has_duplicates(&jobs.job_names())?;
 
-    debug!("loading job information from files");
-    let loaded_jobs = jobs
-        .jobset_files()
-        .await
-        .map_err(error::ServerError::from)?;
+    debug!("ensuring all files exist on disk in the locations described");
 
-    debug!("loading build information from files");
-    let loaded_build = jobs.load_build().await.map_err(error::ServerError::from)?;
+    let loaded_build = jobs.verify_config().map_err(error::AddError::from)?;
 
     //
     // check the server for all of the node capabilities
@@ -76,56 +70,10 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // construct the job set and send it off
     //
-    let mut hashed_files_to_send: Vec<FileMetadata> = Vec::new();
 
-    match &mut jobs {
-        config::Jobs::Apptainer(app) => {
-            let description = app.description_mut();
-            // first, send the leading sif file
-            let init_hash = hashing::filename_hash(&description.initialize);
+    let hashed_config = jobs.hashed().map_err(error::AddError::from)?;
 
-            let path_string = format!("setup_sif_{init_hash}.dist");
-            let path_buf = PathBuf::from(path_string);
-
-            let sif_meta = FileMetadata {
-                absolute_file_path: description.initialize.sif.to_owned(),
-                relative_file_path: path_buf.clone(),
-                is_file: true,
-            };
-            description.initialize.sif = path_buf.clone();
-
-            hashed_files_to_send.push(sif_meta);
-
-            // add the init required files
-            for (idx, init_file) in description.initialize.required_files.iter_mut().enumerate() {
-                let path_string = format!("{init_hash}_{idx}.dist");
-                let meta = FileMetadata {
-                    absolute_file_path: init_file.path().to_owned(),
-                    relative_file_path: path_string.into(),
-                    is_file: true,
-                };
-                hashed_files_to_send.push(meta);
-            }
-
-            // then for every job, also send the files they require
-            for (job_idx, job) in description.jobs.iter_mut().enumerate() {
-                let hash = hashing::filename_hash(job);
-                for (file_idx, file) in job.required_files.iter_mut().enumerate() {
-                    let relative_file_path =
-                        format!("{init_hash}_{job_idx}_{file_idx}.dist").into();
-
-                    let meta = FileMetadata {
-                        absolute_file_path: file.path().to_owned(),
-                        relative_file_path,
-                        is_file: true,
-                    };
-
-                    hashed_files_to_send.push(meta);
-                }
-            }
-        }
-        config::Jobs::Python(py) => todo!(),
-    }
+    let hashed_files_to_send = jobs.sendable_files(&hashed_config);
 
     if args.dry {
         debug!("skipping message to the server for dry run");
@@ -133,7 +81,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     }
 
     debug!("sending job set to server");
-    conn.transport_data(&transport::UserMessageToServer::AddJobSet(jobs))
+    conn.transport_data(&transport::UserMessageToServer::AddJobSet(hashed_config))
         .await?;
 
     // wait for the notice that we can continue
@@ -141,7 +89,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     conn.receive_data().await?;
 
     //
-    // send all the files with send_files state machin
+    // send all the files with send_files state machine
     //
     let conn = conn.update_state();
 
@@ -187,101 +135,6 @@ fn check_has_duplicates<T: Eq + std::fmt::Display>(list: &[T]) -> Result<(), err
     }
 
     Ok(())
-}
-
-mod hashing {
-    use super::*;
-
-    pub(super) trait HashableComponent {
-        /// either python compilation file, or the singularity .sif file
-        fn job_file(&self) -> PathBuf;
-        /// name of the job
-        fn job_name(&self) -> &str;
-        /// all the files associated with this component
-        fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_>;
-    }
-
-    impl HashableComponent for config::apptainer::Initialize {
-        fn job_file(&self) -> PathBuf {
-            self.sif.to_owned()
-        }
-        fn job_name(&self) -> &str {
-            "initialize"
-        }
-        fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
-            let iter = (&self.required_files).into_iter().map(|f| f.path().to_owned());
-
-            Box::new(iter)
-        }
-    }
-
-    impl HashableComponent for config::python::Initialize {
-        fn job_file(&self) -> PathBuf {
-            self.python_build_file_path().to_owned()
-        }
-        fn job_name(&self) -> &str {
-            "initialize"
-        }
-        fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
-            let iter = self
-                .required_files()
-                .into_iter()
-                .map(|f| f.path().to_owned());
-
-            Box::new(iter)
-        }
-    }
-
-    impl HashableComponent for config::apptainer::Job {
-        fn job_file(&self) -> PathBuf {
-            PathBuf::from("job")
-        }
-        fn job_name(&self) -> &str {
-            self.name()
-        }
-        fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
-            let iter = self
-                .required_files()
-                .into_iter()
-                .map(|f| f.path().to_owned());
-
-            Box::new(iter)
-        }
-    }
-
-    impl HashableComponent for config::python::Job {
-        fn job_file(&self) -> PathBuf {
-            self.python_job_file().to_owned()
-        }
-        fn job_name(&self) -> &str {
-            self.name()
-        }
-        fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
-            let iter = self
-                .required_files()
-                .into_iter()
-                .map(|f| f.path().to_owned());
-
-            Box::new(iter)
-        }
-    }
-
-    pub(super) fn filename_hash<T: HashableComponent>(data: &T) -> String {
-        let mut sha = sha1::Sha1::new();
-
-        sha.update(data.job_name().as_bytes());
-
-        for file in data.files() {
-            let filename = file.file_name().unwrap().to_string_lossy();
-            sha.update(filename.as_bytes());
-            let bytes = std::fs::read(file).unwrap();
-            sha.update(&bytes);
-        }
-
-        let hash = base16::encode_lower(&sha.finalize());
-
-        hash
-    }
 }
 
 #[test]

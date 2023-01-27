@@ -4,6 +4,9 @@ pub mod python;
 pub mod requirements;
 
 #[cfg(feature = "cli")]
+mod hashing;
+
+#[cfg(feature = "cli")]
 use crate::transport;
 
 #[cfg(feature = "cli")]
@@ -47,7 +50,10 @@ pub struct ConfigurationError {
 pub enum ConfigErrorReason {
     #[display(fmt = "deserialization error: {}", _0)]
     Deserialization(serde_yaml::Error),
-    MissingFile(std::io::Error),
+    #[display(fmt = "missing file: {}", "_0.display()")]
+    MissingFile(PathBuf),
+    #[display(fmt = "General Io error when opening config file: {}", _0)]
+    IoError(std::io::Error),
 }
 
 #[derive(Debug, From, thiserror::Error)]
@@ -146,9 +152,9 @@ impl Node {
 #[derive(Debug, Clone, Deserialize, Serialize, From)]
 #[serde(untagged)]
 #[serde(deny_unknown_fields)]
-pub enum Jobs {
-    Python(PythonConfig),
-    Apptainer(ApptainerConfig),
+pub enum Jobs<FILE> {
+    Python(PythonConfig<FILE>),
+    Apptainer(ApptainerConfig<FILE>),
 }
 
 #[derive(
@@ -156,23 +162,23 @@ pub enum Jobs {
 )]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
-pub struct ApptainerConfig {
+pub struct ApptainerConfig<FILE> {
     #[getset(get = "pub(crate)")]
     meta: Meta,
     #[serde(rename = "apptainer")]
     #[getset(get = "pub(crate)", get_mut = "pub(crate)")]
-    description: apptainer::Description,
+    description: apptainer::Description<FILE>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
-pub struct PythonConfig {
+pub struct PythonConfig<FILE> {
     #[getset(get = "pub(crate)")]
     meta: Meta,
     #[serde(rename = "python")]
     #[getset(get = "pub(crate)")]
-    description: python::Description,
+    description: python::Description<FILE>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
@@ -188,37 +194,56 @@ pub struct Meta {
 }
 
 #[cfg(feature = "cli")]
-impl Jobs {
+impl Jobs<common::File> {
     pub fn len_jobs(&self) -> usize {
         match &self {
             Self::Python(pyconfig) => pyconfig.description.len_jobs(),
             Self::Apptainer(apptainer_config) => apptainer_config.description.len_jobs(),
         }
     }
-    pub async fn jobset_files(&self) -> Result<Vec<FileMetadata>, LoadJobsError> {
-        match &self {
-            Self::Python(pyconfig) => pyconfig.description.jobset_files().await,
-            Self::Apptainer(apptainer_config) => apptainer_config.description.jobset_files().await,
-        }
+
+    /// ensure that all paths exist as we expect them to
+    pub(crate) fn verify_config(&self) -> Result<(), ConfigErrorReason> {
+        todo!()
     }
 
-    pub async fn load_build(&self) -> Result<Vec<FileMetadata>, LoadJobsError> {
+    pub fn hashed(&self) -> Result<Jobs<common::HashedFile>, MissingFileNameError> {
         match &self {
             Self::Python(pyconfig) => {
-                pyconfig
-                    .description
-                    .load_build(pyconfig.meta.batch_name.clone())
-                    .await
+                let description = pyconfig.description.hashed()?;
+
+                Ok(Jobs::from(PythonConfig {
+                    meta: pyconfig.meta.clone(),
+                    description,
+                }))
             }
             Self::Apptainer(apptainer_config) => {
-                apptainer_config
-                    .description
-                    .load_build(apptainer_config.meta.batch_name.clone())
-                    .await
+                let description = apptainer_config.description.hashed()?;
+
+                Ok(Jobs::from(ApptainerConfig {
+                    meta: apptainer_config.meta.clone(),
+                    description,
+                }))
             }
         }
     }
 
+    pub(crate) fn sendable_files(&self, hashed_config: &Jobs<common::HashedFile>) -> Vec<FileMetadata> {
+        match (&self, &hashed_config) {
+            (Jobs::Python(original_py), Jobs::Python(hashed_py)) => {
+                original_py.description.sendable_files(&hashed_py.description)
+            }
+            (Jobs::Apptainer(original_app), Jobs::Apptainer(hashed_app)) => {
+                original_app.description.sendable_files(&hashed_app.description)
+            }
+            _ => {
+                panic!("need to pass two apptainer or two python. This should never happen")
+            }
+        }
+    }
+}
+
+impl<FILE> Jobs<FILE> {
     pub(crate) fn capabilities(
         &self,
     ) -> &requirements::Requirements<requirements::JobRequiredCaps> {
@@ -267,7 +292,10 @@ impl Jobs {
     }
 }
 
-impl Jobs {
+impl<FILE> Jobs<FILE>
+where
+    FILE: Serialize,
+{
     /// write the config file to a provided `Write`r
     pub fn to_writer<W: std::io::Write>(&self, writer: W) -> Result<(), serde_yaml::Error> {
         serde_yaml::to_writer(writer, &self)?;
@@ -280,7 +308,7 @@ pub trait NormalizePaths {
     fn normalize_paths(&mut self, base: PathBuf);
 }
 
-impl NormalizePaths for Jobs {
+impl NormalizePaths for Jobs<common::File> {
     fn normalize_paths(&mut self, base: PathBuf) {
         match self {
             Self::Python(py) => py.description.normalize_paths(base),

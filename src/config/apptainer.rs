@@ -6,9 +6,13 @@ use super::ReadBytesError;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use super::common;
 #[cfg(feature = "cli")]
 use super::common::load_from_file;
 use super::common::File;
+
+#[cfg(feature = "cli")]
+use super::hashing;
 
 #[cfg(feature = "cli")]
 use crate::client::execute::FileMetadata;
@@ -18,44 +22,20 @@ use crate::transport;
 
 use getset::{Getters, MutGetters, Setters};
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
-pub struct Description {
+pub struct Description<FILE> {
     #[getset(get = "pub(crate)")]
-    pub initialize: Initialize,
+    pub initialize: Initialize<FILE>,
     #[getset(get = "pub(crate)")]
-    pub jobs: Vec<Job>,
+    pub jobs: Vec<Job<FILE>>,
 }
 
 #[cfg(feature = "cli")]
-impl Description {
+impl Description<common::File> {
     pub(crate) fn len_jobs(&self) -> usize {
         self.jobs.len()
-    }
-
-    pub(crate) async fn jobset_files(&self) -> Result<Vec<FileMetadata>, LoadJobsError> {
-        todo!()
-        //let mut out = Vec::with_capacity(self.jobs.len());
-
-        //for job in &self.jobs {
-        //    for file in required_files {
-        //        let job = transport::ApptainerJob {
-        //            job_name: job.name.clone(),
-        //            job_files,
-        //        };
-
-        //        let file = FileMetadata {
-        //            is_file: true,
-        //            absolute_file_path:
-        //            relative_file_path:
-        //        };
-
-        //        out.push(job)
-        //    }
-        //}
-
-        //Ok(out)
     }
 
     pub(crate) async fn load_build(
@@ -76,9 +56,74 @@ impl Description {
         //    container_bind_paths: self.initialize.required_mounts.clone(),
         //})
     }
+
+    pub(super) fn hashed(
+        &self,
+    ) -> Result<Description<common::HashedFile>, super::MissingFileNameError> {
+        let initialize = self.initialize.hashed()?;
+
+        let jobs = self
+            .jobs
+            .iter()
+            .enumerate()
+            .map(|(job_idx, job)| {
+                //
+                // for each job ...
+                //
+                let hash = hashing::filename_hash(job);
+                let required_files = job
+                    .required_files
+                    .iter()
+                    .enumerate()
+                    .map(|(file_idx, file)| {
+                        //
+                        // for each file in this job ...
+                        //
+
+                        let hashed_filename = format!("{hash}_{job_idx}_{file_idx}.dist").into();
+                        let filename = PathBuf::from(file.filename()?);
+
+                        Ok(common::HashedFile::new(hashed_filename, filename))
+                    })
+                    .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+
+                // assemble the new files into a new job
+                let job = Job {
+                    name: job.name().to_string(),
+                    required_files,
+                };
+                Ok(job)
+            })
+            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+
+        let desc = Description { initialize, jobs };
+
+        Ok(desc)
+    }
+
+    pub(super) fn sendable_files(&self, hashed: &Description<common::HashedFile>) -> Vec<FileMetadata> {
+        let mut files = Vec::new();
+
+        self.initialize
+            .sendable_files(&hashed.initialize, &mut files);
+
+        for (original_job, hashed_job) in self.jobs.iter().zip(hashed.jobs().iter()) {
+            let file_iter = original_job
+                .required_files
+                .iter()
+                .zip(hashed_job.required_files.iter());
+
+            for (original_file, hashed_file) in file_iter {
+                let meta = FileMetadata::file(original_file.path(), hashed_file.hashed_filename());
+                files.push(meta);
+            }
+        }
+
+        files
+    }
 }
 
-impl NormalizePaths for Description {
+impl NormalizePaths for Description<common::File> {
     fn normalize_paths(&mut self, base: PathBuf) {
         // for initialize
         self.initialize.sif =
@@ -99,23 +144,71 @@ impl NormalizePaths for Description {
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
-pub struct Initialize {
+pub struct Initialize<FILE> {
     pub sif: PathBuf,
-    #[serde(default)]
-    pub required_files: Vec<File>,
+    #[serde(default = "Default::default")]
+    pub required_files: Vec<FILE>,
     /// paths in the folder that need to have mount points to
     /// the host file system
     #[serde(default)]
     pub required_mounts: Vec<PathBuf>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
+impl Initialize<common::File> {
+    fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
+        let init_hash = hashing::filename_hash(self);
+
+        let path_string = format!("setup_sif_{init_hash}.dist");
+
+        // hashed sif name
+        let sif = PathBuf::from(path_string);
+
+        // hashed required files
+        let required_files = self
+            .required_files
+            .iter()
+            .enumerate()
+            .map(|(idx, init_file)| {
+                let path_string = format!("{init_hash}_{idx}.dist");
+                let filename = init_file.filename()?;
+                Ok(common::HashedFile::new(path_string, filename.into()))
+            })
+            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+
+        let init = Initialize {
+            sif,
+            required_files,
+            required_mounts: self.required_mounts.clone(),
+        };
+
+        Ok(init)
+    }
+
+    fn sendable_files(
+        &self,
+        hashed: &Initialize<common::HashedFile>,
+        files: &mut Vec<FileMetadata>,
+    ) {
+        let sif =
+            FileMetadata::file(&self.sif, &hashed.sif);
+        files.push(sif);
+
+        for (original_file, hashed_file) in
+            self.required_files.iter().zip(hashed.required_files.iter())
+        {
+            let meta = FileMetadata::file(original_file.path(), hashed_file.hashed_filename());
+            files.push(meta);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
-pub struct Job {
+pub struct Job<FILE> {
     #[getset(get = "pub(crate)")]
     name: String,
-    #[serde(default)]
+    #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
-    pub required_files: Vec<File>,
+    pub required_files: Vec<FILE>,
 }

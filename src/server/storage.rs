@@ -6,7 +6,7 @@ use std::io;
 use crate::config;
 use transport::JobOpt;
 
-use sha1::Digest;
+use config::common::HashedFile;
 
 /// stores job data on disk
 #[derive(Debug)]
@@ -17,19 +17,16 @@ pub(crate) enum StoredJob {
 
 impl StoredJob {
     pub(crate) fn from_python(
-        job: &config::python::Job,
+        job: &config::python::Job<HashedFile>,
         distribute_input_files_base_path: &Path,
     ) -> Result<Self, io::Error> {
         let job_name = job.name().to_string();
         let python_setup_file_path = job.python_job_file().to_owned();
-        let required_files = job.required_files().into_iter()
-            .map(|file| {
-                LazyFile {
-                    // alias will have been properly set on the `add`
-                    file_name: file.filename().unwrap(),
-                    path: distribute_input_files_base_path.join(file.path()),
-                }
-            }).collect();
+        let required_files = job
+            .required_files()
+            .into_iter()
+            .map(HashedFile::lazy_file_unchecked)
+            .collect();
 
         let job = LazyPythonJob {
             job_name,
@@ -41,19 +38,16 @@ impl StoredJob {
     }
 
     pub(crate) fn from_apptainer(
-        job: &config::apptainer::Job,
+        job: &config::apptainer::Job<HashedFile>,
         distribute_input_files_base_path: &Path,
     ) -> Result<Self, io::Error> {
         let job_name = job.name().to_string();
 
-        let required_files = job.required_files().into_iter()
-            .map(|file| {
-                LazyFile {
-                    // alias will have been properly set on the `add`
-                    file_name: file.filename().unwrap(),
-                    path: distribute_input_files_base_path.join(file.path()),
-                }
-            }).collect();
+        let required_files = job
+            .required_files()
+            .into_iter()
+            .map(HashedFile::lazy_file_unchecked)
+            .collect();
 
         let job = LazyApptainerJob {
             job_name,
@@ -123,7 +117,7 @@ impl LazyApptainerJob {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Constructor)]
 pub(crate) struct LazyFile {
     file_name: String,
     path: PathBuf,
@@ -138,8 +132,8 @@ pub(crate) enum StoredJobInit {
 
 impl StoredJobInit {
     pub(crate) fn from_python(
-        config: &config::PythonConfig,
-        distribute_input_files_base_path: &Path
+        config: &config::PythonConfig<HashedFile>,
+        distribute_input_files_base_path: &Path,
     ) -> Self {
         let batch_name = config.meta().batch_name().to_string();
         let initialize = config.description().initialize();
@@ -147,13 +141,7 @@ impl StoredJobInit {
         let required_files = initialize
             .required_files()
             .into_iter()
-            .map(|file| {
-                LazyFile {
-                    // alias will have been properly set on the `add`
-                    file_name: file.filename().unwrap(),
-                    path: distribute_input_files_base_path.join(file.path()),
-                }
-            })
+            .map(HashedFile::lazy_file_unchecked)
             .collect();
 
         let lazy = LazyPythonInit {
@@ -166,21 +154,18 @@ impl StoredJobInit {
     }
 
     pub(crate) fn from_apptainer(
-        config: &config::ApptainerConfig,
-        distribute_input_files_base_path: &Path
+        config: &config::ApptainerConfig<HashedFile>,
+        distribute_input_files_base_path: &Path,
     ) -> Self {
         let batch_name = config.meta().batch_name().to_string();
         let initialize = config.description().initialize();
 
         let sif_path = initialize.sif.clone();
-        let required_files = initialize.required_files.iter()
-            .map(|file| {
-                LazyFile {
-                    // alias will have been properly set on the `add`
-                    file_name: file.filename().unwrap(),
-                    path: distribute_input_files_base_path.join(file.path()),
-                }
-            }).collect();
+        let required_files = initialize
+            .required_files
+            .iter()
+            .map(HashedFile::lazy_file_unchecked)
+            .collect();
 
         let container_bind_paths = initialize.required_mounts.clone();
 
@@ -188,7 +173,7 @@ impl StoredJobInit {
             batch_name,
             sif_path,
             required_files,
-            container_bind_paths
+            container_bind_paths,
         };
 
         StoredJobInit::Apptainer(lazy)
@@ -211,8 +196,8 @@ impl StoredJobInit {
     }
 
     pub(crate) fn from_opt(
-        opt: &config::Jobs, 
-        distribute_input_files_base_path: &Path
+        opt: &config::Jobs<HashedFile>,
+        distribute_input_files_base_path: &Path,
     ) -> Self {
         match opt {
             config::Jobs::Apptainer(s) => Self::from_apptainer(s, distribute_input_files_base_path),

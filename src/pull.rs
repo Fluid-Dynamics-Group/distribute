@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 pub async fn pull(args: cli::Pull) -> Result<(), Error> {
-    let config: config::Jobs =
+    let config: config::Jobs<config::common::File> =
         config::load_config(&args.job_file).map_err(error::PullErrorLocal::from)?;
 
     let req = match args.filter {

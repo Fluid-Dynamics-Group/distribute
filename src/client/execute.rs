@@ -105,6 +105,20 @@ impl FileMetadata {
             bytes,
         })
     }
+
+    pub(crate) fn file<T: AsRef<Path>, U: AsRef<Path>>(
+        absolute_file_path: T,
+        relative_file_path: U,
+    ) -> Self {
+        let absolute_file_path = absolute_file_path.as_ref().to_owned();
+        let relative_file_path = relative_file_path.as_ref().to_owned();
+
+        FileMetadata {
+            absolute_file_path,
+            relative_file_path,
+            is_file: true,
+        }
+    }
 }
 
 /// execute a job after the build file has already been built

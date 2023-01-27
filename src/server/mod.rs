@@ -13,6 +13,7 @@ pub(crate) use pool_data::JobRequest;
 
 pub use pool_data::CancelResult;
 pub(crate) use schedule::JobSetIdentifier;
+pub(crate) use storage::LazyFile;
 pub(crate) use storage::OwnedJobSet;
 
 pub use schedule::RemainingJobs;

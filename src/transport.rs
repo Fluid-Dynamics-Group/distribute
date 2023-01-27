@@ -65,7 +65,7 @@ mod messages {
 
 #[derive(Deserialize, Serialize, Debug, Clone, derive_more::From, derive_more::Unwrap)]
 pub enum UserMessageToServer {
-    AddJobSet(config::Jobs),
+    AddJobSet(config::Jobs<config::common::HashedFile>),
     QueryCapabilities,
     QueryJobNames,
     KillJob(String),
