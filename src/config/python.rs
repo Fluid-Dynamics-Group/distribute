@@ -165,6 +165,7 @@ pub struct Initialize<FILE> {
     required_files: Vec<FILE>,
 }
 
+#[cfg(feature="cli")]
 impl Initialize<common::File> {
     fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
         let init_hash = hashing::filename_hash(self);

@@ -1,15 +1,12 @@
 #![doc = include_str!("../README.md")]
 
+mod wrap;
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use std::path::PathBuf;
 
-use distribute::common::File;
-use distribute::apptainer::Description;
-use distribute::apptainer::Initialize;
-use distribute::apptainer::Job;
-use distribute::ApptainerConfig;
-use distribute::Meta;
+use wrap::{File, Description, Initialize, Job, ApptainerConfig, Meta};
 
 #[pyfunction(matrix_username="None")]
 /// construct the metadata ``Meta`` object for information about what this job batch will run
@@ -46,7 +43,7 @@ pub fn metadata(
         None
     };
 
-    let meta = distribute::Meta {
+    let meta = Meta {
         batch_name,
         namespace,
         capabilities,
@@ -88,11 +85,11 @@ pub fn initialize(
     required_files: Vec<File>,
     required_mounts: Vec<String>,
 ) -> Initialize {
-    distribute::apptainer::Initialize::new(
-        PathBuf::from(sif_path),
+    Initialize { 
+        sif: PathBuf::from(sif_path),
         required_files,
-        required_mounts.into_iter().map(PathBuf::from).collect(),
-    )
+        required_mounts: required_mounts.into_iter().map(PathBuf::from).collect(),
+    }
 }
 
 #[pyfunction]
@@ -127,7 +124,7 @@ pub fn initialize(
 ///
 ///     job_1 = distribute.job("job_1", job_1_required_files)
 pub fn job(name: String, required_files: Vec<File>) -> Job {
-    distribute::apptainer::Job::new(name, required_files)
+    Job { name, required_files }
 }
 
 #[pyfunction]
@@ -159,7 +156,7 @@ pub fn job(name: String, required_files: Vec<File>) -> Job {
 ///
 ///     description = distribute.description(initialize, jobs=[job_1])
 pub fn description(initialize: Initialize, jobs: Vec<Job>) -> Description {
-    distribute::apptainer::Description::new(initialize, jobs)
+    Description { initialize, jobs }
 }
 
 #[pyfunction(relative="false", alias="None")]
@@ -196,20 +193,20 @@ pub fn description(initialize: Initialize, jobs: Vec<Job>) -> Description {
 ///     # config3.json appears as `/input/config3.json`, folder structure 
 ///     # `/root/path/to/` must already exist
 ///     config_file_3 = distribute.file("/root/path/to/config3.json")
-pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<distribute::common::File> {
+pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<File> {
     
     let file = match (relative, alias) {
         (true, Some(alias)) => {
-            distribute::common::File::with_alias_relative(path, alias)
+            File::with_alias_relative(path, alias)
         }
         (false, Some(alias)) => {
-            distribute::common::File::with_alias(path, alias).map_err(|e| PyValueError::new_err(format!("Failed to canonicalize the path provided. If this directory does not exist yet, you should use relative=True. Full error {e}")))?
+            File::with_alias(path, alias).map_err(|e| PyValueError::new_err(format!("Failed to canonicalize the path provided. If this directory does not exist yet, you should use relative=True. Full error {e}")))?
         }
         (true, None) => {
-            distribute::common::File::new_relative(path)
+            File::new_relative(path)
         }
         (false, None) => {
-            distribute::common::File::new(path).map_err(|e| PyValueError::new_err(format!("Failed to canonicalize the path provided. If this directory does not exist yet, you should use relative=True. Full error {e}")))?
+            File::new(path).map_err(|e| PyValueError::new_err(format!("Failed to canonicalize the path provided. If this directory does not exist yet, you should use relative=True. Full error {e}")))?
         }
     };
 
@@ -225,7 +222,7 @@ pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<di
 ///
 /// You can write this description object to disk with :func:`write_config_to_file`
 pub fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig {
-    ApptainerConfig::new(meta, description)
+    ApptainerConfig { meta, description }
 }
 
 #[pyfunction]
@@ -241,7 +238,9 @@ pub fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<
     let file = std::fs::File::create(&path)
         .map_err(|e| PyValueError::new_err(format!("failed to create file at {}. Full error: {e}", path.display())))?;
 
-    distribute::Jobs::from(config).to_writer(file)
+    let distribute_config = config.into_distribute_version();
+
+    distribute_config.to_writer(file)
         .map_err(|e| PyValueError::new_err(format!("failed to serialize contents to file. Full error: {e}")))?;
 
     Ok(())

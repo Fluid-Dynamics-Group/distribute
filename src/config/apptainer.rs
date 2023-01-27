@@ -24,7 +24,6 @@ use getset::{Getters, MutGetters, Setters};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Description<FILE> {
     #[getset(get = "pub(crate)")]
     pub initialize: Initialize<FILE>,
@@ -143,7 +142,6 @@ impl NormalizePaths for Description<common::File> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Initialize<FILE> {
     pub sif: PathBuf,
     #[serde(default = "Default::default")]
@@ -154,6 +152,7 @@ pub struct Initialize<FILE> {
     pub required_mounts: Vec<PathBuf>,
 }
 
+#[cfg(feature="cli")]
 impl Initialize<common::File> {
     fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
         let init_hash = hashing::filename_hash(self);
@@ -204,7 +203,6 @@ impl Initialize<common::File> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Job<FILE> {
     #[getset(get = "pub(crate)")]
     name: String,

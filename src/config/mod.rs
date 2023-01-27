@@ -161,7 +161,6 @@ pub enum Jobs<FILE> {
     Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters, getset::MutGetters,
 )]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct ApptainerConfig<FILE> {
     #[getset(get = "pub(crate)")]
     meta: Meta,
@@ -172,7 +171,6 @@ pub struct ApptainerConfig<FILE> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct PythonConfig<FILE> {
     #[getset(get = "pub(crate)")]
     meta: Meta,
@@ -183,7 +181,6 @@ pub struct PythonConfig<FILE> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Meta {
     #[getset(get = "pub(crate)")]
     pub batch_name: String,
@@ -295,6 +292,16 @@ impl<FILE> Jobs<FILE> {
 impl<FILE> Jobs<FILE>
 where
     FILE: Serialize,
+{
+    /// write the config file to a provided `Write`r
+    pub fn to_writer<W: std::io::Write>(&self, writer: W) -> Result<(), serde_yaml::Error> {
+        serde_yaml::to_writer(writer, &self)?;
+
+        Ok(())
+    }
+}
+
+impl ApptainerConfig<common::File>
 {
     /// write the config file to a provided `Write`r
     pub fn to_writer<W: std::io::Write>(&self, writer: W) -> Result<(), serde_yaml::Error> {
