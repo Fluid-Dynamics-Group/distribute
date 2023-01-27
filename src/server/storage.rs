@@ -16,10 +16,7 @@ pub(crate) enum StoredJob {
 }
 
 impl StoredJob {
-    pub(crate) fn from_python(
-        job: &config::python::Job<HashedFile>,
-        distribute_input_files_base_path: &Path,
-    ) -> Result<Self, io::Error> {
+    pub(crate) fn from_python(job: &config::python::Job<HashedFile>) -> Result<Self, io::Error> {
         let job_name = job.name().to_string();
         let python_setup_file_path = job.python_job_file().to_owned();
         let required_files = job
@@ -39,7 +36,6 @@ impl StoredJob {
 
     pub(crate) fn from_apptainer(
         job: &config::apptainer::Job<HashedFile>,
-        distribute_input_files_base_path: &Path,
     ) -> Result<Self, io::Error> {
         let job_name = job.name().to_string();
 
@@ -131,10 +127,7 @@ pub(crate) enum StoredJobInit {
 }
 
 impl StoredJobInit {
-    pub(crate) fn from_python(
-        config: &config::PythonConfig<HashedFile>,
-        distribute_input_files_base_path: &Path,
-    ) -> Self {
+    pub(crate) fn from_python(config: &config::PythonConfig<HashedFile>) -> Self {
         let batch_name = config.meta().batch_name().to_string();
         let initialize = config.description().initialize();
         let python_setup_file_path = initialize.python_build_file_path().to_owned();
@@ -153,10 +146,7 @@ impl StoredJobInit {
         StoredJobInit::Python(lazy)
     }
 
-    pub(crate) fn from_apptainer(
-        config: &config::ApptainerConfig<HashedFile>,
-        distribute_input_files_base_path: &Path,
-    ) -> Self {
+    pub(crate) fn from_apptainer(config: &config::ApptainerConfig<HashedFile>) -> Self {
         let batch_name = config.meta().batch_name().to_string();
         let initialize = config.description().initialize();
 
@@ -195,13 +185,10 @@ impl StoredJobInit {
         Ok(())
     }
 
-    pub(crate) fn from_opt(
-        opt: &config::Jobs<HashedFile>,
-        distribute_input_files_base_path: &Path,
-    ) -> Self {
+    pub(crate) fn from_opt(opt: &config::Jobs<HashedFile>) -> Self {
         match opt {
-            config::Jobs::Apptainer(s) => Self::from_apptainer(s, distribute_input_files_base_path),
-            config::Jobs::Python(s) => Self::from_python(&s, distribute_input_files_base_path),
+            config::Jobs::Apptainer(s) => Self::from_apptainer(s),
+            config::Jobs::Python(s) => Self::from_python(&s),
         }
     }
 }

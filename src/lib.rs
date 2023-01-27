@@ -111,6 +111,7 @@ impl LoggingOutput {
 
 // helper macro to create the subscriber since each individual `$writer` is a distinct type,
 // and they are difficult / impossible to express as boxed trait objects
+#[cfg(feature = "cli")]
 macro_rules! subscriber_helper {
     ($writer:expr, $with_filename:expr, $level:expr) => {
         let subscriber = tracing_subscriber::FmtSubscriber::builder()

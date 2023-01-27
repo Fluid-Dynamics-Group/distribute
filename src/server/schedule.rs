@@ -2,7 +2,7 @@ use super::matrix;
 use super::pool_data::{JobOrInit, JobResponse, NodeMetadata, TaskInfo};
 use super::storage::{self, StoredJob, StoredJobInit};
 
-use crate::config::{self, requirements};
+use crate::config::{self, requirements, NormalizePaths};
 use crate::error::{self, ScheduleError};
 
 use crate::prelude::*;
@@ -63,6 +63,8 @@ impl JobSetIdentifier {
 pub(crate) struct GpuPriority {
     map: BTreeMap<JobSetIdentifier, JobSet>,
     last_identifier: u64,
+    // location where temp files are stored before they are sent off to scheduled
+    // jobs
     base_path: PathBuf,
     matrix: Option<matrix::MatrixData>,
 }
@@ -193,10 +195,16 @@ impl Schedule for GpuPriority {
 
     fn insert_new_batch(
         &mut self,
-        jobs: config::Jobs<config::common::HashedFile>,
+        mut jobs: config::Jobs<config::common::HashedFile>,
     ) -> Result<(), ScheduleError> {
+        // normalize all the paths in the configuration to use the base path of
+        // the storage location that they were stored in earlier
+        //
+        // TODO: may be better to perform this in the user_conn.rs file
+        jobs.normalize_paths(self.base_path.clone());
+
         // todo: update jobs with the base bath of the temp directory
-        let jobs = JobSet::from_owned(jobs, &self.base_path).map_err(error::StoreSet::from)?;
+        let jobs = JobSet::from_owned(jobs).map_err(error::StoreSet::from)?;
 
         self.last_identifier += 1;
         let ident = JobSetIdentifier::new(self.last_identifier);
@@ -465,27 +473,26 @@ impl JobSet {
 
     pub(crate) fn from_owned(
         config: config::Jobs<config::common::HashedFile>,
-        base_path: &Path,
     ) -> Result<Self, std::io::Error> {
         let namespace = config.namespace();
         let batch_name = config.batch_name();
         let requirements = config.capabilities().clone();
         let matrix_user = config.matrix_user();
 
-        let build = StoredJobInit::from_opt(&config, base_path);
+        let build = StoredJobInit::from_opt(&config);
 
         let remaining_jobs = match config {
             config::Jobs::Python(python) => python
                 .description()
                 .jobs()
                 .into_iter()
-                .map(|job| StoredJob::from_python(job, base_path))
+                .map(|job| StoredJob::from_python(job))
                 .collect::<Result<Vec<_>, _>>(),
             config::Jobs::Apptainer(apptainer) => apptainer
                 .description()
                 .jobs()
                 .into_iter()
-                .map(|job| StoredJob::from_apptainer(job, base_path))
+                .map(|job| StoredJob::from_apptainer(job))
                 .collect::<Result<Vec<_>, _>>(),
         }?;
 

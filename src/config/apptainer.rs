@@ -100,7 +100,10 @@ impl Description<common::File> {
         Ok(desc)
     }
 
-    pub(super) fn sendable_files(&self, hashed: &Description<common::HashedFile>) -> Vec<FileMetadata> {
+    pub(super) fn sendable_files(
+        &self,
+        hashed: &Description<common::HashedFile>,
+    ) -> Vec<FileMetadata> {
         let mut files = Vec::new();
 
         self.initialize
@@ -122,7 +125,10 @@ impl Description<common::File> {
     }
 }
 
-impl NormalizePaths for Description<common::File> {
+impl<FILE> NormalizePaths for Description<FILE>
+where
+    FILE: NormalizePaths,
+{
     fn normalize_paths(&mut self, base: PathBuf) {
         // for initialize
         self.initialize.sif =
@@ -152,7 +158,7 @@ pub struct Initialize<FILE> {
     pub required_mounts: Vec<PathBuf>,
 }
 
-#[cfg(feature="cli")]
+#[cfg(feature = "cli")]
 impl Initialize<common::File> {
     fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
         let init_hash = hashing::filename_hash(self);
@@ -188,8 +194,7 @@ impl Initialize<common::File> {
         hashed: &Initialize<common::HashedFile>,
         files: &mut Vec<FileMetadata>,
     ) {
-        let sif =
-            FileMetadata::file(&self.sif, &hashed.sif);
+        let sif = FileMetadata::file(&self.sif, &hashed.sif);
         files.push(sif);
 
         for (original_file, hashed_file) in

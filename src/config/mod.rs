@@ -225,14 +225,17 @@ impl Jobs<common::File> {
         }
     }
 
-    pub(crate) fn sendable_files(&self, hashed_config: &Jobs<common::HashedFile>) -> Vec<FileMetadata> {
+    pub(crate) fn sendable_files(
+        &self,
+        hashed_config: &Jobs<common::HashedFile>,
+    ) -> Vec<FileMetadata> {
         match (&self, &hashed_config) {
-            (Jobs::Python(original_py), Jobs::Python(hashed_py)) => {
-                original_py.description.sendable_files(&hashed_py.description)
-            }
-            (Jobs::Apptainer(original_app), Jobs::Apptainer(hashed_app)) => {
-                original_app.description.sendable_files(&hashed_app.description)
-            }
+            (Jobs::Python(original_py), Jobs::Python(hashed_py)) => original_py
+                .description
+                .sendable_files(&hashed_py.description),
+            (Jobs::Apptainer(original_app), Jobs::Apptainer(hashed_app)) => original_app
+                .description
+                .sendable_files(&hashed_app.description),
             _ => {
                 panic!("need to pass two apptainer or two python. This should never happen")
             }
@@ -301,8 +304,7 @@ where
     }
 }
 
-impl ApptainerConfig<common::File>
-{
+impl ApptainerConfig<common::File> {
     /// write the config file to a provided `Write`r
     pub fn to_writer<W: std::io::Write>(&self, writer: W) -> Result<(), serde_yaml::Error> {
         serde_yaml::to_writer(writer, &self)?;
@@ -315,7 +317,10 @@ pub trait NormalizePaths {
     fn normalize_paths(&mut self, base: PathBuf);
 }
 
-impl NormalizePaths for Jobs<common::File> {
+impl<FILE> NormalizePaths for Jobs<FILE>
+where
+    FILE: NormalizePaths,
+{
     fn normalize_paths(&mut self, base: PathBuf) {
         match self {
             Self::Python(py) => py.description.normalize_paths(base),
