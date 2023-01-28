@@ -2,7 +2,7 @@ use super::Either;
 use super::Machine;
 use crate::prelude::*;
 
-use super::executing::{ClientExecutingState, Executing, ServerExecutingState};
+use super::send_files::{self, SendFiles};
 
 #[derive(thiserror::Error, Debug, From)]
 pub(crate) enum ClientError {
@@ -39,13 +39,16 @@ pub(crate) struct ServerBuiltState {
     pub(super) job_identifier: server::JobSetIdentifier,
 }
 
+type ReceiveState = send_files::ReceiverState<send_files::ExecutingReceiver>;
+type SendState = send_files::SenderState<send_files::ExecutingSender>;
+
 impl Machine<Built, ClientBuiltState> {
     /// wait for the node to return information on the job we are to run
     #[instrument(skip(self), fields(working_dir = %self.state.working_dir.display()))]
     pub(crate) async fn get_execute_instructions(
         mut self,
     ) -> Result<
-        super::ClientEitherPrepareBuild<Machine<Executing, ClientExecutingState>>,
+        super::ClientEitherPrepareBuild<Machine<SendFiles, ReceiveState>>,
         (Self, ClientError),
     > {
         info!("now in built state");
@@ -83,11 +86,11 @@ impl Machine<Built, ClientBuiltState> {
 
                 debug!(
                     "client got executing instructions from the server for job name {}",
-                    job.name()
+                    job.task.name()
                 );
 
-                let executing_state = self.into_executing_state(job).await;
-                let machine = Machine::from_state(executing_state);
+                let receive_files = self.into_receive_files_state(job).await;
+                let machine = Machine::from_state(receive_files);
                 Ok(Either::Right(machine))
             }
             ServerMsg::ReturnPrepareBuild => {
@@ -139,10 +142,10 @@ impl Machine<Built, ClientBuiltState> {
         }
     }
 
-    async fn into_executing_state(
+    async fn into_receive_files_state(
         self,
-        job: transport::JobOpt,
-    ) -> super::executing::ClientExecutingState {
+        run_info: server::pool_data::RunTaskInfo,
+    ) -> ReceiveState {
         let ClientBuiltState {
             conn,
             working_dir,
@@ -157,12 +160,21 @@ impl Machine<Built, ClientBuiltState> {
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
 
-        super::executing::ClientExecutingState {
-            conn,
+        // dump all the files in the ./input directory
+        let save_location = working_dir.join("input");
+
+        let extra = send_files::ExecutingReceiver {
             working_dir,
-            job,
+            run_info,
             folder_state,
             cancel_addr,
+            node_meta: server::pool_data::NodeMetadata::new("SERVER".into(), ([0, 0, 0, 0], 0).into()),
+        };
+
+        ReceiveState {
+            conn,
+            save_location,
+            extra
         }
     }
 }
@@ -182,7 +194,7 @@ impl Machine<Built, ServerBuiltState> {
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
     ) -> Result<
-        super::ServerEitherPrepareBuild<Machine<Executing, ServerExecutingState>>,
+        super::ServerEitherPrepareBuild<Machine<SendFiles, SendState>>,
         (Self, ServerError),
     > {
         info!("{} now in built state", self.state.common.node_meta);
@@ -248,14 +260,14 @@ impl Machine<Built, ServerBuiltState> {
                 let tmp = self
                     .state
                     .conn
-                    .transport_data(&ServerMsg::ExecuteJob(run.task.clone()))
+                    .transport_data(&ServerMsg::ExecuteJob(run.clone()))
                     .await;
 
                 throw_error_with_self!(tmp, self);
 
-                // return a Machine<Executing, _>
-                let executing_state = self.into_executing_state(job_name, run).await;
-                let machine = Machine::from_state(executing_state);
+                // return a Machine<SendFiles, _>
+                let send_state = self.into_send_files_state(run).await;
+                let machine = Machine::from_state(send_state);
                 Ok(Either::Right(machine))
             }
             // missed the keepalive, we should error out and let the caller handle this
@@ -292,11 +304,10 @@ impl Machine<Built, ServerBuiltState> {
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }
 
-    async fn into_executing_state(
+    async fn into_send_files_state(
         self,
-        job_name: String,
-        task_info: server::pool_data::RunTaskInfo,
-    ) -> super::executing::ServerExecutingState {
+        run_info: server::pool_data::RunTaskInfo,
+    ) -> send_files::SenderState<send_files::ExecutingSender> {
         debug!(
             "{} is moving built -> executing",
             self.state.common.node_meta
@@ -316,18 +327,23 @@ impl Machine<Built, ServerBuiltState> {
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
 
+        let job_name = run_info.task.name();
+
         let save_location = common
             .save_path
             .join(namespace)
             .join(batch_name)
             .join(&job_name);
 
-        super::executing::ServerExecutingState {
-            conn,
+        let extra = send_files::ExecutingSender {
             common,
-            task_info,
-            job_name,
-            save_location,
+            run_info,
+            save_location
+        };
+
+        send_files::SenderState {
+            conn,
+            extra,
         }
     }
 }
@@ -335,7 +351,7 @@ impl Machine<Built, ServerBuiltState> {
 #[derive(Serialize, Deserialize, Unwrap)]
 pub(crate) enum ServerMsg {
     ReturnPrepareBuild,
-    ExecuteJob(transport::JobOpt),
+    ExecuteJob(server::pool_data::RunTaskInfo),
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

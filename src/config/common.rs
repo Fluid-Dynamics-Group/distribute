@@ -156,10 +156,6 @@ pub struct HashedFile {
 
 #[cfg(feature = "cli")]
 impl HashedFile {
-    pub(crate) fn lazy_file_unchecked(&self) -> crate::server::LazyFile {
-        crate::server::LazyFile::new(self.original_filename.clone(), self.hashed_path.clone())
-    }
-
     pub(crate) fn as_sendable(&self, is_user: bool) -> crate::client::execute::FileMetadata {
         if is_user {
             self.as_sendable_user()
@@ -186,7 +182,7 @@ impl HashedFile {
         )
     }
 
-    pub(super) fn delete_at_hashed_path(self) -> Result<(), std::io::Error> {
+    pub(super) fn delete_at_hashed_path(&self) -> Result<(), std::io::Error> {
         std::fs::remove_file(&self.hashed_path)?;
 
         Ok(())

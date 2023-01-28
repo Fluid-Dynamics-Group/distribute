@@ -20,8 +20,7 @@ pub(crate) struct ReceiverState<T> {
 
 /// additional state used when performing file transfer
 pub(crate) struct ReceiverFinalStore {
-    pub(crate) job_name: String,
-    pub(crate) task_info: server::pool_data::RunTaskInfo,
+    pub(crate) run_info: server::pool_data::RunTaskInfo,
     pub(crate) common: super::super::Common,
 }
 
@@ -35,19 +34,19 @@ pub(crate) trait SendLogging {
 
 impl SendLogging for ReceiverFinalStore {
     fn job_identifier(&self) -> JobSetIdentifier {
-        self.task_info.identifier
+        self.run_info.identifier
     }
 
     fn namespace(&self) -> &str {
-        &self.task_info.namespace
+        &self.run_info.namespace
     }
 
     fn batch_name(&self) -> &str {
-        &self.task_info.batch_name
+        &self.run_info.batch_name
     }
 
     fn job_name(&self) -> &str {
-        &self.job_name
+        &self.run_info.task.name()
     }
 
     fn node_meta(&self) -> &NodeMetadata {
@@ -68,12 +67,12 @@ impl NextState for ReceiverState<ReceiverFinalStore> {
         let ReceiverState { conn, extra, .. } = self;
 
         let ReceiverFinalStore {
-            common, task_info, ..
+            common, run_info, ..
         } = extra;
 
-        let namespace = task_info.namespace;
-        let batch_name = task_info.batch_name;
-        let job_identifier = task_info.identifier;
+        let namespace = run_info.namespace;
+        let batch_name = run_info.batch_name;
+        let job_identifier = run_info.identifier;
 
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
@@ -163,6 +162,56 @@ impl NextState for ReceiverState<BuildingReceiver> {
 }
 
 impl SendLogging for BuildingReceiver {
+    fn job_identifier(&self) -> JobSetIdentifier {
+        JobSetIdentifier::none()
+    }
+
+    fn namespace(&self) -> &str {
+        "SERVER"
+    }
+
+    fn batch_name(&self) -> &str {
+        "USER"
+    }
+
+    fn job_name(&self) -> &str {
+        "UNKNOWN"
+    }
+
+    fn node_meta(&self) -> &NodeMetadata {
+        &self.node_meta
+    }
+}
+
+pub(crate) struct ExecutingReceiver {
+    pub(crate) node_meta: NodeMetadata,
+    pub(crate) working_dir: PathBuf,
+    pub(crate) cancel_addr: SocketAddr,
+    pub(crate) run_info: server::pool_data::RunTaskInfo,
+    pub(crate) folder_state: client::BindingFolderState,
+}
+
+impl NextState for ReceiverState<ExecutingReceiver> {
+    type Next = protocol::executing::ClientExecutingState;
+    type Marker = protocol::executing::Executing;
+
+    fn next_state(self) -> Self::Next {
+        let ReceiverState { conn, save_location: _, extra } = self;
+        let ExecutingReceiver { working_dir, cancel_addr, run_info, node_meta: _ , folder_state} = extra;
+
+        let conn = conn.update_state();
+
+        protocol::executing::ClientExecutingState {
+            run_info,
+            conn,
+            working_dir,
+            cancel_addr,
+            folder_state
+        }
+    }
+}
+
+impl SendLogging for ExecutingReceiver{
     fn job_identifier(&self) -> JobSetIdentifier {
         JobSetIdentifier::none()
     }
@@ -340,7 +389,7 @@ impl Machine<SendFiles, ReceiverState<ReceiverFinalStore>> {
         let ReceiverState { conn, extra, .. } = self.state;
 
         let ReceiverFinalStore {
-            common, task_info, ..
+            common, run_info, ..
         } = extra;
 
         let conn = conn.update_state();
@@ -351,7 +400,7 @@ impl Machine<SendFiles, ReceiverState<ReceiverFinalStore>> {
             state.common.node_meta
         );
 
-        (Machine::from_state(state), task_info)
+        (Machine::from_state(state), run_info)
     }
 
     pub(crate) fn node_name(&self) -> &str {
@@ -359,7 +408,7 @@ impl Machine<SendFiles, ReceiverState<ReceiverFinalStore>> {
     }
 
     pub(crate) fn job_name(&self) -> &str {
-        &self.state.extra.job_name
+        &self.state.extra.run_info.task.name()
     }
 }
 
@@ -374,7 +423,29 @@ impl Machine<SendFiles, ReceiverState<BuildingReceiver>> {
         } = extra;
 
         let conn = conn.update_state();
-        info!("moving client send files -> uninit");
+        info!("moving client send files(building) -> uninit");
+        let state = ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        };
+
+        Machine::from_state(state)
+    }
+}
+
+impl Machine<SendFiles, ReceiverState<ExecutingReceiver>> {
+    pub(crate) fn into_uninit(self) -> UninitClient {
+        let ReceiverState { conn, extra, .. } = self.state;
+
+        let ExecutingReceiver {
+            working_dir,
+            cancel_addr,
+            ..
+        } = extra;
+
+        let conn = conn.update_state();
+        info!("moving client send files(executing) -> uninit");
         let state = ClientUninitState {
             conn,
             working_dir,

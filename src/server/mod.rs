@@ -5,7 +5,6 @@ mod user_conn;
 
 pub(crate) mod pool_data;
 mod schedule;
-mod storage;
 
 use crate::protocol::Common;
 use job_pool::JobPool;
@@ -13,7 +12,6 @@ pub(crate) use pool_data::JobRequest;
 
 pub use pool_data::CancelResult;
 pub(crate) use schedule::JobSetIdentifier;
-pub(crate) use storage::{LazyFile, StoredJob};
 
 pub use schedule::RemainingJobs;
 

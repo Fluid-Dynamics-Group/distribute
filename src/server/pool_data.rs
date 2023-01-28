@@ -1,6 +1,5 @@
 use super::ok_if_exists;
 use super::schedule::JobSetIdentifier;
-use super::storage;
 use crate::config::requirements::{NodeProvidedCaps, Requirements};
 
 use crate::prelude::*;
@@ -142,18 +141,18 @@ impl BuildTaskInfo {
     }
 }
 
-#[derive(From, Clone, Constructor)]
+#[derive(From, Clone, Constructor, Serialize, Deserialize)]
 pub(crate) struct RunTaskInfo {
     pub(crate) namespace: String,
     pub(crate) batch_name: String,
     pub(crate) identifier: JobSetIdentifier,
-    pub(crate) task: transport::JobOpt,
+    pub(crate) task: config::Job
 }
 
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone, Debug)]
 pub(crate) enum JobOrInit {
-    Job(transport::JobOpt),
+    Job(config::Job),
     JobInit(config::Init),
 }
 

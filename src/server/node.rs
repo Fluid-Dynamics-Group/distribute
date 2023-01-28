@@ -65,13 +65,18 @@ async fn run_all_jobs(
     #[allow(unreachable_code)]
     loop {
         // now that we have compiled, we should
-        let execute = match built.send_job_execution_instructions(scheduler_tx).await {
+        let send_execute_files = match built.send_job_execution_instructions(scheduler_tx).await {
             Ok(protocol::Either::Right(executing)) => executing,
             Ok(protocol::Either::Left(prepare_build)) => {
                 built = prepare_build_to_built(prepare_build, scheduler_tx).await?;
                 continue;
             }
             Err((built, err)) => return Err((built.into_uninit(), err.into())),
+        };
+
+        let execute = match send_execute_files.send_files().await {
+            Ok(execute) => execute,
+            Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
         };
 
         // fully execute the job and return back to the built state

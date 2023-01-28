@@ -125,38 +125,22 @@ impl FileMetadata {
 ///
 /// returns None if the job was cancelled
 pub(crate) async fn run_python_job(
-    job: transport::PythonJob,
+    job: config::python::Job<config::common::HashedFile>,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
 ) -> Result<Option<()>, Error> {
     info!("running general job");
 
     let file_path = base_path.join("run.py");
-    let mut file = tokio::fs::File::create(&file_path)
-        .await
-        .map_err(|full_error| {
-            error::RunJobError::CreateFile(error::CreateFile::new(full_error, file_path.clone()))
-        })?;
+    let input_files = base_path.join("input");
 
-    debug!("created run file");
-
-    file.write_all(&job.python_file)
-        .await
-        .map_err(|full_error| error::RunJobError::WriteBytes {
-            full_error,
-            path: file_path.clone(),
-        })?;
+    let src = input_files.join(job.python_job_file().original_filename());
+    let dest = file_path;
+    std::fs::rename(&src, &dest)
+        .map_err(|e| error::RenameFile::new(e, src, dest))
+        .map_err(error::RunJobError::from)?;
 
     debug!("wrote bytes to run file");
-
-    // TODO: calling state machine should be responsible for clearing the input files first
-    todo!();
-
-    //// reset the input files directory
-    //utils::clear_input_files(base_path)
-    //    .await
-    //    .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
-    //    .map_err(error::RunJobError::CreateDir)?;
 
     // all job files were written to ./base_path/input in the previous state machine
     // so we do not need to write them to the folder here
@@ -168,13 +152,13 @@ pub(crate) async fn run_python_job(
         .args(["run.py", &num_cpus::get_physical().to_string()])
         .output();
 
-    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.name()));
 
     generalized_run(
         Some(&original_dir),
         command,
         output_file_path,
-        &job.job_name,
+        &job.name(),
         cancel,
     )
     .await
@@ -238,21 +222,12 @@ pub(crate) async fn initialize_apptainer_job(
 ///
 /// returns None if the job was cancelled
 pub(crate) async fn run_apptainer_job(
-    job: transport::ApptainerJob,
+    job: config::apptainer::Job<config::common::HashedFile>,
     base_path: &Path,
     cancel: &mut broadcast::Receiver<()>,
     folder_state: &BindingFolderState,
 ) -> Result<Option<()>, Error> {
     info!("running apptainer job");
-
-    // TODO: calling state machine should be responsible for clearing the input files first
-    todo!();
-
-    // // reset the input files directory
-    // utils::clear_input_files(base_path)
-    //     .await
-    //     .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
-    //     .map_err(error::RunJobError::CreateDir)?;
 
     // all job files were written to ./base_path/input in the previous state machine
     // so we do not need to write them to the folder here
@@ -282,7 +257,7 @@ pub(crate) async fn run_apptainer_job(
 
     let command_output = command.output();
 
-    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.name()));
 
     debug!("starting generalized run");
 
@@ -290,7 +265,7 @@ pub(crate) async fn run_apptainer_job(
         None,
         command_output,
         output_file_path,
-        &job.job_name,
+        &job.name(),
         cancel,
     )
     .await

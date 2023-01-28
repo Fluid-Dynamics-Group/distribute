@@ -139,23 +139,6 @@ pub struct PullFilesDryResponse {
     pub filtered_files: Vec<PathBuf>,
 }
 
-//#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
-//pub struct PythonJobInit {
-//    pub batch_name: String,
-//    pub python_setup_file: Vec<u8>,
-//    pub additional_build_files: Vec<File>,
-//}
-//
-//impl fmt::Debug for PythonJobInit {
-//    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-//        fmt.debug_struct("PythonJobInit")
-//            .field("batch_name", &self.batch_name)
-//            .field("python_setup_file (length)", &self.python_setup_file.len())
-//            .field("additional_build_files", &self.additional_build_files)
-//            .finish()
-//    }
-//}
-
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct File {
     pub file_name: String,
@@ -171,94 +154,59 @@ impl fmt::Debug for File {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
-pub struct PythonJob {
-    pub python_file: Vec<u8>,
-    pub job_name: String,
-    pub job_files: Vec<File>,
-}
-
-impl fmt::Debug for PythonJob {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("PythonJob")
-            .field("job_name", &self.job_name)
-            .field("job_files", &self.job_files)
-            .field("python_file (length)", &self.python_file.len())
-            .finish()
-    }
-}
-
 //#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
-//pub struct ApptainerJobInit {
-//    pub batch_name: String,
-//    pub sif_bytes: Vec<u8>,
-//    pub build_files: Vec<File>,
-//    pub container_bind_paths: Vec<PathBuf>,
+//pub struct PythonJob {
+//    pub python_file: Vec<u8>,
+//    pub job_name: String,
+//    pub job_files: Vec<File>,
 //}
 //
-//impl fmt::Debug for ApptainerJobInit {
+//impl fmt::Debug for PythonJob {
 //    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-//        fmt.debug_struct("ApptainerJobInit")
-//            .field("batch_name", &self.batch_name)
-//            .field("build_files", &self.build_files)
-//            .field("container_bind_paths", &self.container_bind_paths)
+//        fmt.debug_struct("PythonJob")
+//            .field("job_name", &self.job_name)
+//            .field("job_files", &self.job_files)
+//            .field("python_file (length)", &self.python_file.len())
 //            .finish()
 //    }
 //}
-
-#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
-pub struct ApptainerJob {
-    pub job_name: String,
-    pub job_files: Vec<File>,
-}
-
-impl fmt::Debug for ApptainerJob {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("ApptainerJob")
-            .field("job_name", &self.job_name)
-            .field("job_files", &self.job_files)
-            .finish()
-    }
-}
-
-//#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-//#[cfg(feature = "cli")]
-//pub enum BuildOpts {
-//    Python(PythonJobInit),
-//    Apptainer(ApptainerJobInit),
+//
+//#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
+//pub struct ApptainerJob {
+//    pub job_name: String,
+//    pub job_files: Vec<File>,
 //}
-
-#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize, Eq)]
-pub(crate) enum JobOpt {
-    Apptainer(ApptainerJob),
-    Python(PythonJob),
-}
-
-impl JobOpt {
-    pub(crate) fn name(&self) -> &str {
-        match &self {
-            Self::Apptainer(x) => &x.job_name,
-            Self::Python(x) => &x.job_name,
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn placeholder_test_data() -> Self {
-        transport::JobOpt::Python(transport::PythonJob {
-            python_file: vec![],
-            job_name: "test_job".into(),
-            job_files: vec![],
-        })
-    }
-}
-
-//#[cfg(feature = "cli")]
-//impl BuildOpts {
-//    pub(crate) fn batch_name(&self) -> &str {
+//
+//impl fmt::Debug for ApptainerJob {
+//    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+//        fmt.debug_struct("ApptainerJob")
+//            .field("job_name", &self.job_name)
+//            .field("job_files", &self.job_files)
+//            .finish()
+//    }
+//}
+//
+//#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize, Eq)]
+//pub(crate) enum JobOpt {
+//    Apptainer(ApptainerJob),
+//    Python(PythonJob),
+//}
+//
+//impl JobOpt {
+//    pub(crate) fn name(&self) -> &str {
 //        match &self {
-//            Self::Apptainer(s) => &s.batch_name,
-//            Self::Python(p) => &p.batch_name,
+//            Self::Apptainer(x) => &x.job_name,
+//            Self::Python(x) => &x.job_name,
 //        }
+//    }
+//
+//    #[cfg(test)]
+//    pub(crate) fn placeholder_test_data() -> Self {
+//        transport::JobOpt::Python(transport::PythonJob {
+//            python_file: vec![],
+//            job_name: "test_job".into(),
+//            job_files: vec![],
+//        })
 //    }
 //}
 
@@ -286,8 +234,8 @@ impl Version {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-pub struct FinishedJob;
+//#[derive(Deserialize, Serialize, Debug)]
+//pub struct FinishedJob;
 
 #[derive(Deserialize, Serialize, Debug, Constructor)]
 /// a file or directory loaded into memory to be saved after transport

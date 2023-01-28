@@ -134,6 +134,44 @@ impl FileSender for BuildingSender {
     }
 }
 
+/// sending files to be used in the compilation process
+pub(crate) struct ExecutingSender {
+    pub(crate) common: protocol::Common,
+    pub(crate) run_info: server::pool_data::RunTaskInfo,
+    // where to dump the files that are output from the job *AFTER* the
+    // job finishes.
+    pub(crate) save_location: PathBuf
+}
+
+impl NextState for SenderState<ExecutingSender> {
+    type Next = protocol::executing::ServerExecutingState;
+    type Marker = protocol::executing::Executing;
+
+    fn next_state(self) -> Self::Next {
+        let SenderState { conn, extra } = self;
+        let ExecutingSender { common, run_info, save_location } = extra;
+
+        let conn = conn.update_state();
+
+        protocol::executing::ServerExecutingState {
+            conn,
+            common,
+            save_location,
+            run_info 
+        }
+    }
+}
+
+impl FileSender for ExecutingSender {
+    fn job_name(&self) -> &str {
+        "building_file_send"
+    }
+
+    fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
+        Box::new(self.run_info.task.sendable_files(false).into_iter())
+    }
+}
+
 impl<T, NEXT, MARKER> Machine<SendFiles, SenderState<T>>
 where
     T: FileSender,
@@ -275,6 +313,19 @@ impl Machine<SendFiles, SenderState<BuildingSender>> {
         let SenderState { conn, extra, .. } = self.state;
 
         let BuildingSender { common, .. } = extra;
+
+        let conn = conn.update_state();
+        info!("moving client send files -> uninit");
+        let state = ServerUninitState { conn, common };
+        Machine::from_state(state)
+    }
+}
+
+impl Machine<SendFiles, SenderState<ExecutingSender>> {
+    pub(crate) fn into_uninit(self) -> UninitServer {
+        let SenderState { conn, extra, .. } = self.state;
+
+        let ExecutingSender { common, .. } = extra;
 
         let conn = conn.update_state();
         info!("moving client send files -> uninit");

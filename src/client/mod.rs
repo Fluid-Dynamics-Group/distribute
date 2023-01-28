@@ -117,7 +117,7 @@ async fn inner_prepare_build_to_compile_result(
 
     // TODO: we can remove these by adding a new state to the send_files output that happens
     // after the job is executed. until then, we need this useless channel
-    let (mut tx, rx) = mpsc::channel(5);
+    let (mut tx, _rx) = mpsc::channel(5);
     let building_state = match sending_compilation_files_state.receive_files(&mut tx).await {
         Ok(building) => building,
         Err((prepare_build, err)) => {
@@ -216,7 +216,7 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
     #[allow(unreachable_code)]
     loop {
         // now that we have compiled, we should
-        let execute = match built.get_execute_instructions().await {
+        let receive_files = match built.get_execute_instructions().await {
             Ok(protocol::Either::Right(executing)) => executing,
             Ok(protocol::Either::Left(prepare_build)) => {
                 built = prepare_build_to_built(prepare_build).await?;
@@ -225,6 +225,17 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
             Err((built, err)) => {
                 tracing::error!("error from built client: {}", err);
                 return Err((built.into_uninit(), err.into()));
+            }
+        };
+
+        // TODO: we can remove these by adding a new state to the send_files output that happens
+        // after the job is executed. until then, we need this useless channel
+        let (mut tx, _rx) = mpsc::channel(5);
+        let execute = match receive_files.receive_files(&mut tx).await {
+            Ok(execute) => execute,
+            Err((receive_files, err)) => {
+                tracing::error!("error when trying to receive files to execute {}", err);
+                return Err((receive_files.into_uninit(), err.into()));
             }
         };
 

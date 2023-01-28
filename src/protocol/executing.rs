@@ -15,7 +15,7 @@ pub(crate) struct Executing;
 pub(crate) struct ClientExecutingState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: PathBuf,
-    pub(super) job: transport::JobOpt,
+    pub(super) run_info: server::pool_data::RunTaskInfo,
     pub(super) folder_state: client::BindingFolderState,
     pub(super) cancel_addr: SocketAddr,
 }
@@ -23,23 +23,22 @@ pub(crate) struct ClientExecutingState {
 pub(crate) struct ServerExecutingState {
     pub(super) conn: transport::Connection<ServerMsg>,
     pub(super) common: super::Common,
-    pub(super) job_name: String,
     pub(super) save_location: PathBuf,
     // pub(super) here so we can pull this out of the state if we need to
-    pub(super) task_info: server::pool_data::RunTaskInfo,
+    pub(super) run_info: server::pool_data::RunTaskInfo,
 }
 
 impl ServerExecutingState {
     fn job_identifier(&self) -> JobSetIdentifier {
-        self.task_info.identifier
+        self.run_info.identifier
     }
 
     fn namespace(&self) -> &str {
-        &self.task_info.namespace
+        &self.run_info.namespace
     }
 
     fn batch_name(&self) -> &str {
-        &self.task_info.batch_name
+        &self.run_info.batch_name
     }
 }
 
@@ -58,7 +57,7 @@ pub(crate) enum ServerError {
 }
 
 impl Machine<Executing, ClientExecutingState> {
-    #[instrument(skip(self), fields(job_name=self.state.job.name()))]
+    #[instrument(skip(self), fields(job_name=self.state.run_info.task.name()))]
     pub(crate) async fn execute_job(
         mut self,
     ) -> Result<
@@ -70,7 +69,7 @@ impl Machine<Executing, ClientExecutingState> {
         let is_cancelled = Arc::new(AtomicBool::new(false));
 
         let working_dir = self.state.working_dir.clone();
-        let job = self.state.job.clone();
+        let run_info = self.state.run_info.clone();
 
         // start an arbiter to monitor the cancellation port and receive information
         // from the main compute process about our job.
@@ -85,13 +84,13 @@ impl Machine<Executing, ClientExecutingState> {
         //
         // This is required because we cannot simultaneously run the task and cancel the
         // task with the same `tokio::select!` call
-        let msg = match job {
-            transport::JobOpt::Python(python_job) => {
+        let msg = match run_info.task {
+            config::Job::Python(python_job) => {
                 let run_result =
                     client::run_python_job(python_job, &working_dir, &mut rx_cancel).await;
                 ClientMsg::from_run_result(run_result)
             }
-            transport::JobOpt::Apptainer(apptainer_job) => {
+            config::Job::Apptainer(apptainer_job) => {
                 let run_result = client::run_apptainer_job(
                     apptainer_job,
                     &working_dir,
@@ -175,9 +174,9 @@ impl Machine<Executing, ClientExecutingState> {
         let ClientExecutingState {
             conn,
             working_dir,
-            job,
             folder_state,
             cancel_addr,
+            run_info
         } = self.state;
 
         #[allow(unused_mut)]
@@ -186,7 +185,7 @@ impl Machine<Executing, ClientExecutingState> {
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
 
-        let job_name = job.name().to_string();
+        let job_name = run_info.task.name().to_string();
 
         let extra = send_files::SenderFinalStore {
             working_dir,
@@ -225,9 +224,9 @@ impl Machine<Executing, ServerExecutingState> {
         skip(self, scheduler_tx), 
         fields(
             node_meta = %self.state.common.node_meta,
-            namespace = self.state.task_info.namespace,
-            batch_name = self.state.task_info.batch_name,
-            job_name = self.state.job_name,
+            namespace = self.state.run_info.namespace,
+            batch_name = self.state.run_info.batch_name,
+            job_name = self.state.run_info.task.name(),
         )
     )]
     pub(crate) async fn wait_job_execution(
@@ -290,7 +289,7 @@ impl Machine<Executing, ServerExecutingState> {
                 info!(
                     "{} job was cancelled (job name {}, batch name {})",
                     self.state.common.node_meta,
-                    self.state.job_name,
+                    self.state.run_info.task.name(),
                     self.state.batch_name()
                 );
                 let tmp = self.state.conn.transport_data(&ServerMsg::Continue).await;
@@ -304,7 +303,7 @@ impl Machine<Executing, ServerExecutingState> {
 
                 let finish_msg = server::pool_data::FinishJob {
                     ident: self.state.job_identifier(),
-                    job_name: self.state.job_name.clone(),
+                    job_name: self.state.run_info.task.name().to_string(),
                 };
 
                 let mark_finished_msg = server::JobRequest::FinishJob(finish_msg);
@@ -352,7 +351,7 @@ impl Machine<Executing, ServerExecutingState> {
         let ServerExecutingState {
             conn,
             common,
-            task_info,
+            run_info,
             ..
         } = self.state;
         let conn = conn.update_state();
@@ -362,7 +361,7 @@ impl Machine<Executing, ServerExecutingState> {
             state.common.node_meta
         );
 
-        (Machine::from_state(state), task_info)
+        (Machine::from_state(state), run_info)
     }
 
     async fn into_send_files_state(self) -> ServerSendFilesState {
@@ -373,9 +372,8 @@ impl Machine<Executing, ServerExecutingState> {
         let ServerExecutingState {
             conn,
             common,
-            job_name,
             save_location,
-            task_info,
+            run_info,
         } = self.state;
 
         #[allow(unused_mut)]
@@ -386,8 +384,7 @@ impl Machine<Executing, ServerExecutingState> {
 
         let extra = send_files::ReceiverFinalStore {
             common,
-            task_info,
-            job_name,
+            run_info,
         };
 
         ServerSendFilesState {

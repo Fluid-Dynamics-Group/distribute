@@ -106,6 +106,8 @@ pub enum RunJobError {
     },
     #[error("{0}")]
     ExecuteProcess(CommandExecutionError),
+    #[error("{0}")]
+    RenameFile(#[from] RenameFile),
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]

@@ -1,6 +1,5 @@
 use super::matrix;
 use super::pool_data::{JobOrInit, JobResponse, NodeMetadata, TaskInfo};
-use super::storage::{self, StoredJob};
 
 use crate::config::{self, requirements, NormalizePaths};
 use crate::error::{self, ScheduleError};
@@ -25,7 +24,7 @@ pub(crate) trait Schedule {
         jobs: config::Jobs<config::common::HashedFile>,
     ) -> Result<(), ScheduleError>;
 
-    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobSetIdentifier);
+    fn add_job_back(&mut self, job: config::Job, identifier: JobSetIdentifier);
 
     fn finish_job(&mut self, job: JobSetIdentifier, job_name: &str);
 
@@ -210,7 +209,7 @@ impl Schedule for GpuPriority {
         Ok(())
     }
 
-    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobSetIdentifier) {
+    fn add_job_back(&mut self, job: config::Job, identifier: JobSetIdentifier) {
         if let Some(job_set) = self.map.get_mut(&identifier) {
             job_set.add_errored_job(job, &self.base_path)
         } else {
@@ -360,7 +359,7 @@ impl Schedule for GpuPriority {
 pub(crate) struct JobSet {
     build: config::Init,
     requirements: requirements::Requirements<requirements::JobRequiredCaps>,
-    remaining_jobs: Vec<StoredJob>,
+    remaining_jobs: Vec<config::Job>,
     running_jobs: Vec<RunningJob>,
     pub(crate) batch_name: String,
     namespace: String,
@@ -373,16 +372,17 @@ impl JobSet {
         !self.remaining_jobs.is_empty()
     }
 
-    fn next_job(&mut self, node_meta: &NodeMetadata) -> Option<transport::JobOpt> {
+    fn next_job(&mut self, node_meta: &NodeMetadata) -> Option<config::Job> {
         if let Some(job) = self.remaining_jobs.pop() {
-            let running_job_desc = RunningJob::new(job.job_name().to_string(), node_meta.clone());
+            let running_job_desc = RunningJob::new(job.name().to_string(), node_meta.clone());
             self.running_jobs.push(running_job_desc);
 
             debug!(
                 "calling next_job() -> currently running jobs is now length {}",
                 self.running_jobs.len()
             );
-            job.load_job().ok()
+
+            Some(job)
         } else {
             None
         }
@@ -392,15 +392,10 @@ impl JobSet {
         self.build.clone()
     }
 
-    fn add_errored_job(&mut self, job: transport::JobOpt, base_path: &Path) {
-        todo!()
-        //debug!("called add_errored_job() on corresponding job set, removing job name {} from running set list", job.name());
-        //self.remove_running_job_by_name(job.name());
-
-        //match StoredJob::from_opt(job, base_path) {
-        //    Ok(job) => self.remaining_jobs.push(job),
-        //    Err(e) => error!("could not add job back to lazy storage: {}", e),
-        //}
+    fn add_errored_job(&mut self, job: config::Job, base_path: &Path) {
+        debug!("called add_errored_job() on corresponding job set, removing job name {} from running set list", job.name());
+        self.remove_running_job_by_name(job.name());
+        self.remaining_jobs.push(job)
     }
 
     fn remove_running_job_by_name(&mut self, job_name: &str) {
@@ -438,7 +433,7 @@ impl JobSet {
             jobs_left: self
                 .remaining_jobs
                 .iter()
-                .map(|x| x.job_name().to_string())
+                .map(|x| x.name().to_string())
                 .collect(),
             running_jobs: self
                 .running_jobs
@@ -456,7 +451,7 @@ impl JobSet {
             //
             // also - there is no reason to load this data into memory if we are just throwing it
             // out
-            job.load_job()?;
+            job.delete_files()?;
         }
 
         debug!(
@@ -483,15 +478,17 @@ impl JobSet {
                 .description()
                 .jobs()
                 .into_iter()
-                .map(|job| StoredJob::from_python(job))
-                .collect::<Result<Vec<_>, _>>(),
+                .map(Clone::clone)
+                .map(config::Job::from)
+                .collect::<Vec<_>>(),
             config::Jobs::Apptainer(apptainer) => apptainer
                 .description()
                 .jobs()
                 .into_iter()
-                .map(|job| StoredJob::from_apptainer(job))
-                .collect::<Result<Vec<_>, _>>(),
-        }?;
+                .map(Clone::clone)
+                .map(config::Job::from)
+                .collect::<Vec<_>>(),
+        };
 
         Ok(Self {
             build,

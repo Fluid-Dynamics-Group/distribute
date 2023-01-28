@@ -220,6 +220,44 @@ impl Init {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, From)]
+pub enum Job {
+    Python(python::Job<common::HashedFile>),
+    Apptainer(apptainer::Job<common::HashedFile>),
+}
+
+impl Job {
+    pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
+        let mut out = Vec::new();
+
+        match &self {
+            Self::Python(py) => py.sendable_files(is_user, &mut out),
+            Self::Apptainer(app) => app.sendable_files(is_user, &mut out),
+        }
+
+        out
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        match &self {
+            Self::Python(py) => &py.name(),
+            Self::Apptainer(app) => &app.name(),
+        }
+    }
+
+    pub(crate) fn delete_files(self) -> Result<(), std::io::Error> {
+        match self {
+            Self::Python(py) => {
+                py.python_job_file().delete_at_hashed_path()?;
+                common::delete_hashed_files(py.required_files)
+            }
+            Self::Apptainer(app) => {
+                common::delete_hashed_files(app.required_files)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 pub struct Meta {
@@ -374,14 +412,6 @@ impl NormalizePaths for Nodes {
     fn normalize_paths(&mut self, _base: PathBuf) {
         // we dont actually need to normalize things for nodes configuration
     }
-}
-
-#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, Unwrap)]
-#[serde(deny_unknown_fields)]
-#[cfg(feature = "cli")]
-pub enum JobOpts {
-    Python(Vec<transport::PythonJob>),
-    Apptainer(Vec<transport::ApptainerJob>),
 }
 
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(

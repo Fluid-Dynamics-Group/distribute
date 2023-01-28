@@ -218,13 +218,13 @@ impl Initialize<common::HashedFile> {
 #[serde(deny_unknown_fields)]
 pub struct Job<FILE> {
     #[getset(get = "pub(crate)")]
-    name: String,
+    pub(super) name: String,
     #[serde(rename = "file")]
     #[getset(get = "pub(crate)")]
-    python_job_file: FILE,
+    pub(super) python_job_file: FILE,
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
-    required_files: Vec<FILE>,
+    pub(super) required_files: Vec<FILE>,
 }
 
 #[cfg(feature = "cli")]
