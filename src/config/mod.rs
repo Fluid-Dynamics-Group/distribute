@@ -50,8 +50,8 @@ pub struct ConfigurationError {
 pub enum ConfigErrorReason {
     #[display(fmt = "deserialization error: {}", _0)]
     Deserialization(serde_yaml::Error),
-    #[display(fmt = "missing file: {}", "_0.display()")]
-    MissingFile(PathBuf),
+    #[display(fmt = "missing file: {}", _0)]
+    MissingFile(MissingFileNameError),
     #[display(fmt = "General Io error when opening config file: {}", _0)]
     IoError(std::io::Error),
 }
@@ -78,7 +78,7 @@ pub struct CanonicalizeError {
     err: std::io::Error,
 }
 
-#[derive(Debug, Display, From, thiserror::Error)]
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
 #[display(fmt = "Error loading configuration for jobs {:?} ", path)]
 /// happens when a file path does not contain a filename
 pub struct MissingFileNameError {
@@ -242,7 +242,12 @@ impl Jobs<common::File> {
 
     /// ensure that all paths exist as we expect them to
     pub(crate) fn verify_config(&self) -> Result<(), ConfigErrorReason> {
-        todo!()
+        match &self {
+            Self::Python(py) => py.description.verify_config()?,
+            Self::Apptainer(app) => app.description.verify_config()?,
+        };
+
+        Ok(())
     }
 
     pub fn hashed(&self) -> Result<Jobs<common::HashedFile>, MissingFileNameError> {

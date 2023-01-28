@@ -35,6 +35,19 @@ pub struct Description<FILE> {
 
 #[cfg(feature = "cli")]
 impl Description<common::File> {
+    pub(super) fn verify_config(&self) -> Result<(), super::MissingFileNameError> {
+        self.initialize.python_build_file_path().exists_or_err()?;
+
+        self.initialize.required_files.iter().try_for_each(|f| f.exists_or_err())?;
+
+        self.jobs.iter()
+            .try_for_each(|job| 
+                 job.required_files.iter().try_for_each(|f| f.exists_or_err())
+            )?;
+
+        Ok(())
+    }
+
     pub(crate) fn len_jobs(&self) -> usize {
         self.jobs.len()
     }

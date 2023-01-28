@@ -94,6 +94,13 @@ impl File {
 
         Ok(())
     }
+
+    pub(super) fn exists_or_err(&self) -> Result<(), super::MissingFileNameError> {
+        if !self.path().exists() {
+            return Err(super::MissingFileNameError::new(self.path().to_owned()))
+        }
+        Ok(())
+    }
 }
 
 impl NormalizePaths for File {
@@ -195,6 +202,14 @@ impl NormalizePaths for HashedFile {
 pub(super) fn delete_hashed_files(files: Vec<HashedFile>) -> Result<(), std::io::Error> {
     for file in files {
         file.delete_at_hashed_path()?;
+    }
+
+    Ok(())
+}
+
+pub(super) fn check_files_exist(files: &[File]) -> Result<(), super::MissingFileNameError> {
+    for file in files {
+        file.exists_or_err()?;
     }
 
     Ok(())

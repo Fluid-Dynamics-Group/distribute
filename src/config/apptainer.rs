@@ -33,27 +33,21 @@ pub struct Description<FILE> {
 
 #[cfg(feature = "cli")]
 impl Description<common::File> {
-    pub(crate) fn len_jobs(&self) -> usize {
-        self.jobs.len()
+    pub(super) fn verify_config(&self) -> Result<(), super::MissingFileNameError> {
+        self.initialize.sif.exists_or_err()?;
+
+        self.initialize.required_files.iter().try_for_each(|f| f.exists_or_err())?;
+
+        self.jobs.iter()
+            .try_for_each(|job| 
+                 job.required_files.iter().try_for_each(|f| f.exists_or_err())
+            )?;
+
+        Ok(())
     }
 
-    pub(crate) async fn load_build(
-        &self,
-        batch_name: String,
-    ) -> Result<Vec<FileMetadata>, LoadJobsError> {
-        todo!()
-        //let sif_bytes = tokio::fs::read(&self.initialize.sif)
-        //    .await
-        //    .map_err(|e| ReadBytesError::new(e, self.initialize.sif.clone()))?;
-
-        //let build_files = load_from_file(&self.initialize.required_files).await?;
-
-        //Ok(transport::ApptainerJobInit {
-        //    sif_bytes,
-        //    batch_name,
-        //    build_files,
-        //    container_bind_paths: self.initialize.required_mounts.clone(),
-        //})
+    pub(crate) fn len_jobs(&self) -> usize {
+        self.jobs.len()
     }
 
     pub(super) fn hashed(
