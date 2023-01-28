@@ -86,7 +86,14 @@ impl Description<common::File> {
                 })
                 .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
 
-            let python_job_file = format!("{hash}_python_run.dist").into();
+            let hashed_path = format!("{hash}_python_run.dist").into();
+            let unhashed_path = job.python_job_file.path().into();
+            let filename = job.python_job_file.filename()?;
+            let python_job_file = common::HashedFile::new(
+                hashed_path,
+                unhashed_path,
+                filename,
+            );
 
             // assemble the new files into a new job
             let job = Job {
@@ -140,8 +147,7 @@ where
 
         // for jobs
         for job in self.jobs.iter_mut() {
-            job.python_job_file =
-                super::common::normalize_pathbuf(job.python_job_file.clone(), base.clone());
+            job.python_job_file.normalize_paths(base.clone());
 
             for file in job.required_files.iter_mut() {
                 file.normalize_paths(base.clone())
@@ -215,8 +221,19 @@ pub struct Job<FILE> {
     name: String,
     #[serde(rename = "file")]
     #[getset(get = "pub(crate)")]
-    python_job_file: PathBuf,
+    python_job_file: FILE,
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
     required_files: Vec<FILE>,
+}
+
+#[cfg(feature = "cli")]
+impl Job<common::HashedFile> {
+    pub(crate) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
+        files.push(self.python_job_file.as_sendable(is_user));
+
+        self.required_files
+            .iter()
+            .for_each(|hashed_file| files.push(hashed_file.as_sendable(is_user)));
+    }
 }

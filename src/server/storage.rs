@@ -18,7 +18,7 @@ pub(crate) enum StoredJob {
 impl StoredJob {
     pub(crate) fn from_python(job: &config::python::Job<HashedFile>) -> Result<Self, io::Error> {
         let job_name = job.name().to_string();
-        let python_setup_file_path = job.python_job_file().to_owned();
+        let python_setup_file_path = job.python_job_file().lazy_file_unchecked();
         let required_files = job
             .required_files()
             .into_iter()
@@ -71,13 +71,13 @@ impl StoredJob {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub(crate) struct LazyPythonJob {
     job_name: String,
-    python_setup_file_path: PathBuf,
+    python_setup_file_path: LazyFile,
     required_files: Vec<LazyFile>,
 }
 
 impl LazyPythonJob {
     pub(crate) fn load_job(self) -> Result<transport::PythonJob, io::Error> {
-        let python_file = std::fs::read(&self.python_setup_file_path)?;
+        let python_file = std::fs::read(&self.python_setup_file_path.path)?;
 
         let job_files = load_files(&self.required_files, true)?;
 

@@ -107,12 +107,7 @@ impl Description<common::HashedFile> {
         self.initialize.sendable_files(is_user, &mut files);
 
         for job in self.jobs.iter() {
-            let file_iter = job.required_files.iter();
-
-            for hashed_file in file_iter {
-                let meta = hashed_file.as_sendable(is_user);
-                files.push(meta);
-            }
+            job.sendable_files(is_user, &mut files);
         }
 
         files
@@ -209,4 +204,13 @@ pub struct Job<FILE> {
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
     pub required_files: Vec<FILE>,
+}
+
+#[cfg(feature = "cli")]
+impl Job<common::HashedFile> {
+    pub(crate) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
+        self.required_files
+            .iter()
+            .for_each(|hashed_file| files.push(hashed_file.as_sendable(is_user)));
+    }
 }

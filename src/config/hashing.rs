@@ -65,7 +65,7 @@ impl HashableComponent for config::apptainer::Job<File> {
 
 impl HashableComponent for config::python::Job<File> {
     fn job_file(&self) -> PathBuf {
-        self.python_job_file().to_owned()
+        self.python_job_file().path().to_owned()
     }
     fn job_name(&self) -> &str {
         self.name()
