@@ -166,7 +166,7 @@ impl HashedFile {
             // location on the disk here
             &self.unhashed_path_user,
             // location we intend to send this file to
-            &self.hashed_path
+            &self.hashed_path,
         )
     }
 
@@ -175,8 +175,14 @@ impl HashedFile {
             // location on the disk here
             self.hashed_path,
             // location we intend to send this to
-            PathBuf::from(self.original_filename.clone())
+            PathBuf::from(self.original_filename.clone()),
         )
+    }
+
+    pub(super) fn delete_at_hashed_path(self) -> Result<(), std::io::Error> {
+        std::fs::remove_file(&self.hashed_path)?;
+
+        Ok(())
     }
 }
 
@@ -184,4 +190,12 @@ impl NormalizePaths for HashedFile {
     fn normalize_paths(&mut self, base: PathBuf) {
         self.hashed_path = normalize_pathbuf(self.hashed_path.clone(), base);
     }
+}
+
+pub(super) fn delete_hashed_files(files: Vec<HashedFile>) -> Result<(), std::io::Error> {
+    for file in files {
+        file.delete_at_hashed_path()?;
+    }
+
+    Ok(())
 }

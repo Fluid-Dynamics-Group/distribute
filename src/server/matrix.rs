@@ -3,13 +3,13 @@ use crate::prelude::*;
 
 pub(crate) fn send_matrix_message(
     matrix_id: matrix_notify::OwnedUserId,
-    removed_set: JobSet,
+    batch_name: String,
     reason: Reason,
     matrix_data: MatrixData,
 ) {
     // spawn off so that we can use async
     tokio::task::spawn(async move {
-        let msg = reason.to_message(removed_set.batch_name);
+        let msg = reason.to_message(batch_name);
 
         if let Err(e) = matrix_notify::send_text_message(
             &matrix_data.client,

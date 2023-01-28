@@ -179,6 +179,18 @@ pub struct CreateFile {
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
 #[display(
+    fmt = "failed to rename file from `{}` to `{}`: {error}",
+    "src.display()",
+    "dest.display()"
+)]
+pub struct RenameFile {
+    error: std::io::Error,
+    src: PathBuf,
+    dest: PathBuf,
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
     fmt = "Could not serialize config file at {} - error: {}",
     "path.display()",
     error
@@ -250,6 +262,8 @@ pub enum LogError {
 pub enum ClientInitError {
     #[error("`{0}`")]
     Io(std::io::Error),
+    #[error("`{0}`")]
+    RenameFile(RenameFile),
     #[error("`{0}`")]
     TcpConnection(TcpConnection),
     #[error("`{0}`")]

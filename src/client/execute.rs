@@ -149,14 +149,17 @@ pub(crate) async fn run_python_job(
 
     debug!("wrote bytes to run file");
 
-    // reset the input files directory
-    utils::clear_input_files(base_path)
-        .await
-        .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
-        .map_err(error::RunJobError::CreateDir)?;
+    // TODO: calling state machine should be responsible for clearing the input files first
+    todo!();
 
-    // write all of _our_ job files to the output directory
-    write_all_init_files(&base_path.join("input"), &job.job_files).await?;
+    //// reset the input files directory
+    //utils::clear_input_files(base_path)
+    //    .await
+    //    .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
+    //    .map_err(error::RunJobError::CreateDir)?;
+
+    // all job files were written to ./base_path/input in the previous state machine
+    // so we do not need to write them to the folder here
 
     debug!("wrote all job file bytes to file - running job");
     let original_dir = enter_output_dir(base_path);
@@ -177,41 +180,23 @@ pub(crate) async fn run_python_job(
     .await
 }
 
-async fn write_init_file<T: AsRef<Path>>(
-    base_path: &Path,
-    file_name: T,
-    bytes: &[u8],
-) -> Result<(), error::InitJobError> {
-    let file_path = base_path.join(file_name);
-
-    info!("creating file {} for job init", file_path.display());
-
-    let mut file = tokio::fs::File::create(&file_path)
-        .await
-        .map_err(error::InitJobError::from)?;
-
-    file.write_all(bytes)
-        .await
-        .map_err(error::InitJobError::from)?;
-
-    Ok(())
-}
-
 /// run the build file for a job
 ///
 /// returns None if the process was cancelled
 pub(crate) async fn initialize_python_job(
-    init: transport::PythonJobInit,
+    init: &config::python::Initialize<config::common::HashedFile>,
+    batch_name: &str,
     base_path: &Path,
 ) -> Result<(), Error> {
     info!("running initialization for new job");
-    write_init_file(base_path, "run.py", &init.python_setup_file).await?;
 
-    write_all_init_files(
-        &base_path.join("initial_files"),
-        &init.additional_build_files,
-    )
-    .await?;
+    let initial_files = base_path.join("initial_files");
+
+    let src = initial_files.join(init.python_build_file_path.original_filename());
+    let dest = base_path.join("run.py");
+    std::fs::rename(&src, &dest)
+        .map_err(|e| error::RenameFile::new(e, src, dest))
+        .map_err(error::ClientInitError::from)?;
 
     info!("initialized all init files");
 
@@ -223,29 +208,28 @@ pub(crate) async fn initialize_python_job(
         .args(["run.py"])
         .output();
 
-    let output_file_path = base_path.join(format!(
-        "distribute_save/{}_init_output.txt",
-        init.batch_name
-    ));
+    let output_file_path = base_path.join(format!("distribute_save/{batch_name}_init_output.txt",));
 
     generalized_init(&original_dir, command, output_file_path).await
 }
 
 pub(crate) async fn initialize_apptainer_job(
-    init: transport::ApptainerJobInit,
+    init: &config::apptainer::Initialize<config::common::HashedFile>,
     base_path: &Path,
     folder_state: &mut BindingFolderState,
 ) -> Result<(), Error> {
-    // write the .sif file to the root
-    write_init_file(base_path, "apptainer.sif", &init.sif_bytes).await?;
-    // write any included files for the initialization to the `initial_files` directory
-    // and they will be copied over to `input` at the start of each job run
-    write_all_init_files(&base_path.join("initial_files"), &init.build_files).await?;
+    let initial_files = base_path.join("initial_files");
+
+    let src = initial_files.join(init.sif.original_filename());
+    let dest = base_path.join("apptainer.sif");
+    std::fs::rename(&src, &dest)
+        .map_err(|e| error::RenameFile::new(e, src, dest))
+        .map_err(error::ClientInitError::from)?;
 
     // clear out all the older bindings and create new folders for our mounts
     // for this container
     folder_state
-        .update_binded_paths(init.container_bind_paths, base_path)
+        .update_binded_paths(init.required_mounts.clone(), base_path)
         .await;
     Ok(())
 }
@@ -261,14 +245,17 @@ pub(crate) async fn run_apptainer_job(
 ) -> Result<Option<()>, Error> {
     info!("running apptainer job");
 
-    // reset the input files directory
-    utils::clear_input_files(base_path)
-        .await
-        .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
-        .map_err(error::RunJobError::CreateDir)?;
+    // TODO: calling state machine should be responsible for clearing the input files first
+    todo!();
 
-    // copy all the files for this job to the directory
-    write_all_init_files(&base_path.join("input"), &job.job_files).await?;
+    // // reset the input files directory
+    // utils::clear_input_files(base_path)
+    //     .await
+    //     .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
+    //     .map_err(error::RunJobError::CreateDir)?;
+
+    // all job files were written to ./base_path/input in the previous state machine
+    // so we do not need to write them to the folder here
 
     let apptainer_path = base_path
         .join("apptainer.sif")
@@ -339,23 +326,6 @@ fn create_bind_argument(base_path: &Path, folder_state: &BindingFolderState) -> 
     }
 
     bind_arg
-}
-
-async fn write_all_init_files(base_path: &Path, files: &[transport::File]) -> Result<(), Error> {
-    for additional_file in files {
-        debug!(
-            "init file {} number of bytes written: {}",
-            additional_file.file_name,
-            additional_file.file_bytes.len()
-        );
-        write_init_file(
-            base_path,
-            &additional_file.file_name,
-            &additional_file.file_bytes,
-        )
-        .await?;
-    }
-    Ok(())
 }
 
 fn enter_output_dir(base_path: &Path) -> PathBuf {

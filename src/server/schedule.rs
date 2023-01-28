@@ -88,7 +88,6 @@ impl GpuPriority {
             // make sure that the job we are pulling has not failed to build on this node before
             .find(|(ident, _job_set)| !build_failures.contains(ident))
         {
-
             let init = job_set.init_file();
 
             JobResponse::SetupOrRun(TaskInfo::new(
@@ -173,7 +172,6 @@ impl Schedule for GpuPriority {
                     JobOrInit::Job(job),
                 ))
             } else {
-
                 let init = gpu_job_set.init_file();
                 JobResponse::SetupOrRun(TaskInfo::new(
                     gpu_job_set.namespace.clone(),
@@ -242,7 +240,7 @@ impl Schedule for GpuPriority {
                 let removed_set = self.map.remove(&identifier).unwrap();
 
                 // since we are done with this job set then we should deallocate the build file
-                removed_set.build.delete().ok();
+                removed_set.build.delete_files().ok();
 
                 if let Some(matrix_id) = &removed_set.matrix_user {
                     if let Some(matrix) = &self.matrix {
@@ -256,7 +254,7 @@ impl Schedule for GpuPriority {
                         // send the matrix message
                         super::matrix::send_matrix_message(
                             matrix_id,
-                            removed_set,
+                            removed_set.batch_name,
                             super::matrix::Reason::FinishedAll,
                             matrix.clone(),
                         )
@@ -315,7 +313,7 @@ impl Schedule for GpuPriority {
 
                         super::matrix::send_matrix_message(
                             matrix_id,
-                            removed_set,
+                            removed_set.batch_name,
                             super::matrix::Reason::BuildFailures,
                             matrix.clone(),
                         )
@@ -478,7 +476,6 @@ impl JobSet {
         let requirements = config.capabilities().clone();
         let matrix_user = config.matrix_user();
 
-        let build = StoredJobInit::from_opt(&config);
         let build = config::Init::from(&config);
 
         let remaining_jobs = match config {

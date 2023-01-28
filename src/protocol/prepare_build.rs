@@ -1,5 +1,5 @@
-use super::Machine;
 use super::send_files;
+use super::Machine;
 use crate::prelude::*;
 use server::pool_data;
 
@@ -105,7 +105,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         send_files::ReceiverState {
             conn,
             extra,
-            save_location
+            save_location,
         }
     }
 }
@@ -157,7 +157,12 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
 
         // pull some variables from the task info so we can store them
         // here
-        let pool_data::BuildTaskInfo { namespace, batch_name, identifier, init } = build_job.clone();
+        let pool_data::BuildTaskInfo {
+            namespace,
+            batch_name,
+            identifier,
+            init,
+        } = build_job.clone();
 
         // tell the node about the compiling job
         let msg = ServerMsg::InitializeJob(build_job.clone());
@@ -165,9 +170,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         throw_error_with_self!(tmp_msg, self);
 
         // return Machine<BuildingState, _>
-        let compiling_state = self
-            .into_send_files_state(build_job)
-            .await;
+        let compiling_state = self.into_send_files_state(build_job).await;
         let machine = Machine::from_state(compiling_state);
         Ok(machine)
     }
@@ -189,7 +192,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         //namespace: String,
         //batch_name: String,
         //job_identifier: server::JobSetIdentifier,
-        build_info: pool_data::BuildTaskInfo
+        build_info: pool_data::BuildTaskInfo,
     ) -> send_files::SenderState<send_files::BuildingSender> {
         let batch_name = &build_info.batch_name;
         let job_identifier = &build_info.identifier;
@@ -204,15 +207,9 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
 
-        let extra = send_files::BuildingSender {
-            common,
-            build_info
-        };
+        let extra = send_files::BuildingSender { common, build_info };
 
-        send_files::SenderState {
-            conn,
-            extra
-        }
+        send_files::SenderState { conn, extra }
     }
 }
 

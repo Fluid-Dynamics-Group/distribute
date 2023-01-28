@@ -65,7 +65,11 @@ impl Description<common::File> {
                     let hashed_path = format!("{hash}_{job_idx}_{file_idx}.dist").into();
                     let unhashed_path = file.path().into();
                     let filename = file.filename()?;
-                    Ok(common::HashedFile::new(hashed_path, unhashed_path, filename))
+                    Ok(common::HashedFile::new(
+                        hashed_path,
+                        unhashed_path,
+                        filename,
+                    ))
                 })
                 .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
 
@@ -89,19 +93,13 @@ impl Description<common::File> {
 
 #[cfg(feature = "cli")]
 impl Description<common::HashedFile> {
-    pub(super) fn sendable_files(
-        &self,
-        is_user: bool
-    ) -> Vec<FileMetadata> {
+    pub(super) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
         let mut files = Vec::new();
 
-        self.initialize
-            .sendable_files(is_user, &mut files);
+        self.initialize.sendable_files(is_user, &mut files);
 
         for job in self.jobs.iter() {
-            let file_iter = job
-                .required_files
-                .iter();
+            let file_iter = job.required_files.iter();
 
             for hashed_file in file_iter {
                 let meta = hashed_file.as_sendable(is_user);
@@ -119,7 +117,9 @@ where
 {
     fn normalize_paths(&mut self, base: PathBuf) {
         // for initialize
-        self.initialize.python_build_file_path.normalize_paths(base.clone());
+        self.initialize
+            .python_build_file_path
+            .normalize_paths(base.clone());
 
         for file in self.initialize.required_files.iter_mut() {
             file.normalize_paths(base.clone());
@@ -145,7 +145,7 @@ pub struct Initialize<FILE> {
     pub python_build_file_path: FILE,
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
-    required_files: Vec<FILE>,
+    pub(super) required_files: Vec<FILE>,
 }
 
 #[cfg(feature = "cli")]
@@ -153,7 +153,7 @@ impl Initialize<common::File> {
     fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
         let init_hash = hashing::filename_hash(self);
 
-        let hashed_path= format!("setup_python_{init_hash}.dist").into();
+        let hashed_path = format!("setup_python_{init_hash}.dist").into();
         let unhashed_path = self.python_build_file_path.path().into();
         let filename = self.python_build_file_path.filename()?;
         let python_build_file_path = common::HashedFile::new(hashed_path, unhashed_path, filename);
@@ -167,7 +167,11 @@ impl Initialize<common::File> {
                 let hashed_path = format!("{init_hash}_{idx}.dist").into();
                 let unhashed_path = init_file.path().into();
                 let filename = init_file.filename()?;
-                Ok(common::HashedFile::new(hashed_path, unhashed_path, filename))
+                Ok(common::HashedFile::new(
+                    hashed_path,
+                    unhashed_path,
+                    filename,
+                ))
             })
             .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
 
@@ -182,14 +186,12 @@ impl Initialize<common::File> {
 
 #[cfg(feature = "cli")]
 impl Initialize<common::HashedFile> {
-    pub(super) fn sendable_files(
-        &self,
-        is_user: bool,
-        files: &mut Vec<FileMetadata>
-    ) {
+    pub(super) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
         files.push(self.python_build_file_path.as_sendable(is_user));
 
-        self.required_files.iter().for_each(|hashed_file| files.push(hashed_file.as_sendable(is_user)));
+        self.required_files
+            .iter()
+            .for_each(|hashed_file| files.push(hashed_file.as_sendable(is_user)));
     }
 }
 

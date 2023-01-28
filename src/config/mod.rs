@@ -200,10 +200,23 @@ impl Init {
 
         match &self {
             Self::Python(py) => py.sendable_files(is_user, &mut out),
-            Self::Apptainer(app) => app.sendable_files(is_user, &mut out)
+            Self::Apptainer(app) => app.sendable_files(is_user, &mut out),
         }
 
         out
+    }
+
+    pub(crate) fn delete_files(self) -> Result<(), std::io::Error> {
+        match &self {
+            Self::Python(py) => {
+                py.python_build_file_path.delete_at_hashed_path()?;
+                common::delete_hashed_files(py.required_files)
+            }
+            Self::Apptainer(app) => {
+                app.sif.delete_at_hashed_path()?;
+                common::delete_hashed_files(app.required_files)
+            }
+        }
     }
 }
 
@@ -255,17 +268,10 @@ impl Jobs<common::File> {
 }
 
 impl Jobs<common::HashedFile> {
-    pub(crate) fn sendable_files(
-        &self,
-        is_user: bool
-    ) -> Vec<FileMetadata> {
+    pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
         match &self {
-            Jobs:: Python(py)=> py
-                .description
-                .sendable_files(is_user),
-            Jobs::Apptainer(app)=> app
-                .description
-                .sendable_files(is_user),
+            Jobs::Python(py) => py.description.sendable_files(is_user),
+            Jobs::Apptainer(app) => app.description.sendable_files(is_user),
             _ => {
                 panic!("need to pass two apptainer or two python. This should never happen")
             }

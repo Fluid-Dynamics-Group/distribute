@@ -79,9 +79,9 @@ pub(crate) struct TaskInfo {
 
 impl PartialEq for TaskInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.namespace == other.namespace &&
-            self.batch_name == other.batch_name &&
-            self.identifier == other.identifier
+        self.namespace == other.namespace
+            && self.batch_name == other.batch_name
+            && self.identifier == other.identifier
     }
 }
 

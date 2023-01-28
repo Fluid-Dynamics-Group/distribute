@@ -6,7 +6,7 @@ use tokio::io::AsyncWriteExt;
 
 use super::super::built::{self, Built, ClientBuiltState, ServerBuiltState};
 use super::super::uninit::{self, ClientUninitState, Uninit};
-use super::super::{UninitServer, UninitClient};
+use super::super::{UninitClient, UninitServer};
 use super::NextState;
 use super::{ClientMsg, SendFiles, ServerError, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};
 
@@ -137,10 +137,10 @@ impl SendLogging for Nothing {
 }
 
 pub(crate) struct BuildingReceiver {
-    pub(crate )node_meta: NodeMetadata,
-    pub(crate )working_dir: PathBuf,
-    pub(crate )cancel_addr: SocketAddr,
-    pub(crate ) build_info: server::pool_data::BuildTaskInfo,
+    pub(crate) node_meta: NodeMetadata,
+    pub(crate) working_dir: PathBuf,
+    pub(crate) cancel_addr: SocketAddr,
+    pub(crate) build_info: server::pool_data::BuildTaskInfo,
 }
 
 impl NextState for ReceiverState<BuildingReceiver> {

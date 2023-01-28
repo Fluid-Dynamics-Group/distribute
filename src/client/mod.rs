@@ -121,7 +121,10 @@ async fn inner_prepare_build_to_compile_result(
     let building_state = match sending_compilation_files_state.receive_files(&mut tx).await {
         Ok(building) => building,
         Err((prepare_build, err)) => {
-            tracing::error!("error when trying to receive files that we will compile (send_files): {}", err);
+            tracing::error!(
+                "error when trying to receive files that we will compile (send_files): {}",
+                err
+            );
             return Err((prepare_build.into_uninit(), err.into()));
         }
     };

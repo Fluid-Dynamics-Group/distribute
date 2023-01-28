@@ -8,9 +8,9 @@ use super::super::built::{Built, ClientBuiltState};
 use super::super::uninit::{ClientUninitState, Uninit};
 use super::super::UninitClient;
 use super::super::UninitServer;
-use protocol::uninit::ServerUninitState;
 use super::{ClientError, ClientMsg, NextState, SendFiles, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};
 use crate::client::execute::FileMetadata;
+use protocol::uninit::ServerUninitState;
 
 // in the job execution process, this is the client
 pub(crate) struct SenderState<T> {
@@ -100,7 +100,7 @@ impl FileSender for FlatFileList {
 /// sending files to be used in the compilation process
 pub(crate) struct BuildingSender {
     pub(crate) common: protocol::Common,
-    pub(crate) build_info: server::pool_data::BuildTaskInfo
+    pub(crate) build_info: server::pool_data::BuildTaskInfo,
 }
 
 impl NextState for SenderState<BuildingSender> {
@@ -262,17 +262,11 @@ impl Machine<SendFiles, SenderState<BuildingSender>> {
     pub(crate) fn into_uninit(self) -> UninitServer {
         let SenderState { conn, extra, .. } = self.state;
 
-        let BuildingSender {
-            common,
-            ..
-        } = extra;
+        let BuildingSender { common, .. } = extra;
 
         let conn = conn.update_state();
         info!("moving client send files -> uninit");
-        let state = ServerUninitState {
-            conn,
-            common
-        };
+        let state = ServerUninitState { conn, common };
         Machine::from_state(state)
     }
 }
