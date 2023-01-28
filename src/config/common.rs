@@ -173,7 +173,7 @@ impl HashedFile {
     pub(crate) fn as_sendable_server(&self) -> crate::client::execute::FileMetadata {
         crate::client::execute::FileMetadata::file(
             // location on the disk here
-            self.hashed_path,
+            self.hashed_path.clone(),
             // location we intend to send this to
             PathBuf::from(self.original_filename.clone()),
         )

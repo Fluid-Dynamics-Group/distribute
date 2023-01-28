@@ -187,9 +187,9 @@ pub enum Init {
 
 impl From<&Jobs<common::HashedFile>> for Init {
     fn from(config: &Jobs<common::HashedFile>) -> Init {
-        match config {
-            Jobs::Apptainer(app) => Init::Apptainer(app.description.initialize),
-            Jobs::Python(py) => Init::Python(py.description.initialize),
+        match &config {
+            Jobs::Apptainer(app) => Init::Apptainer(app.description.initialize.clone()),
+            Jobs::Python(py) => Init::Python(py.description.initialize.clone()),
         }
     }
 }
@@ -207,7 +207,7 @@ impl Init {
     }
 
     pub(crate) fn delete_files(self) -> Result<(), std::io::Error> {
-        match &self {
+        match self {
             Self::Python(py) => {
                 py.python_build_file_path.delete_at_hashed_path()?;
                 common::delete_hashed_files(py.required_files)
