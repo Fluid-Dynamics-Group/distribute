@@ -194,6 +194,7 @@ impl From<&Jobs<common::HashedFile>> for Init {
     }
 }
 
+#[cfg(feature="cli")]
 impl Init {
     pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
         let mut out = Vec::new();
@@ -226,6 +227,7 @@ pub enum Job {
     Apptainer(apptainer::Job<common::HashedFile>),
 }
 
+#[cfg(feature="cli")]
 impl Job {
     pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
         let mut out = Vec::new();
@@ -310,14 +312,12 @@ impl Jobs<common::File> {
     }
 }
 
+#[cfg(feature="cli")]
 impl Jobs<common::HashedFile> {
     pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
         match &self {
             Jobs::Python(py) => py.description.sendable_files(is_user),
             Jobs::Apptainer(app) => app.description.sendable_files(is_user),
-            _ => {
-                panic!("need to pass two apptainer or two python. This should never happen")
-            }
         }
     }
 }

@@ -15,6 +15,8 @@ impl ApptainerConfig {
         let Description {initialize, jobs} = self.description;
         let Initialize { sif, required_files, required_mounts } = initialize;
 
+        let sif = distribute::common::File::new_relative(sif);
+
         let capabilities = capabilities.into_iter().map(Into::into).collect();
         let initialize = distribute::apptainer::Initialize::new(sif, required_files, required_mounts);
 

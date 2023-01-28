@@ -195,6 +195,7 @@ impl NormalizePaths for HashedFile {
     }
 }
 
+#[cfg(feature = "cli")]
 pub(super) fn delete_hashed_files(files: Vec<HashedFile>) -> Result<(), std::io::Error> {
     for file in files {
         file.delete_at_hashed_path()?;
