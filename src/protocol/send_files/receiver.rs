@@ -148,8 +148,17 @@ impl NextState for ReceiverState<BuildingReceiver> {
     type Marker = protocol::compiling::Building;
 
     fn next_state(self) -> Self::Next {
-        todo!()
-        //self.conn
+        let ReceiverState { conn, save_location: _, extra } = self;
+        let BuildingReceiver { working_dir, cancel_addr, build_info, node_meta: _ } = extra;
+
+        let conn = conn.update_state();
+
+        protocol::compiling::ClientBuildingState {
+            build_info,
+            conn,
+            working_dir,
+            cancel_addr
+        }
     }
 }
 

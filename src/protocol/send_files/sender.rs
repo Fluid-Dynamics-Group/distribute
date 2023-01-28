@@ -108,7 +108,19 @@ impl NextState for SenderState<BuildingSender> {
     type Marker = protocol::compiling::Building;
 
     fn next_state(self) -> Self::Next {
-        todo!()
+        let SenderState { conn, extra } = self;
+        let BuildingSender { common, build_info} = extra;
+        let server::pool_data::BuildTaskInfo { namespace, batch_name, identifier: job_identifier, init: _ } = build_info;
+
+        let conn = conn.update_state();
+
+        protocol::compiling::ServerBuildingState {
+            conn,
+            common,
+            namespace,
+            batch_name,
+            job_identifier
+        }
     }
 }
 
