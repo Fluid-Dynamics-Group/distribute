@@ -81,12 +81,12 @@ pub fn metadata(
 ///
 ///     initialize = distribute.initialize(sif_path, required_files, required_mounts)
 pub fn initialize(
-    sif_path: String,
+    sif: File,
     required_files: Vec<File>,
     required_mounts: Vec<String>,
 ) -> Initialize {
     Initialize { 
-        sif: PathBuf::from(sif_path),
+        sif,
         required_files,
         required_mounts: required_mounts.into_iter().map(PathBuf::from).collect(),
     }

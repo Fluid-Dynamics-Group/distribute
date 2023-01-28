@@ -15,8 +15,6 @@ impl ApptainerConfig {
         let Description {initialize, jobs} = self.description;
         let Initialize { sif, required_files, required_mounts } = initialize;
 
-        let sif = distribute::common::File::new_relative(sif);
-
         let capabilities = capabilities.into_iter().map(Into::into).collect();
         let initialize = distribute::apptainer::Initialize::new(sif, required_files, required_mounts);
 
@@ -46,7 +44,7 @@ pub struct Description {
 #[derive(Debug, Clone)]
 #[pyo3::pyclass]
 pub struct Initialize {
-    pub sif: PathBuf,
+    pub sif: File,
     pub required_files: Vec<File>,
     pub required_mounts: Vec<PathBuf>
 }
