@@ -139,22 +139,22 @@ pub struct PullFilesDryResponse {
     pub filtered_files: Vec<PathBuf>,
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
-pub struct PythonJobInit {
-    pub batch_name: String,
-    pub python_setup_file: Vec<u8>,
-    pub additional_build_files: Vec<File>,
-}
-
-impl fmt::Debug for PythonJobInit {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("PythonJobInit")
-            .field("batch_name", &self.batch_name)
-            .field("python_setup_file (length)", &self.python_setup_file.len())
-            .field("additional_build_files", &self.additional_build_files)
-            .finish()
-    }
-}
+//#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
+//pub struct PythonJobInit {
+//    pub batch_name: String,
+//    pub python_setup_file: Vec<u8>,
+//    pub additional_build_files: Vec<File>,
+//}
+//
+//impl fmt::Debug for PythonJobInit {
+//    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+//        fmt.debug_struct("PythonJobInit")
+//            .field("batch_name", &self.batch_name)
+//            .field("python_setup_file (length)", &self.python_setup_file.len())
+//            .field("additional_build_files", &self.additional_build_files)
+//            .finish()
+//    }
+//}
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct File {
@@ -188,23 +188,23 @@ impl fmt::Debug for PythonJob {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
-pub struct ApptainerJobInit {
-    pub batch_name: String,
-    pub sif_bytes: Vec<u8>,
-    pub build_files: Vec<File>,
-    pub container_bind_paths: Vec<PathBuf>,
-}
-
-impl fmt::Debug for ApptainerJobInit {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("ApptainerJobInit")
-            .field("batch_name", &self.batch_name)
-            .field("build_files", &self.build_files)
-            .field("container_bind_paths", &self.container_bind_paths)
-            .finish()
-    }
-}
+//#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
+//pub struct ApptainerJobInit {
+//    pub batch_name: String,
+//    pub sif_bytes: Vec<u8>,
+//    pub build_files: Vec<File>,
+//    pub container_bind_paths: Vec<PathBuf>,
+//}
+//
+//impl fmt::Debug for ApptainerJobInit {
+//    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+//        fmt.debug_struct("ApptainerJobInit")
+//            .field("batch_name", &self.batch_name)
+//            .field("build_files", &self.build_files)
+//            .field("container_bind_paths", &self.container_bind_paths)
+//            .finish()
+//    }
+//}
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct ApptainerJob {
@@ -221,12 +221,12 @@ impl fmt::Debug for ApptainerJob {
     }
 }
 
-#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[cfg(feature = "cli")]
-pub enum BuildOpts {
-    Python(PythonJobInit),
-    Apptainer(ApptainerJobInit),
-}
+//#[derive(derive_more::From, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+//#[cfg(feature = "cli")]
+//pub enum BuildOpts {
+//    Python(PythonJobInit),
+//    Apptainer(ApptainerJobInit),
+//}
 
 #[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize, Eq)]
 pub(crate) enum JobOpt {
@@ -252,15 +252,15 @@ impl JobOpt {
     }
 }
 
-#[cfg(feature = "cli")]
-impl BuildOpts {
-    pub(crate) fn batch_name(&self) -> &str {
-        match &self {
-            Self::Apptainer(s) => &s.batch_name,
-            Self::Python(p) => &p.batch_name,
-        }
-    }
-}
+//#[cfg(feature = "cli")]
+//impl BuildOpts {
+//    pub(crate) fn batch_name(&self) -> &str {
+//        match &self {
+//            Self::Apptainer(s) => &s.batch_name,
+//            Self::Python(p) => &p.batch_name,
+//        }
+//    }
+//}
 
 #[derive(Deserialize, Serialize, PartialEq, Eq, Display, Debug)]
 #[display(fmt = "{}.{}.{}", major, minor, patch)]

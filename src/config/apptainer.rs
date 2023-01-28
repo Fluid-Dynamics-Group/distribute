@@ -79,10 +79,10 @@ impl Description<common::File> {
                         // for each file in this job ...
                         //
 
-                        let hashed_filename = format!("{hash}_{job_idx}_{file_idx}.dist").into();
-                        let filename = PathBuf::from(file.filename()?);
-
-                        Ok(common::HashedFile::new(hashed_filename, filename))
+                        let hashed_path = format!("{hash}_{job_idx}_{file_idx}.dist").into();
+                        let unhashed_path = file.path().into();
+                        let filename = file.filename()?;
+                        Ok(common::HashedFile::new(hashed_path, unhashed_path, filename))
                     })
                     .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
 
@@ -99,24 +99,26 @@ impl Description<common::File> {
 
         Ok(desc)
     }
+}
 
+#[cfg(feature = "cli")]
+impl Description<common::HashedFile> {
     pub(super) fn sendable_files(
         &self,
-        hashed: &Description<common::HashedFile>,
+        is_user: bool
     ) -> Vec<FileMetadata> {
         let mut files = Vec::new();
 
         self.initialize
-            .sendable_files(&hashed.initialize, &mut files);
+            .sendable_files(is_user, &mut files);
 
-        for (original_job, hashed_job) in self.jobs.iter().zip(hashed.jobs().iter()) {
-            let file_iter = original_job
+        for job in self.jobs.iter() {
+            let file_iter = job
                 .required_files
-                .iter()
-                .zip(hashed_job.required_files.iter());
+                .iter();
 
-            for (original_file, hashed_file) in file_iter {
-                let meta = FileMetadata::file(original_file.path(), hashed_file.hashed_filename());
+            for hashed_file in file_iter {
+                let meta = hashed_file.as_sendable(is_user);
                 files.push(meta);
             }
         }
@@ -131,8 +133,8 @@ where
 {
     fn normalize_paths(&mut self, base: PathBuf) {
         // for initialize
-        self.initialize.sif =
-            super::common::normalize_pathbuf(self.initialize.sif.clone(), base.clone());
+        self.initialize.sif.normalize_paths(base.clone());
+
         for file in self.initialize.required_files.iter_mut() {
             file.normalize_paths(base.clone());
         }
@@ -149,7 +151,7 @@ where
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
 pub struct Initialize<FILE> {
-    pub sif: PathBuf,
+    pub sif: FILE,
     #[serde(default = "Default::default")]
     pub required_files: Vec<FILE>,
     /// paths in the folder that need to have mount points to
@@ -163,10 +165,11 @@ impl Initialize<common::File> {
     fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
         let init_hash = hashing::filename_hash(self);
 
-        let path_string = format!("setup_sif_{init_hash}.dist");
-
-        // hashed sif name
-        let sif = PathBuf::from(path_string);
+        // hash the sif
+        let hashed_path= format!("setup_sif_{init_hash}.dist").into();
+        let unhashed_path = self.sif.path().into();
+        let filename = self.sif.filename()?;
+        let sif = common::HashedFile::new(hashed_path, unhashed_path, filename);
 
         // hashed required files
         let required_files = self
@@ -174,9 +177,10 @@ impl Initialize<common::File> {
             .iter()
             .enumerate()
             .map(|(idx, init_file)| {
-                let path_string = format!("{init_hash}_{idx}.dist");
+                let hashed_path = format!("{init_hash}_{idx}.dist").into();
+                let unhashed_path = init_file.path().into();
                 let filename = init_file.filename()?;
-                Ok(common::HashedFile::new(path_string, filename.into()))
+                Ok(common::HashedFile::new(hashed_path, unhashed_path, filename))
             })
             .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
 
@@ -188,21 +192,19 @@ impl Initialize<common::File> {
 
         Ok(init)
     }
+}
 
-    fn sendable_files(
+#[cfg(feature = "cli")]
+impl Initialize<common::HashedFile> {
+    pub(super) fn sendable_files(
         &self,
-        hashed: &Initialize<common::HashedFile>,
-        files: &mut Vec<FileMetadata>,
+        is_user: bool,
+        files: &mut Vec<FileMetadata>
     ) {
-        let sif = FileMetadata::file(&self.sif, &hashed.sif);
-        files.push(sif);
 
-        for (original_file, hashed_file) in
-            self.required_files.iter().zip(hashed.required_files.iter())
-        {
-            let meta = FileMetadata::file(original_file.path(), hashed_file.hashed_filename());
-            files.push(meta);
-        }
+        files.push(self.sif.as_sendable(is_user));
+
+        self.required_files.iter().for_each(|hashed_file| files.push(hashed_file.as_sendable(is_user)));
     }
 }
 

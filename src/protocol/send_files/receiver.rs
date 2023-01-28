@@ -6,7 +6,7 @@ use tokio::io::AsyncWriteExt;
 
 use super::super::built::{self, Built, ClientBuiltState, ServerBuiltState};
 use super::super::uninit::{self, ClientUninitState, Uninit};
-use super::super::UninitServer;
+use super::super::{UninitServer, UninitClient};
 use super::NextState;
 use super::{ClientMsg, SendFiles, ServerError, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};
 
@@ -129,6 +129,45 @@ impl SendLogging for Nothing {
 
     fn job_name(&self) -> &str {
         "USER"
+    }
+
+    fn node_meta(&self) -> &NodeMetadata {
+        &self.node_meta
+    }
+}
+
+pub(crate) struct BuildingReceiver {
+    pub(crate )node_meta: NodeMetadata,
+    pub(crate )working_dir: PathBuf,
+    pub(crate )cancel_addr: SocketAddr,
+    pub(crate ) build_info: server::pool_data::BuildTaskInfo,
+}
+
+impl NextState for ReceiverState<BuildingReceiver> {
+    type Next = protocol::compiling::ClientBuildingState;
+    type Marker = protocol::compiling::Building;
+
+    fn next_state(self) -> Self::Next {
+        todo!()
+        //self.conn
+    }
+}
+
+impl SendLogging for BuildingReceiver {
+    fn job_identifier(&self) -> JobSetIdentifier {
+        JobSetIdentifier::none()
+    }
+
+    fn namespace(&self) -> &str {
+        "SERVER"
+    }
+
+    fn batch_name(&self) -> &str {
+        "USER"
+    }
+
+    fn job_name(&self) -> &str {
+        "UNKNOWN"
     }
 
     fn node_meta(&self) -> &NodeMetadata {
@@ -312,5 +351,27 @@ impl Machine<SendFiles, ReceiverState<ReceiverFinalStore>> {
 
     pub(crate) fn job_name(&self) -> &str {
         &self.state.extra.job_name
+    }
+}
+
+impl Machine<SendFiles, ReceiverState<BuildingReceiver>> {
+    pub(crate) fn into_uninit(self) -> UninitClient {
+        let ReceiverState { conn, extra, .. } = self.state;
+
+        let BuildingReceiver {
+            working_dir,
+            cancel_addr,
+            ..
+        } = extra;
+
+        let conn = conn.update_state();
+        info!("moving client send files -> uninit");
+        let state = ClientUninitState {
+            conn,
+            working_dir,
+            cancel_addr,
+        };
+
+        Machine::from_state(state)
     }
 }

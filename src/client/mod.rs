@@ -107,10 +107,21 @@ async fn inner_prepare_build_to_compile_result(
     protocol::Either<protocol::BuiltClient, protocol::PrepareBuildClient>,
     (UninitClient, protocol::ClientError),
 > {
-    let building_state = match prepare_build.receive_job().await {
-        Ok(building) => building,
+    let sending_compilation_files_state = match prepare_build.receive_job().await {
+        Ok(send_files) => send_files,
         Err((prepare_build, err)) => {
             tracing::error!("error when trying to get a job to build : {}", err);
+            return Err((prepare_build.into_uninit(), err.into()));
+        }
+    };
+
+    // TODO: we can remove these by adding a new state to the send_files output that happens
+    // after the job is executed. until then, we need this useless channel
+    let (mut tx, rx) = mpsc::channel(5);
+    let building_state = match sending_compilation_files_state.receive_files(&mut tx).await {
+        Ok(building) => building,
+        Err((prepare_build, err)) => {
+            tracing::error!("error when trying to receive files that we will compile (send_files): {}", err);
             return Err((prepare_build.into_uninit(), err.into()));
         }
     };

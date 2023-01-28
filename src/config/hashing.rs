@@ -15,7 +15,7 @@ pub(super) trait HashableComponent {
 
 impl HashableComponent for config::apptainer::Initialize<File> {
     fn job_file(&self) -> PathBuf {
-        self.sif.to_owned()
+        self.sif.path().to_owned()
     }
     fn job_name(&self) -> &str {
         "initialize"
@@ -31,7 +31,7 @@ impl HashableComponent for config::apptainer::Initialize<File> {
 
 impl HashableComponent for config::python::Initialize<File> {
     fn job_file(&self) -> PathBuf {
-        self.python_build_file_path().to_owned()
+        self.python_build_file_path().path().to_owned()
     }
     fn job_name(&self) -> &str {
         "initialize"

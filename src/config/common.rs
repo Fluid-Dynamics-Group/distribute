@@ -132,22 +132,56 @@ pub(crate) fn normalize_pathbuf(pathbuf: PathBuf, base_path: PathBuf) -> PathBuf
 
 #[derive(Debug, Clone, Deserialize, Serialize, getset::Getters, Constructor)]
 pub struct HashedFile {
+    // on the server, this is the absolute path to the file on disk
+    //
+    // on the user's computer, this is a relative path that only contains the hash of the file
+    // so that the file will be dumped precisely where we intend it to be dumped on the server
+    // through send_files
+    hashed_path: PathBuf,
+    // on the user's computer, this is the absolute path to the file
+    //
+    // on the server, this is not really used
+    unhashed_path_user: PathBuf,
     // the path to the file locally
     #[getset(get = "pub(crate)")]
-    hashed_filename: String,
-    //
-    path: PathBuf,
+    original_filename: String,
 }
 
 #[cfg(feature = "cli")]
 impl HashedFile {
     pub(crate) fn lazy_file_unchecked(&self) -> crate::server::LazyFile {
-        crate::server::LazyFile::new(self.hashed_filename.clone(), self.path.clone())
+        crate::server::LazyFile::new(self.original_filename.clone(), self.hashed_path.clone())
+    }
+
+    pub(crate) fn as_sendable(&self, is_user: bool) -> crate::client::execute::FileMetadata {
+        if is_user {
+            self.as_sendable_user()
+        } else {
+            self.as_sendable_server()
+        }
+    }
+
+    pub(crate) fn as_sendable_user(&self) -> crate::client::execute::FileMetadata {
+        crate::client::execute::FileMetadata::file(
+            // location on the disk here
+            &self.unhashed_path_user,
+            // location we intend to send this file to
+            &self.hashed_path
+        )
+    }
+
+    pub(crate) fn as_sendable_server(&self) -> crate::client::execute::FileMetadata {
+        crate::client::execute::FileMetadata::file(
+            // location on the disk here
+            self.hashed_path,
+            // location we intend to send this to
+            PathBuf::from(self.original_filename.clone())
+        )
     }
 }
 
 impl NormalizePaths for HashedFile {
     fn normalize_paths(&mut self, base: PathBuf) {
-        self.path = normalize_pathbuf(self.path.clone(), base);
+        self.hashed_path = normalize_pathbuf(self.hashed_path.clone(), base);
     }
 }

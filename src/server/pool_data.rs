@@ -69,12 +69,20 @@ pub(crate) struct PendingJob {
     ident: JobSetIdentifier,
 }
 
-#[derive(From, Clone, Constructor, Debug, PartialEq)]
+#[derive(From, Clone, Constructor, Debug)]
 pub(crate) struct TaskInfo {
     namespace: String,
     batch_name: String,
     pub(crate) identifier: JobSetIdentifier,
     pub(crate) task: JobOrInit,
+}
+
+impl PartialEq for TaskInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.namespace == other.namespace &&
+            self.batch_name == other.batch_name &&
+            self.identifier == other.identifier
+    }
 }
 
 impl TaskInfo {
@@ -85,6 +93,7 @@ impl TaskInfo {
             identifier,
             task,
         } = self;
+
         match task {
             JobOrInit::Job(task) => RunTaskInfo {
                 namespace,
@@ -93,11 +102,11 @@ impl TaskInfo {
                 task,
             }
             .into(),
-            JobOrInit::JobInit(task) => BuildTaskInfo {
+            JobOrInit::JobInit(init) => BuildTaskInfo {
                 namespace,
                 batch_name,
                 identifier,
-                task,
+                init,
             }
             .into(),
         }
@@ -111,12 +120,12 @@ pub(crate) enum FetchedJob {
     MissedKeepalive,
 }
 
-#[derive(From, Clone, Constructor)]
+#[derive(From, Clone, Constructor, Serialize, Deserialize)]
 pub(crate) struct BuildTaskInfo {
     pub(crate) namespace: String,
     pub(crate) batch_name: String,
     pub(crate) identifier: JobSetIdentifier,
-    pub(crate) task: transport::BuildOpts,
+    pub(crate) init: config::Init,
 }
 
 impl BuildTaskInfo {
@@ -142,10 +151,10 @@ pub(crate) struct RunTaskInfo {
 }
 
 #[cfg_attr(test, derive(derive_more::Unwrap))]
-#[derive(From, Clone, Debug, PartialEq)]
+#[derive(From, Clone, Debug)]
 pub(crate) enum JobOrInit {
     Job(transport::JobOpt),
-    JobInit(transport::BuildOpts),
+    JobInit(config::Init),
 }
 
 #[derive(Display, Clone, Debug, Serialize, Deserialize, Constructor)]

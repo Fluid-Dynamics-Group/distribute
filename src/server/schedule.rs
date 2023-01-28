@@ -1,6 +1,6 @@
 use super::matrix;
 use super::pool_data::{JobOrInit, JobResponse, NodeMetadata, TaskInfo};
-use super::storage::{self, StoredJob, StoredJobInit};
+use super::storage::{self, StoredJob};
 
 use crate::config::{self, requirements, NormalizePaths};
 use crate::error::{self, ScheduleError};
@@ -40,7 +40,7 @@ pub(crate) trait Schedule {
     fn cancel_batch(&mut self, ident: JobSetIdentifier);
 }
 
-#[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug)]
+#[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug, Serialize, Deserialize)]
 /// Identify a batch of jobs
 pub(crate) enum JobSetIdentifier {
     #[display(fmt = "{}", _0)]
@@ -88,9 +88,9 @@ impl GpuPriority {
             // make sure that the job we are pulling has not failed to build on this node before
             .find(|(ident, _job_set)| !build_failures.contains(ident))
         {
-            // TODO: fix this unwrap - its not that good but i dont have a better way to handle
-            // it right now
-            let init = job_set.init_file().unwrap();
+
+            let init = job_set.init_file();
+
             JobResponse::SetupOrRun(TaskInfo::new(
                 job_set.namespace.clone(),
                 job_set.batch_name.clone(),
@@ -173,9 +173,8 @@ impl Schedule for GpuPriority {
                     JobOrInit::Job(job),
                 ))
             } else {
-                // TODO: fix this unwrap - there has to be a better way
-                // to do this but i have not worked around it right now
-                let init = gpu_job_set.init_file().unwrap();
+
+                let init = gpu_job_set.init_file();
                 JobResponse::SetupOrRun(TaskInfo::new(
                     gpu_job_set.namespace.clone(),
                     gpu_job_set.batch_name.clone(),
@@ -361,7 +360,7 @@ impl Schedule for GpuPriority {
 
 #[derive(Debug)]
 pub(crate) struct JobSet {
-    build: StoredJobInit,
+    build: config::Init,
     requirements: requirements::Requirements<requirements::JobRequiredCaps>,
     remaining_jobs: Vec<StoredJob>,
     running_jobs: Vec<RunningJob>,
@@ -391,8 +390,8 @@ impl JobSet {
         }
     }
 
-    fn init_file(&mut self) -> Result<transport::BuildOpts, std::io::Error> {
-        self.build.load_build()
+    fn init_file(&mut self) -> config::Init {
+        self.build.clone()
     }
 
     fn add_errored_job(&mut self, job: transport::JobOpt, base_path: &Path) {
@@ -480,6 +479,7 @@ impl JobSet {
         let matrix_user = config.matrix_user();
 
         let build = StoredJobInit::from_opt(&config);
+        let build = config::Init::from(&config);
 
         let remaining_jobs = match config {
             config::Jobs::Python(python) => python

@@ -202,17 +202,22 @@ async fn inner_prepare_build_to_compile_result(
     protocol::Either<protocol::BuiltServer, protocol::PrepareBuildServer>,
     (UninitServer, protocol::ServerError),
 > {
-    let building_state = match prepare_build.send_job(scheduler_tx).await {
+    let send_compiling_state = match prepare_build.send_job(scheduler_tx).await {
         Ok(building) => building,
         Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
     };
 
-    let building_state_or_prepare = match building_state.prepare_for_execution().await {
+    let building_state = match send_compiling_state.send_files().await {
+        Ok(building) => building,
+        Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
+    };
+
+    let built_state_or_prepare = match building_state.prepare_for_execution().await {
         Ok(built) => built,
         Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
     };
 
-    Ok(building_state_or_prepare)
+    Ok(built_state_or_prepare)
 }
 
 //async fn make_connection(addr: SocketAddr, name: &str) -> tokio::net::TcpStream {

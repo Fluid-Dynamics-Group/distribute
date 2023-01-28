@@ -9,7 +9,7 @@ use transport::JobOpt;
 use config::common::HashedFile;
 
 /// stores job data on disk
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) enum StoredJob {
     Python(LazyPythonJob),
     Apptainer(LazyApptainerJob),
@@ -75,7 +75,7 @@ impl StoredJob {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub(crate) struct LazyPythonJob {
     job_name: String,
     python_setup_file_path: PathBuf,
@@ -96,7 +96,7 @@ impl LazyPythonJob {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub(crate) struct LazyApptainerJob {
     job_name: String,
     required_files: Vec<LazyFile>,
@@ -113,150 +113,150 @@ impl LazyApptainerJob {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Constructor)]
+#[derive(Debug, PartialEq, Eq, Constructor, Serialize, Deserialize, Clone)]
 pub(crate) struct LazyFile {
     file_name: String,
     path: PathBuf,
 }
 
-/// stores initialization data on disk
-#[derive(Debug)]
-pub(crate) enum StoredJobInit {
-    Python(LazyPythonInit),
-    Apptainer(LazyApptainerInit),
-}
+///// stores initialization data on disk
+//#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+//pub(crate) enum StoredJobInit {
+//    Python(LazyPythonInit),
+//    Apptainer(LazyApptainerInit),
+//}
+//
+//impl StoredJobInit {
+//    pub(crate) fn from_python(config: &config::PythonConfig<HashedFile>) -> Self {
+//        let batch_name = config.meta().batch_name().to_string();
+//        let initialize = config.description().initialize();
+//        let python_setup_file_path = initialize.python_build_file_path().to_owned();
+//        let required_files = initialize
+//            .required_files()
+//            .into_iter()
+//            .map(HashedFile::lazy_file_unchecked)
+//            .collect();
+//
+//        let lazy = LazyPythonInit {
+//            batch_name,
+//            required_files,
+//            python_setup_file_path,
+//        };
+//
+//        StoredJobInit::Python(lazy)
+//    }
+//
+//    pub(crate) fn from_apptainer(config: &config::ApptainerConfig<HashedFile>) -> Self {
+//        let batch_name = config.meta().batch_name().to_string();
+//        let initialize = config.description().initialize();
+//
+//        let sif_path = initialize.sif.clone();
+//        let required_files = initialize
+//            .required_files
+//            .iter()
+//            .map(HashedFile::lazy_file_unchecked)
+//            .collect();
+//
+//        let container_bind_paths = initialize.required_mounts.clone();
+//
+//        let lazy = LazyApptainerInit {
+//            batch_name,
+//            sif_path,
+//            required_files,
+//            container_bind_paths,
+//        };
+//
+//        StoredJobInit::Apptainer(lazy)
+//    }
+//
+//    //pub(crate) fn load_build(&self) -> Result<transport::BuildOpts, io::Error> {
+//    //    match self {
+//    //        Self::Python(x) => Ok(transport::BuildOpts::Python(x.load_build()?)),
+//    //        Self::Apptainer(x) => Ok(transport::BuildOpts::Apptainer(x.load_build()?)),
+//    //    }
+//    //}
+//
+//    pub(crate) fn delete(&self) -> Result<(), io::Error> {
+//        match self {
+//            Self::Python(x) => x.delete()?,
+//            Self::Apptainer(x) => x.delete()?,
+//        };
+//
+//        Ok(())
+//    }
+//
+//    pub(crate) fn from_opt(opt: &config::Jobs<HashedFile>) -> Self {
+//        match opt {
+//            config::Jobs::Apptainer(s) => Self::from_apptainer(s),
+//            config::Jobs::Python(s) => Self::from_python(&s),
+//        }
+//    }
+//}
 
-impl StoredJobInit {
-    pub(crate) fn from_python(config: &config::PythonConfig<HashedFile>) -> Self {
-        let batch_name = config.meta().batch_name().to_string();
-        let initialize = config.description().initialize();
-        let python_setup_file_path = initialize.python_build_file_path().to_owned();
-        let required_files = initialize
-            .required_files()
-            .into_iter()
-            .map(HashedFile::lazy_file_unchecked)
-            .collect();
+//#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+//pub(crate) struct LazyPythonInit {
+//    batch_name: String,
+//    python_setup_file_path: PathBuf,
+//    required_files: Vec<LazyFile>,
+//}
 
-        let lazy = LazyPythonInit {
-            batch_name,
-            required_files,
-            python_setup_file_path,
-        };
+//impl LazyPythonInit {
+//    //fn load_build(&self) -> Result<transport::PythonJobInit, io::Error> {
+//    //    let python_setup_file = std::fs::read(&self.python_setup_file_path)?;
+//
+//    //    let additional_build_files = load_files(&self.required_files, false)?;
+//
+//    //    let out = transport::PythonJobInit {
+//    //        batch_name: self.batch_name.clone(),
+//    //        python_setup_file,
+//    //        additional_build_files,
+//    //    };
+//
+//    //    Ok(out)
+//    //}
+//
+//    fn delete(&self) -> Result<(), io::Error> {
+//        std::fs::remove_file(&self.python_setup_file_path)?;
+//        for file in &self.required_files {
+//            std::fs::remove_file(&file.path)?;
+//        }
+//        Ok(())
+//    }
+//}
 
-        StoredJobInit::Python(lazy)
-    }
+//#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+//pub(crate) struct LazyApptainerInit {
+//    batch_name: String,
+//    sif_path: PathBuf,
+//    required_files: Vec<LazyFile>,
+//    container_bind_paths: Vec<PathBuf>,
+//}
 
-    pub(crate) fn from_apptainer(config: &config::ApptainerConfig<HashedFile>) -> Self {
-        let batch_name = config.meta().batch_name().to_string();
-        let initialize = config.description().initialize();
-
-        let sif_path = initialize.sif.clone();
-        let required_files = initialize
-            .required_files
-            .iter()
-            .map(HashedFile::lazy_file_unchecked)
-            .collect();
-
-        let container_bind_paths = initialize.required_mounts.clone();
-
-        let lazy = LazyApptainerInit {
-            batch_name,
-            sif_path,
-            required_files,
-            container_bind_paths,
-        };
-
-        StoredJobInit::Apptainer(lazy)
-    }
-
-    pub(crate) fn load_build(&self) -> Result<transport::BuildOpts, io::Error> {
-        match self {
-            Self::Python(x) => Ok(transport::BuildOpts::Python(x.load_build()?)),
-            Self::Apptainer(x) => Ok(transport::BuildOpts::Apptainer(x.load_build()?)),
-        }
-    }
-
-    pub(crate) fn delete(&self) -> Result<(), io::Error> {
-        match self {
-            Self::Python(x) => x.delete()?,
-            Self::Apptainer(x) => x.delete()?,
-        };
-
-        Ok(())
-    }
-
-    pub(crate) fn from_opt(opt: &config::Jobs<HashedFile>) -> Self {
-        match opt {
-            config::Jobs::Apptainer(s) => Self::from_apptainer(s),
-            config::Jobs::Python(s) => Self::from_python(&s),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct LazyPythonInit {
-    batch_name: String,
-    python_setup_file_path: PathBuf,
-    required_files: Vec<LazyFile>,
-}
-
-impl LazyPythonInit {
-    fn load_build(&self) -> Result<transport::PythonJobInit, io::Error> {
-        let python_setup_file = std::fs::read(&self.python_setup_file_path)?;
-
-        let additional_build_files = load_files(&self.required_files, false)?;
-
-        let out = transport::PythonJobInit {
-            batch_name: self.batch_name.clone(),
-            python_setup_file,
-            additional_build_files,
-        };
-
-        Ok(out)
-    }
-
-    fn delete(&self) -> Result<(), io::Error> {
-        std::fs::remove_file(&self.python_setup_file_path)?;
-        for file in &self.required_files {
-            std::fs::remove_file(&file.path)?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct LazyApptainerInit {
-    batch_name: String,
-    sif_path: PathBuf,
-    required_files: Vec<LazyFile>,
-    container_bind_paths: Vec<PathBuf>,
-}
-
-impl LazyApptainerInit {
-    fn load_build(&self) -> Result<transport::ApptainerJobInit, io::Error> {
-        let sif_bytes = std::fs::read(&self.sif_path)?;
-
-        let build_files = load_files(&self.required_files, false)?;
-
-        let out = transport::ApptainerJobInit {
-            batch_name: self.batch_name.clone(),
-            sif_bytes,
-            build_files,
-            container_bind_paths: self.container_bind_paths.clone(),
-        };
-        Ok(out)
-    }
-
-    fn delete(&self) -> Result<(), io::Error> {
-        std::fs::remove_file(&self.sif_path)?;
-
-        for file in &self.required_files {
-            std::fs::remove_file(&file.path)?;
-        }
-
-        Ok(())
-    }
-}
+//impl LazyApptainerInit {
+//    //fn load_build(&self) -> Result<transport::ApptainerJobInit, io::Error> {
+//    //    let sif_bytes = std::fs::read(&self.sif_path)?;
+//
+//    //    let build_files = load_files(&self.required_files, false)?;
+//
+//    //    let out = transport::ApptainerJobInit {
+//    //        batch_name: self.batch_name.clone(),
+//    //        sif_bytes,
+//    //        build_files,
+//    //        container_bind_paths: self.container_bind_paths.clone(),
+//    //    };
+//    //    Ok(out)
+//    //}
+//
+//    fn delete(&self) -> Result<(), io::Error> {
+//        std::fs::remove_file(&self.sif_path)?;
+//
+//        for file in &self.required_files {
+//            std::fs::remove_file(&file.path)?;
+//        }
+//
+//        Ok(())
+//    }
+//}
 
 fn load_files(files: &[LazyFile], delete: bool) -> Result<Vec<transport::File>, io::Error> {
     let mut job_files = vec![];
@@ -276,13 +276,13 @@ fn load_files(files: &[LazyFile], delete: bool) -> Result<Vec<transport::File>, 
     Ok(job_files)
 }
 
-#[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
-pub struct OwnedJobSet {
-    pub(crate) build: transport::BuildOpts,
-    pub(crate) requirements:
-        config::requirements::Requirements<config::requirements::JobRequiredCaps>,
-    pub(crate) remaining_jobs: config::JobOpts,
-    pub(crate) batch_name: String,
-    pub(crate) matrix_user: Option<matrix_notify::OwnedUserId>,
-    pub(crate) namespace: String,
-}
+//#[derive(Constructor, Debug, Clone, Deserialize, Serialize)]
+//pub struct OwnedJobSet {
+//    pub(crate) build: transport::BuildOpts,
+//    pub(crate) requirements:
+//        config::requirements::Requirements<config::requirements::JobRequiredCaps>,
+//    pub(crate) remaining_jobs: config::JobOpts,
+//    pub(crate) batch_name: String,
+//    pub(crate) matrix_user: Option<matrix_notify::OwnedUserId>,
+//    pub(crate) namespace: String,
+//}

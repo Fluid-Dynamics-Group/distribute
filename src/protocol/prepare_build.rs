@@ -1,5 +1,7 @@
 use super::Machine;
+use super::send_files;
 use crate::prelude::*;
+use server::pool_data;
 
 #[derive(Default)]
 pub(crate) struct PrepareBuild;
@@ -38,17 +40,20 @@ pub(crate) enum ServerError {
     MissedKeepalive,
 }
 
+type ClientReceivingState = send_files::ReceiverState<send_files::BuildingReceiver>;
+type ServerSendingState = send_files::SenderState<send_files::BuildingSender>;
+
 impl Machine<PrepareBuild, ClientPrepareBuildState> {
     #[instrument(skip(self), fields(working_dir = %self.state.working_dir.display()))]
     pub(crate) async fn receive_job(
         mut self,
-    ) -> Result<Machine<Building, ClientBuildingState>, (Self, ClientError)> {
+    ) -> Result<Machine<send_files::SendFiles, ClientReceivingState>, (Self, ClientError)> {
         let msg = self.state.conn.receive_data().await;
         let msg: ServerMsg = throw_error_with_self!(msg, self);
 
-        let job: transport::BuildOpts = msg.unwrap_initialize_job();
+        let job: pool_data::BuildTaskInfo = msg.unwrap_initialize_job();
 
-        let compiling_state = self.into_compiling_state(job).await;
+        let compiling_state = self.into_send_files_state(job).await;
         let machine = Machine::from_state(compiling_state);
         Ok(machine)
     }
@@ -70,26 +75,37 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         Machine::from_state(state)
     }
 
-    pub(crate) async fn into_compiling_state(
+    pub(crate) async fn into_send_files_state(
         self,
-        build_opt: transport::BuildOpts,
-    ) -> super::compiling::ClientBuildingState {
-        debug!("moving client prepare build -> compiling");
+        build_info: pool_data::BuildTaskInfo,
+    ) -> send_files::ReceiverState<send_files::BuildingReceiver> {
+        debug!("moving client prepare build -> send_files (compiling)");
         let ClientPrepareBuildState {
             conn,
             working_dir,
             cancel_addr,
         } = self.state;
+
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
-        super::compiling::ClientBuildingState {
-            build_opt,
-            conn,
+
+        // TODO: have better function to generate this signature
+        let save_location = working_dir.join("initial_files");
+
+        let extra = send_files::BuildingReceiver {
             working_dir,
             cancel_addr,
+            node_meta: pool_data::NodeMetadata::new("SERVER".into(), ([0, 0, 0, 0], 0).into()),
+            build_info,
+        };
+
+        send_files::ReceiverState {
+            conn,
+            extra,
+            save_location
         }
     }
 }
@@ -108,7 +124,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
     pub(crate) async fn send_job(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
-    ) -> Result<Machine<Building, ServerBuildingState>, (Self, ServerError)> {
+    ) -> Result<Machine<send_files::SendFiles, ServerSendingState>, (Self, ServerError)> {
         let job = server::node::fetch_new_job(
             scheduler_tx,
             server::JobSetIdentifier::none(),
@@ -141,18 +157,16 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
 
         // pull some variables from the task info so we can store them
         // here
-        let namespace = build_job.namespace.clone();
-        let batch_name = build_job.batch_name.clone();
-        let job_identifier = build_job.identifier;
+        let pool_data::BuildTaskInfo { namespace, batch_name, identifier, init } = build_job.clone();
 
         // tell the node about the compiling job
-        let msg = ServerMsg::InitializeJob(build_job.task);
+        let msg = ServerMsg::InitializeJob(build_job.clone());
         let tmp_msg = self.state.conn.transport_data(&msg).await;
         throw_error_with_self!(tmp_msg, self);
 
         // return Machine<BuildingState, _>
         let compiling_state = self
-            .into_compiling_state(namespace, batch_name, job_identifier)
+            .into_send_files_state(build_job)
             .await;
         let machine = Machine::from_state(compiling_state);
         Ok(machine)
@@ -170,14 +184,17 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         Machine::from_state(state)
     }
 
-    pub(crate) async fn into_compiling_state(
+    pub(crate) async fn into_send_files_state(
         self,
-        namespace: String,
-        batch_name: String,
-        job_identifier: server::JobSetIdentifier,
-    ) -> super::compiling::ServerBuildingState {
+        //namespace: String,
+        //batch_name: String,
+        //job_identifier: server::JobSetIdentifier,
+        build_info: pool_data::BuildTaskInfo
+    ) -> send_files::SenderState<send_files::BuildingSender> {
+        let batch_name = &build_info.batch_name;
+        let job_identifier = &build_info.identifier;
         debug!(
-            "moving {} server prepare build -> compiling for job set name {batch_name} (ident: {job_identifier})",
+            "moving {} server prepare build -> send_files (building) for job set name {batch_name} (ident: {job_identifier})",
             self.state.common.node_meta
         );
         let ServerPrepareBuildState { conn, common } = self.state;
@@ -187,12 +204,14 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
 
-        super::compiling::ServerBuildingState {
-            conn,
+        let extra = send_files::BuildingSender {
             common,
-            batch_name,
-            namespace,
-            job_identifier,
+            build_info
+        };
+
+        send_files::SenderState {
+            conn,
+            extra
         }
     }
 }
@@ -200,7 +219,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
 #[derive(Serialize, Deserialize, Unwrap)]
 // TODO: also need to send full information to rebuild the next state if required
 pub(crate) enum ServerMsg {
-    InitializeJob(transport::BuildOpts),
+    InitializeJob(pool_data::BuildTaskInfo),
 }
 
 #[derive(Debug)]

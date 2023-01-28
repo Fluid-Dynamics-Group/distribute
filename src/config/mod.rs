@@ -179,6 +179,34 @@ pub struct PythonConfig<FILE> {
     description: python::Description<FILE>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, From)]
+pub enum Init {
+    Python(python::Initialize<common::HashedFile>),
+    Apptainer(apptainer::Initialize<common::HashedFile>),
+}
+
+impl From<&Jobs<common::HashedFile>> for Init {
+    fn from(config: &Jobs<common::HashedFile>) -> Init {
+        match config {
+            Jobs::Apptainer(app) => Init::Apptainer(app.description.initialize),
+            Jobs::Python(py) => Init::Python(py.description.initialize),
+        }
+    }
+}
+
+impl Init {
+    pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
+        let mut out = Vec::new();
+
+        match &self {
+            Self::Python(py) => py.sendable_files(is_user, &mut out),
+            Self::Apptainer(app) => app.sendable_files(is_user, &mut out)
+        }
+
+        out
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 pub struct Meta {
@@ -224,18 +252,20 @@ impl Jobs<common::File> {
             }
         }
     }
+}
 
+impl Jobs<common::HashedFile> {
     pub(crate) fn sendable_files(
         &self,
-        hashed_config: &Jobs<common::HashedFile>,
+        is_user: bool
     ) -> Vec<FileMetadata> {
-        match (&self, &hashed_config) {
-            (Jobs::Python(original_py), Jobs::Python(hashed_py)) => original_py
+        match &self {
+            Jobs:: Python(py)=> py
                 .description
-                .sendable_files(&hashed_py.description),
-            (Jobs::Apptainer(original_app), Jobs::Apptainer(hashed_app)) => original_app
+                .sendable_files(is_user),
+            Jobs::Apptainer(app)=> app
                 .description
-                .sendable_files(&hashed_app.description),
+                .sendable_files(is_user),
             _ => {
                 panic!("need to pass two apptainer or two python. This should never happen")
             }

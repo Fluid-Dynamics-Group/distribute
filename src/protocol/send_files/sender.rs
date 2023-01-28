@@ -7,6 +7,8 @@ use tokio::io::AsyncWriteExt;
 use super::super::built::{Built, ClientBuiltState};
 use super::super::uninit::{ClientUninitState, Uninit};
 use super::super::UninitClient;
+use super::super::UninitServer;
+use protocol::uninit::ServerUninitState;
 use super::{ClientError, ClientMsg, NextState, SendFiles, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};
 use crate::client::execute::FileMetadata;
 
@@ -92,6 +94,31 @@ impl FileSender for FlatFileList {
     }
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
         Box::new(self.files.clone().into_iter())
+    }
+}
+
+/// sending files to be used in the compilation process
+pub(crate) struct BuildingSender {
+    pub(crate) common: protocol::Common,
+    pub(crate) build_info: server::pool_data::BuildTaskInfo
+}
+
+impl NextState for SenderState<BuildingSender> {
+    type Next = protocol::compiling::ServerBuildingState;
+    type Marker = protocol::compiling::Building;
+
+    fn next_state(self) -> Self::Next {
+        todo!()
+    }
+}
+
+impl FileSender for BuildingSender {
+    fn job_name(&self) -> &str {
+        "building_file_send"
+    }
+
+    fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
+        Box::new(self.build_info.init.sendable_files(false).into_iter())
     }
 }
 
@@ -226,6 +253,25 @@ impl Machine<SendFiles, SenderState<SenderFinalStore>> {
             conn,
             working_dir,
             cancel_addr,
+        };
+        Machine::from_state(state)
+    }
+}
+
+impl Machine<SendFiles, SenderState<BuildingSender>> {
+    pub(crate) fn into_uninit(self) -> UninitServer {
+        let SenderState { conn, extra, .. } = self.state;
+
+        let BuildingSender {
+            common,
+            ..
+        } = extra;
+
+        let conn = conn.update_state();
+        info!("moving client send files -> uninit");
+        let state = ServerUninitState {
+            conn,
+            common
         };
         Machine::from_state(state)
     }

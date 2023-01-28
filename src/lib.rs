@@ -28,8 +28,8 @@ mod pull;
 mod server;
 #[cfg(feature = "cli")]
 mod server_status;
-#[cfg(feature = "cli")]
-mod template;
+//#[cfg(feature = "cli")]
+//mod template;
 #[cfg(feature = "cli")]
 mod transport;
 
@@ -65,7 +65,7 @@ pub use {
     server::RemainingJobs,
     server_status::get_current_jobs,
     server_status::server_status,
-    template::template,
+    //template::template,
 };
 
 #[cfg(test)]

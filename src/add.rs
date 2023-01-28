@@ -7,7 +7,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files
     //
-    let mut jobs = config::load_config::<config::Jobs<config::common::File>>(&args.jobs)?;
+    let jobs = config::load_config::<config::Jobs<config::common::File>>(&args.jobs)?;
 
     if jobs.len_jobs() == 0 {
         return Err(Error::Add(error::AddError::NoJobsToAdd));
@@ -73,7 +73,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
 
     let hashed_config = jobs.hashed().map_err(error::AddError::from)?;
 
-    let hashed_files_to_send = jobs.sendable_files(&hashed_config);
+    let hashed_files_to_send = hashed_config.sendable_files(true);
 
     if args.dry {
         debug!("skipping message to the server for dry run");
