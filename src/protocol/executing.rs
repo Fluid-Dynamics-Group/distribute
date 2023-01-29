@@ -14,7 +14,7 @@ pub(crate) struct Executing;
 
 pub(crate) struct ClientExecutingState {
     pub(super) conn: transport::Connection<ClientMsg>,
-    pub(super) working_dir: PathBuf,
+    pub(super) working_dir: WorkingDir,
     pub(super) run_info: server::pool_data::RunTaskInfo,
     pub(super) folder_state: client::BindingFolderState,
     pub(super) cancel_addr: SocketAddr,

@@ -24,7 +24,7 @@ pub(crate) struct Built;
 #[derive(Debug)]
 pub(crate) struct ClientBuiltState {
     pub(super) conn: transport::Connection<ClientMsg>,
-    pub(super) working_dir: PathBuf,
+    pub(super) working_dir: WorkingDir,
     pub(super) folder_state: client::BindingFolderState,
     pub(super) cancel_addr: SocketAddr,
 }
@@ -44,7 +44,7 @@ type SendState = send_files::SenderState<send_files::ExecutingSender>;
 
 impl Machine<Built, ClientBuiltState> {
     /// wait for the node to return information on the job we are to run
-    #[instrument(skip(self), fields(working_dir = %self.state.working_dir.display()))]
+    #[instrument(skip(self), fields(working_dir = %self.state.working_dir))]
     pub(crate) async fn get_execute_instructions(
         mut self,
     ) -> Result<
@@ -53,27 +53,27 @@ impl Machine<Built, ClientBuiltState> {
     > {
         info!("now in built state");
 
-        if let Err(e) = client::utils::clean_distribute_save(&self.state.working_dir).await {
+        if let Err(e) = self.state.working_dir.clean_distribute_save().await {
             error!(
                 "could not clean distribute save located inside {}, error: {e}",
-                self.state.working_dir.display()
+                self.state.working_dir
             );
             #[cfg(test)]
             panic!(
                 "could not clean distribute save located inside {}, error: {e}",
-                self.state.working_dir.display()
+                self.state.working_dir
             );
         }
 
-        if let Err(e) = client::utils::clear_input_files(&self.state.working_dir).await {
+        if let Err(e) = self.state.working_dir.clean_input().await {
             error!(
                 "could not clean input files located inside {}, error: {e}",
-                self.state.working_dir.display()
+                self.state.working_dir
             );
             #[cfg(test)]
             panic!(
                 "could not clean input files located inside {}, error: {e}",
-                self.state.working_dir.display()
+                self.state.working_dir
             );
         }
 
@@ -161,7 +161,7 @@ impl Machine<Built, ClientBuiltState> {
         assert!(conn.bytes_left().await == 0);
 
         // dump all the files in the ./input directory
-        let save_location = working_dir.join("input");
+        let save_location = working_dir.input_folder();
 
         let extra = send_files::ExecutingReceiver {
             working_dir,

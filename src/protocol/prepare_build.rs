@@ -8,7 +8,7 @@ pub(crate) struct PrepareBuild;
 
 pub(crate) struct ClientPrepareBuildState {
     pub(super) conn: transport::Connection<ClientMsg>,
-    pub(super) working_dir: PathBuf,
+    pub(super) working_dir: WorkingDir,
     pub(super) cancel_addr: SocketAddr,
 }
 
@@ -17,7 +17,6 @@ pub(crate) struct ServerPrepareBuildState {
     pub(super) common: super::Common,
 }
 
-use super::compiling::{Building, ClientBuildingState, ServerBuildingState};
 use super::uninit::{ClientUninitState, ServerUninitState, Uninit};
 
 #[derive(thiserror::Error, Debug, From)]
@@ -44,7 +43,7 @@ type ClientReceivingState = send_files::ReceiverState<send_files::BuildingReceiv
 type ServerSendingState = send_files::SenderState<send_files::BuildingSender>;
 
 impl Machine<PrepareBuild, ClientPrepareBuildState> {
-    #[instrument(skip(self), fields(working_dir = %self.state.working_dir.display()))]
+    #[instrument(skip(self), fields(working_dir = %self.state.working_dir))]
     pub(crate) async fn receive_job(
         mut self,
     ) -> Result<Machine<send_files::SendFiles, ClientReceivingState>, (Self, ClientError)> {
@@ -93,7 +92,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         assert!(conn.bytes_left().await == 0);
 
         // TODO: have better function to generate this signature
-        let save_location = working_dir.join("initial_files");
+        let save_location = working_dir.initial_files_folder();
 
         let extra = send_files::BuildingReceiver {
             working_dir,

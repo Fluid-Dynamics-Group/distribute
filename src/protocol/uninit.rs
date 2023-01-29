@@ -8,7 +8,7 @@ pub(crate) struct Uninit;
 #[derive(Debug)]
 pub(crate) struct ClientUninitState {
     pub(super) conn: transport::Connection<ClientMsg>,
-    pub(super) working_dir: PathBuf,
+    pub(super) working_dir: WorkingDir,
     pub(super) cancel_addr: SocketAddr,
 }
 
@@ -50,7 +50,7 @@ pub(crate) enum ClientError {
 impl Machine<Uninit, ClientUninitState> {
     /// on the compute node, wait for a connection from the host and load the connected state
     /// once it has been made
-    #[instrument(skip(self), fields(working_dir = %self.state.working_dir.display()))]
+    #[instrument(skip(self), fields(working_dir = %self.state.working_dir))]
     pub(crate) async fn connect_to_host(
         mut self,
     ) -> Result<
@@ -104,7 +104,7 @@ impl Machine<Uninit, ClientUninitState> {
     #[instrument(skip(conn))]
     pub(crate) fn new(
         conn: tokio::net::TcpStream,
-        working_dir: PathBuf,
+        working_dir: WorkingDir,
         cancel_addr: SocketAddr,
     ) -> Self {
         debug!("constructing uninitialized client");

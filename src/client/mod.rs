@@ -1,6 +1,8 @@
 pub(crate) mod execute;
 pub(crate) mod utils;
 
+pub(crate) use utils::WorkingDir;
+
 pub(crate) use execute::{
     initialize_apptainer_job, initialize_python_job, run_apptainer_job, run_python_job,
     BindingFolderState,
@@ -73,7 +75,7 @@ async fn run_job(
 ) -> Result<(), ()> {
     let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(
         conn,
-        working_dir.to_owned(),
+        WorkingDir::from(working_dir.to_owned()),
         cancel_addr,
     );
 

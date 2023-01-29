@@ -5,6 +5,7 @@ pub(crate) use crate::add_port;
 
 pub(crate) use crate::cli;
 pub(crate) use crate::client;
+pub(crate) use crate::client::WorkingDir;
 pub(crate) use crate::config;
 pub(crate) use crate::config::requirements::{NodeProvidedCaps, Requirements};
 pub(crate) use crate::error;

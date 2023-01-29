@@ -13,7 +13,7 @@ pub(crate) struct Building;
 pub(crate) struct ClientBuildingState {
     pub(crate) build_info: server::pool_data::BuildTaskInfo,
     pub(super) conn: transport::Connection<ClientMsg>,
-    pub(super) working_dir: PathBuf,
+    pub(super) working_dir: WorkingDir,
     pub(super) cancel_addr: SocketAddr,
 }
 
@@ -63,7 +63,8 @@ impl Machine<Building, ClientBuildingState> {
         (Self, ClientError),
     > {
         if self.state.working_dir.exists() {
-            let _tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
+            // TODO: probably some better error handling on this
+            self.state.working_dir.delete_and_create_folders().await.ok();
         }
 
         // TODO: monitor for cancellation

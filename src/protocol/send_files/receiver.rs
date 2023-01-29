@@ -137,7 +137,7 @@ impl SendLogging for Nothing {
 
 pub(crate) struct BuildingReceiver {
     pub(crate) node_meta: NodeMetadata,
-    pub(crate) working_dir: PathBuf,
+    pub(crate) working_dir: WorkingDir,
     pub(crate) cancel_addr: SocketAddr,
     pub(crate) build_info: server::pool_data::BuildTaskInfo,
 }
@@ -185,7 +185,7 @@ impl SendLogging for BuildingReceiver {
 
 pub(crate) struct ExecutingReceiver {
     pub(crate) node_meta: NodeMetadata,
-    pub(crate) working_dir: PathBuf,
+    pub(crate) working_dir: WorkingDir,
     pub(crate) cancel_addr: SocketAddr,
     pub(crate) run_info: server::pool_data::RunTaskInfo,
     pub(crate) folder_state: client::BindingFolderState,

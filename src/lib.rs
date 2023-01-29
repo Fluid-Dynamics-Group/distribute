@@ -22,8 +22,8 @@ mod prelude;
 mod protocol;
 #[cfg(feature = "cli")]
 mod pull;
-//#[cfg(feature = "cli")]
-//mod run_local;
+#[cfg(feature = "cli")]
+mod run_local;
 #[cfg(feature = "cli")]
 mod server;
 #[cfg(feature = "cli")]

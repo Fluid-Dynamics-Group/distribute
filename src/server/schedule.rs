@@ -553,7 +553,6 @@ pub struct RunningJobDuration {
 mod tests {
     use super::*;
     use crate::config::requirements::Requirements;
-    use crate::server::storage::OwnedJobSet;
     use crate::transport;
 
     fn check_init(

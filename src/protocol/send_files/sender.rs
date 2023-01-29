@@ -28,15 +28,16 @@ pub(crate) struct SenderFinalStore {
     pub(crate) job_name: String,
     pub(crate) folder_state: client::BindingFolderState,
     pub(crate) cancel_addr: SocketAddr,
-    pub(crate) working_dir: PathBuf,
+    pub(crate) working_dir: WorkingDir,
 }
 
 impl FileSender for SenderFinalStore {
     fn job_name(&self) -> &str {
         &self.job_name
     }
+
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
-        let folder_files_to_send = self.working_dir.join("distribute_save");
+        let folder_files_to_send = self.working_dir.distribute_save_folder();
         let files = utils::read_folder_files(&folder_files_to_send);
         Box::new(files.into_iter().skip(1))
     }

@@ -47,24 +47,3 @@ async fn create_required_dirs(args: &cli::Run) -> Result<(), RunErrorLocal> {
 
     Ok(())
 }
-
-/// load the config files
-async fn load_config(
-    path: &Path,
-) -> Result<(transport::ApptainerJobInit, Vec<transport::ApptainerJob>), RunErrorLocal> {
-    let jobs = config::load_config::<config::Jobs>(path)?;
-
-    debug!("loading job information from files");
-    let loaded_jobs = match jobs.load_jobs().await? {
-        config::JobOpts::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
-        config::JobOpts::Apptainer(s) => s,
-    };
-
-    debug!("loading build information from files");
-    let loaded_build = match jobs.load_build().await? {
-        transport::BuildOpts::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
-        transport::BuildOpts::Apptainer(s) => s,
-    };
-
-    Ok((loaded_build, loaded_jobs))
-}
