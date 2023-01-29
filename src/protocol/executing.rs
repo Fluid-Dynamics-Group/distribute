@@ -176,7 +176,7 @@ impl Machine<Executing, ClientExecutingState> {
             working_dir,
             folder_state,
             cancel_addr,
-            run_info
+            run_info,
         } = self.state;
 
         #[allow(unused_mut)]
@@ -382,10 +382,7 @@ impl Machine<Executing, ServerExecutingState> {
         #[cfg(test)]
         assert!(conn.bytes_left().await == 0);
 
-        let extra = send_files::ReceiverFinalStore {
-            common,
-            run_info,
-        };
+        let extra = send_files::ReceiverFinalStore { common, run_info };
 
         ServerSendFilesState {
             conn,

@@ -17,10 +17,9 @@ use crate::{cli, error, transport};
 
 pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let base_path = client.base_folder;
+    let working_dir = WorkingDir::from(base_path.clone());
 
-    utils::clean_output_dir(&base_path)
-        .await
-        .map_err(error::ClientInitError::from)?;
+    working_dir.delete_and_create_folders();
 
     // ensure that `apptainer` was included in the path of the executable
     if let Err(e) = utils::verify_apptainer_in_path().await {
@@ -57,7 +56,9 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         println!("new TCP connection from the server - preparing setup / run structures - STDOUT");
         info!("new TCP connection from the server - preparing setup / run structures");
 
-        run_job(tcp_conn, &base_path, cancel_addr).await.ok();
+        run_job(tcp_conn, working_dir.clone(), cancel_addr)
+            .await
+            .ok();
     }
 
     #[allow(unreachable_code)]
@@ -70,12 +71,12 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
 /// Only return from this function if there is a TcpConnection error
 async fn run_job(
     conn: tokio::net::TcpStream,
-    working_dir: &Path,
+    working_dir: WorkingDir,
     cancel_addr: SocketAddr,
 ) -> Result<(), ()> {
     let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(
         conn,
-        WorkingDir::from(working_dir.to_owned()),
+        working_dir,
         cancel_addr,
     );
 

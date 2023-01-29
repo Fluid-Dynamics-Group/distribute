@@ -194,7 +194,7 @@ impl From<&Jobs<common::HashedFile>> for Init {
     }
 }
 
-#[cfg(feature="cli")]
+#[cfg(feature = "cli")]
 impl Init {
     pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
         let mut out = Vec::new();
@@ -227,7 +227,7 @@ pub enum Job {
     Apptainer(apptainer::Job<common::HashedFile>),
 }
 
-#[cfg(feature="cli")]
+#[cfg(feature = "cli")]
 impl Job {
     pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
         let mut out = Vec::new();
@@ -253,9 +253,7 @@ impl Job {
                 py.python_job_file().delete_at_hashed_path()?;
                 common::delete_hashed_files(py.required_files)
             }
-            Self::Apptainer(app) => {
-                common::delete_hashed_files(app.required_files)
-            }
+            Self::Apptainer(app) => common::delete_hashed_files(app.required_files),
         }
     }
 }
@@ -312,7 +310,7 @@ impl Jobs<common::File> {
     }
 }
 
-#[cfg(feature="cli")]
+#[cfg(feature = "cli")]
 impl Jobs<common::HashedFile> {
     pub(crate) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
         match &self {

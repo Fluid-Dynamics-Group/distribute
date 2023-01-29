@@ -4,8 +4,6 @@ use futures::StreamExt;
 
 use crate::prelude::*;
 
-
-
 /// remove the directories up until "distribute_save" so that the file names that we send are
 /// not absolute in their path - which makes saving things on the server side easier
 pub(crate) fn remove_path_prefixes(path: PathBuf, distribute_save_path: &Path) -> PathBuf {
@@ -39,26 +37,25 @@ async fn verify_executable_in_path(executable: &str) -> Result<(), error::Execut
 }
 
 #[derive(Debug, Clone, From, Display)]
-#[display(fmt="{}", "base.display()")]
+#[display(fmt = "{}", "base.display()")]
 pub(crate) struct WorkingDir {
-    base: PathBuf
+    base: PathBuf,
 }
 
 impl WorkingDir {
     pub(crate) fn initial_files_folder(&self) -> PathBuf {
         self.base.join("initial_files")
     }
-    
+
     pub(crate) fn input_folder(&self) -> PathBuf {
         self.base.join("input")
     }
 
     pub(crate) fn distribute_save_folder(&self) -> PathBuf {
         self.base.join("input")
+    }
 
-    }    
-
-    pub(crate) async fn clean_input(&self) -> Result<(), std::io::Error>{
+    pub(crate) async fn clean_input(&self) -> Result<(), std::io::Error> {
         debug!("running clear_input_files for {}", self.base.display());
         let path = self.input_folder();
         tokio::fs::remove_dir_all(&path).await?;
@@ -151,6 +148,37 @@ impl WorkingDir {
 
     pub(crate) fn base(&self) -> &Path {
         &self.base
+    }
+}
+
+/// other methods only used for testing purposes (and running the jobs locally)
+impl WorkingDir {
+    pub(crate) async fn copy_initial_files(
+        &self,
+        init: &config::apptainer::Initialize<config::common::File>,
+        state: &mut client::execute::BindingFolderState
+    ) {
+        let initial_files = self.initial_files_folder();
+
+        for file in init.required_files.iter() {
+            let filename = file.filename().unwrap();
+            std::fs::copy(file.path(), initial_files.join(filename)).unwrap();
+        }
+
+        std::fs::copy(init.sif.path(), self.apptainer_sif()).unwrap();
+
+        state.update_binded_paths(init.required_mounts.clone(), self.base()).await;
+    }
+
+    pub(crate) async fn copy_job_files(&self, job: &config::apptainer::Job<config::common::File>) {
+        self.clean_input().await.unwrap();
+
+        let input = self.input_folder();
+
+        for file in job.required_files.iter() {
+            let filename = file.filename().unwrap();
+            std::fs::copy(file.path(), input.join(filename)).unwrap();
+        }
     }
 }
 

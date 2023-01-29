@@ -168,13 +168,16 @@ impl Machine<Built, ClientBuiltState> {
             run_info,
             folder_state,
             cancel_addr,
-            node_meta: server::pool_data::NodeMetadata::new("SERVER".into(), ([0, 0, 0, 0], 0).into()),
+            node_meta: server::pool_data::NodeMetadata::new(
+                "SERVER".into(),
+                ([0, 0, 0, 0], 0).into(),
+            ),
         };
 
         ReceiveState {
             conn,
             save_location,
-            extra
+            extra,
         }
     }
 }
@@ -193,10 +196,8 @@ impl Machine<Built, ServerBuiltState> {
     pub(crate) async fn send_job_execution_instructions(
         mut self,
         scheduler_tx: &mut mpsc::Sender<server::JobRequest>,
-    ) -> Result<
-        super::ServerEitherPrepareBuild<Machine<SendFiles, SendState>>,
-        (Self, ServerError),
-    > {
+    ) -> Result<super::ServerEitherPrepareBuild<Machine<SendFiles, SendState>>, (Self, ServerError)>
+    {
         info!("{} now in built state", self.state.common.node_meta);
 
         let job = server::node::fetch_new_job(
@@ -338,13 +339,10 @@ impl Machine<Built, ServerBuiltState> {
         let extra = send_files::ExecutingSender {
             common,
             run_info,
-            save_location
+            save_location,
         };
 
-        send_files::SenderState {
-            conn,
-            extra,
-        }
+        send_files::SenderState { conn, extra }
     }
 }
 

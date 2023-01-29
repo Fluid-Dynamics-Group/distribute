@@ -110,8 +110,13 @@ impl NextState for SenderState<BuildingSender> {
 
     fn next_state(self) -> Self::Next {
         let SenderState { conn, extra } = self;
-        let BuildingSender { common, build_info} = extra;
-        let server::pool_data::BuildTaskInfo { namespace, batch_name, identifier: job_identifier, init: _ } = build_info;
+        let BuildingSender { common, build_info } = extra;
+        let server::pool_data::BuildTaskInfo {
+            namespace,
+            batch_name,
+            identifier: job_identifier,
+            init: _,
+        } = build_info;
 
         let conn = conn.update_state();
 
@@ -120,7 +125,7 @@ impl NextState for SenderState<BuildingSender> {
             common,
             namespace,
             batch_name,
-            job_identifier
+            job_identifier,
         }
     }
 }
@@ -141,7 +146,7 @@ pub(crate) struct ExecutingSender {
     pub(crate) run_info: server::pool_data::RunTaskInfo,
     // where to dump the files that are output from the job *AFTER* the
     // job finishes.
-    pub(crate) save_location: PathBuf
+    pub(crate) save_location: PathBuf,
 }
 
 impl NextState for SenderState<ExecutingSender> {
@@ -150,7 +155,11 @@ impl NextState for SenderState<ExecutingSender> {
 
     fn next_state(self) -> Self::Next {
         let SenderState { conn, extra } = self;
-        let ExecutingSender { common, run_info, save_location } = extra;
+        let ExecutingSender {
+            common,
+            run_info,
+            save_location,
+        } = extra;
 
         let conn = conn.update_state();
 
@@ -158,7 +167,7 @@ impl NextState for SenderState<ExecutingSender> {
             conn,
             common,
             save_location,
-            run_info 
+            run_info,
         }
     }
 }

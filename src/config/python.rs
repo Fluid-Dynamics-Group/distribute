@@ -38,12 +38,16 @@ impl Description<common::File> {
     pub(super) fn verify_config(&self) -> Result<(), super::MissingFileNameError> {
         self.initialize.python_build_file_path().exists_or_err()?;
 
-        self.initialize.required_files.iter().try_for_each(|f| f.exists_or_err())?;
+        self.initialize
+            .required_files
+            .iter()
+            .try_for_each(|f| f.exists_or_err())?;
 
-        self.jobs.iter()
-            .try_for_each(|job| 
-                 job.required_files.iter().try_for_each(|f| f.exists_or_err())
-            )?;
+        self.jobs.iter().try_for_each(|job| {
+            job.required_files
+                .iter()
+                .try_for_each(|f| f.exists_or_err())
+        })?;
 
         Ok(())
     }
@@ -89,11 +93,7 @@ impl Description<common::File> {
             let hashed_path = format!("{hash}_python_run.dist").into();
             let unhashed_path = job.python_job_file.path().into();
             let filename = job.python_job_file.filename()?;
-            let python_job_file = common::HashedFile::new(
-                hashed_path,
-                unhashed_path,
-                filename,
-            );
+            let python_job_file = common::HashedFile::new(hashed_path, unhashed_path, filename);
 
             // assemble the new files into a new job
             let job = Job {

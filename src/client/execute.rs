@@ -19,7 +19,7 @@ impl BindingFolderState {
     }
 
     // TODO: decide if these should be hard errors and return Result< , >
-    async fn update_binded_paths(&mut self, container_paths: Vec<PathBuf>, base_path: &Path) {
+    pub(super) async fn update_binded_paths(&mut self, container_paths: Vec<PathBuf>, base_path: &Path) {
         // first, clear out all the older folder bindings
         self.clear_folders();
 
@@ -152,7 +152,9 @@ pub(crate) async fn run_python_job(
         .args(["run.py", &num_cpus::get_physical().to_string()])
         .output();
 
-    let output_file_path = base_path.distribute_save_folder().join(format!("{}_output.txt", job.name()));
+    let output_file_path = base_path
+        .distribute_save_folder()
+        .join(format!("{}_output.txt", job.name()));
 
     generalized_run(
         Some(&original_dir),
@@ -192,7 +194,9 @@ pub(crate) async fn initialize_python_job(
         .args(["run.py"])
         .output();
 
-    let output_file_path = base_path.distribute_save_folder().join(format!("{batch_name}_init_output.txt",));
+    let output_file_path = base_path
+        .distribute_save_folder()
+        .join(format!("{batch_name}_init_output.txt",));
 
     generalized_init(&original_dir, command, output_file_path).await
 }
@@ -232,9 +236,7 @@ pub(crate) async fn run_apptainer_job(
     // all job files were written to ./base_path/input in the previous state machine
     // so we do not need to write them to the folder here
 
-    let apptainer_path = base_path.apptainer_sif()
-        .to_string_lossy()
-        .to_string();
+    let apptainer_path = base_path.apptainer_sif().to_string_lossy().to_string();
 
     let bind_arg = create_bind_argument(base_path, folder_state);
 
@@ -256,18 +258,13 @@ pub(crate) async fn run_apptainer_job(
 
     let command_output = command.output();
 
-    let output_file_path = base_path.distribute_save_folder().join(format!("{}_output.txt", job.name()));
+    let output_file_path = base_path
+        .distribute_save_folder()
+        .join(format!("{}_output.txt", job.name()));
 
     debug!("starting generalized run");
 
-    generalized_run(
-        None,
-        command_output,
-        output_file_path,
-        &job.name(),
-        cancel,
-    )
-    .await
+    generalized_run(None, command_output, output_file_path, &job.name(), cancel).await
 }
 
 /// create a --bind argument for `apptainer run`

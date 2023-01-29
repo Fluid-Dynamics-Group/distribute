@@ -97,7 +97,7 @@ impl File {
 
     pub(super) fn exists_or_err(&self) -> Result<(), super::MissingFileNameError> {
         if !self.path().exists() {
-            return Err(super::MissingFileNameError::new(self.path().to_owned()))
+            return Err(super::MissingFileNameError::new(self.path().to_owned()));
         }
         Ok(())
     }

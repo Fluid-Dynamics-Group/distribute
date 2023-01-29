@@ -36,12 +36,16 @@ impl Description<common::File> {
     pub(super) fn verify_config(&self) -> Result<(), super::MissingFileNameError> {
         self.initialize.sif.exists_or_err()?;
 
-        self.initialize.required_files.iter().try_for_each(|f| f.exists_or_err())?;
+        self.initialize
+            .required_files
+            .iter()
+            .try_for_each(|f| f.exists_or_err())?;
 
-        self.jobs.iter()
-            .try_for_each(|job| 
-                 job.required_files.iter().try_for_each(|f| f.exists_or_err())
-            )?;
+        self.jobs.iter().try_for_each(|job| {
+            job.required_files
+                .iter()
+                .try_for_each(|f| f.exists_or_err())
+        })?;
 
         Ok(())
     }
@@ -59,38 +63,7 @@ impl Description<common::File> {
             .jobs
             .iter()
             .enumerate()
-            .map(|(job_idx, job)| {
-                //
-                // for each job ...
-                //
-                let hash = hashing::filename_hash(job);
-                let required_files = job
-                    .required_files
-                    .iter()
-                    .enumerate()
-                    .map(|(file_idx, file)| {
-                        //
-                        // for each file in this job ...
-                        //
-
-                        let hashed_path = format!("{hash}_{job_idx}_{file_idx}.dist").into();
-                        let unhashed_path = file.path().into();
-                        let filename = file.filename()?;
-                        Ok(common::HashedFile::new(
-                            hashed_path,
-                            unhashed_path,
-                            filename,
-                        ))
-                    })
-                    .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
-
-                // assemble the new files into a new job
-                let job = Job {
-                    name: job.name().to_string(),
-                    required_files,
-                };
-                Ok(job)
-            })
+            .map(|(job_idx, job)| job.hashed(job_idx))
             .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
 
         let desc = Description { initialize, jobs };
@@ -206,6 +179,45 @@ pub struct Job<FILE> {
     pub required_files: Vec<FILE>,
 }
 
+#[cfg(feature = "cli")]
+impl Job<common::File> {
+    pub(crate) fn hashed(
+        &self,
+        job_idx: usize,
+    ) -> Result<Job<common::HashedFile>, super::MissingFileNameError> {
+        //
+        // for each job ...
+        //
+        let hash = hashing::filename_hash(self);
+        let required_files = self
+            .required_files
+            .iter()
+            .enumerate()
+            .map(|(file_idx, file)| {
+                //
+                // for each file in this job ...
+                //
+
+                let hashed_path = format!("{hash}_{job_idx}_{file_idx}.dist").into();
+                let unhashed_path = file.path().into();
+                let filename = file.filename()?;
+                Ok(common::HashedFile::new(
+                    hashed_path,
+                    unhashed_path,
+                    filename,
+                ))
+            })
+            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+
+        // assemble the new files into a new job
+        let job = Job {
+            name: self.name().to_string(),
+            required_files,
+        };
+
+        Ok(job)
+    }
+}
 #[cfg(feature = "cli")]
 impl Job<common::HashedFile> {
     pub(crate) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {

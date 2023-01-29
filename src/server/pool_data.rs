@@ -146,7 +146,7 @@ pub(crate) struct RunTaskInfo {
     pub(crate) namespace: String,
     pub(crate) batch_name: String,
     pub(crate) identifier: JobSetIdentifier,
-    pub(crate) task: config::Job
+    pub(crate) task: config::Job,
 }
 
 #[cfg_attr(test, derive(derive_more::Unwrap))]

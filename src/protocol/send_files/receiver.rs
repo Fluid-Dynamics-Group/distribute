@@ -147,8 +147,17 @@ impl NextState for ReceiverState<BuildingReceiver> {
     type Marker = protocol::compiling::Building;
 
     fn next_state(self) -> Self::Next {
-        let ReceiverState { conn, save_location: _, extra } = self;
-        let BuildingReceiver { working_dir, cancel_addr, build_info, node_meta: _ } = extra;
+        let ReceiverState {
+            conn,
+            save_location: _,
+            extra,
+        } = self;
+        let BuildingReceiver {
+            working_dir,
+            cancel_addr,
+            build_info,
+            node_meta: _,
+        } = extra;
 
         let conn = conn.update_state();
 
@@ -156,7 +165,7 @@ impl NextState for ReceiverState<BuildingReceiver> {
             build_info,
             conn,
             working_dir,
-            cancel_addr
+            cancel_addr,
         }
     }
 }
@@ -196,8 +205,18 @@ impl NextState for ReceiverState<ExecutingReceiver> {
     type Marker = protocol::executing::Executing;
 
     fn next_state(self) -> Self::Next {
-        let ReceiverState { conn, save_location: _, extra } = self;
-        let ExecutingReceiver { working_dir, cancel_addr, run_info, node_meta: _ , folder_state} = extra;
+        let ReceiverState {
+            conn,
+            save_location: _,
+            extra,
+        } = self;
+        let ExecutingReceiver {
+            working_dir,
+            cancel_addr,
+            run_info,
+            node_meta: _,
+            folder_state,
+        } = extra;
 
         let conn = conn.update_state();
 
@@ -206,12 +225,12 @@ impl NextState for ReceiverState<ExecutingReceiver> {
             conn,
             working_dir,
             cancel_addr,
-            folder_state
+            folder_state,
         }
     }
 }
 
-impl SendLogging for ExecutingReceiver{
+impl SendLogging for ExecutingReceiver {
     fn job_identifier(&self) -> JobSetIdentifier {
         JobSetIdentifier::none()
     }

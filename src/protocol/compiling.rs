@@ -64,7 +64,11 @@ impl Machine<Building, ClientBuildingState> {
     > {
         if self.state.working_dir.exists() {
             // TODO: probably some better error handling on this
-            self.state.working_dir.delete_and_create_folders().await.ok();
+            self.state
+                .working_dir
+                .delete_and_create_folders()
+                .await
+                .ok();
         }
 
         // TODO: monitor for cancellation

@@ -9,8 +9,12 @@ use tokio::io::AsyncWriteExt;
 
 use super::built::{Built, ClientBuiltState, ServerBuiltState};
 
-pub(crate) use receiver::{BuildingReceiver, Nothing, ReceiverFinalStore, ReceiverState, ExecutingReceiver};
-pub(crate) use sender::{BuildingSender, FlatFileList, SenderFinalStore, SenderState, ExecutingSender};
+pub(crate) use receiver::{
+    BuildingReceiver, ExecutingReceiver, Nothing, ReceiverFinalStore, ReceiverState,
+};
+pub(crate) use sender::{
+    BuildingSender, ExecutingSender, FlatFileList, SenderFinalStore, SenderState,
+};
 
 #[cfg(not(test))]
 const LARGE_FILE_BYTE_THRESHOLD: u64 = 10u64.pow(9);

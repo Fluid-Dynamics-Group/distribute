@@ -60,7 +60,7 @@ pub use {
     node_status::node_status,
     pause::pause,
     pull::pull,
-    //run_local::run_local,
+    run_local::run_local,
     server::server_command,
     server::RemainingJobs,
     server_status::get_current_jobs,

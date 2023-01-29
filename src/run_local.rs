@@ -8,24 +8,31 @@ use crate::transport;
 use crate::prelude::*;
 
 pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
-    create_required_dirs(&args).await?;
+    let working_dir = WorkingDir::from(args.save_dir.clone());
 
-    let (build, jobs) = load_config(&args.job_file).await?;
+    create_required_dirs(&args, &working_dir).await?;
+
+    let config = config::load_config::<config::Jobs<config::common::File>>(&args.job_file)?;
+
+    let apptainer_config = match config {
+        config::Jobs::Apptainer(app) => app,
+        config::Jobs::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
+    };
 
     let mut state = client::execute::BindingFolderState::new();
 
     let (_tx, mut rx) = tokio::sync::broadcast::channel(1);
 
-    client::execute::initialize_apptainer_job(build, &args.save_dir, &mut state).await?;
-
+    working_dir.copy_initial_files(&apptainer_config.description().initialize(), &mut state).await;
     let archive = args.save_dir.join("archived_files");
     fs::create_dir(&archive)?;
 
     let distribute_save = args.save_dir.join("distribute_save");
 
-    for job in jobs {
-        let name = job.job_name.clone();
-        client::execute::run_apptainer_job(job, &args.save_dir, &mut rx, &state).await?;
+    for job in apptainer_config.description().jobs().into_iter().cloned() {
+        let job = job.hashed(0).unwrap();
+        let name = job.name().to_string();
+        client::execute::run_apptainer_job(job, &working_dir, &mut rx, &state).await?;
         fs::rename(&distribute_save, archive.join(name))?;
         fs::create_dir(&distribute_save)?;
     }
@@ -33,16 +40,16 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
     Ok(())
 }
 
-async fn create_required_dirs(args: &cli::Run) -> Result<(), RunErrorLocal> {
+async fn create_required_dirs(args: &cli::Run, workdir: &WorkingDir) -> Result<(), RunErrorLocal> {
     // make the directory structure that is required
     if args.save_dir.exists() {
         if args.clean_save {
-            crate::client::utils::clean_output_dir(&args.save_dir).await?;
+            workdir.delete_and_create_folders().await?;
         } else {
             return Err(RunErrorLocal::FolderExists);
         }
     } else {
-        crate::client::utils::clean_output_dir(&args.save_dir).await?;
+        workdir.delete_and_create_folders().await?;
     }
 
     Ok(())
