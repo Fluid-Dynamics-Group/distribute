@@ -6,7 +6,8 @@ meta:
 
 apptainer:
   initialize: 
-    sif: build.sif
+    sif: 
+      path: build.sif
 
     required_files:
       - path: dataset_always.csv

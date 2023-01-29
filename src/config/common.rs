@@ -86,20 +86,25 @@ impl File {
         }
     }
 
-    pub(crate) fn hashed_file(&mut self, hash: String) -> Result<(), LoadJobsError> {
-        let filename = self.filename()?;
-
-        self.alias = Some(filename);
-        self.path = PathBuf::from(hash);
-
-        Ok(())
-    }
-
     pub(super) fn exists_or_err(&self) -> Result<(), super::MissingFileNameError> {
         if !self.path().exists() {
             return Err(super::MissingFileNameError::new(self.path().to_owned()));
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    /// get a quick and dirty conversion to a hashed file
+    pub(super) fn hashed(&self) -> Result<HashedFile, super::MissingFileNameError> {
+        let hashed_path = self.path().to_path_buf();
+        let unhashed_path_user = self.path().to_path_buf();
+        let original_filename = self.filename()?;
+
+        Ok(HashedFile {
+            hashed_path,
+            unhashed_path_user,
+            original_filename
+        })
     }
 }
 

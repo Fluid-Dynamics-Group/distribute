@@ -151,7 +151,7 @@ async fn transport_files_with_large_file() {
         namespace: namespace.clone(),
         batch_name: batch_name.clone(),
         identifier: server::JobSetIdentifier::none(),
-        task: config::Job::placeholder_data(),
+        task: config::Job::placeholder_apptainer(),
     };
 
     let (_tx, common) = super::Common::test_configuration(

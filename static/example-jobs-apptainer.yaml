@@ -15,7 +15,8 @@ apptainer:
   # run one after the other without recompiling
   initialize: 
     # the path to your apptainer .sif image that will be used to run the job
-    sif: /path/to/your/file.sif
+    sif: 
+      path: /path/to/your/file.sif
 
     # you can also specify required files to be present in the 
     # mounted input directory for each run here

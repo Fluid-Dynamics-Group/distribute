@@ -274,7 +274,6 @@ pub(crate) async fn run_apptainer_job(
 /// create a --bind argument for `apptainer run`
 fn create_bind_argument(base_path: &WorkingDir, folder_state: &BindingFolderState) -> String {
     let dist_save = base_path.distribute_save_folder();
-
     let input = base_path.input_folder();
 
     let mut bind_arg = format!(

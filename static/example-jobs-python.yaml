@@ -27,7 +27,8 @@ python:
   # run one after the other without recompiling
   initialize: 
     # the path to the python file that builds the project
-    build_file: some_python_file.py
+    build_file: 
+      path: some_python_file.py
 
     # the files (and optionally an alias name) to any files that will be dumped into 
     # the ./input/ directory when you run your program
@@ -42,15 +43,18 @@ python:
     # a list of names and files to run
     # the name must be unique since it is used to write STDOUT for the job
     - name: example_job_name
-      file: job_one.py
+      file: 
+        path: job_one.py
       required_files: 
         - path: input_file_1.json
           alias: input_file.json      # you can also optionally include 
                                       # a file alias like above
     - name: example_job_name_2
-      file: job_two.py
+      file: 
+        path: job_two.py
       required_files: []
 
     - name: example_job_name_3
-      file: job_three.py
+      file: 
+        path: job_three.py
       # required_files defaults to an empty list

@@ -34,7 +34,7 @@ const_port!(CLIENT_PORT, CLIENT_PORT_STR, 8953);
 const_port!(CLIENT_KEEPALIVE_PORT, CLIENT_KEEPALIVE_PORT_STR, 8954);
 const_port!(CLIENT_CANCEL_PORT, CLIENT_CANCEL_PORT_STR, 8955);
 
-#[derive(Debug, Display, thiserror::Error, From)]
+#[derive(Debug, Display, thiserror::Error, Constructor)]
 #[display(
     fmt = "configuration file: `{}` reason: `{}`",
     "configuration_file",
@@ -47,12 +47,20 @@ pub struct ConfigurationError {
 
 #[derive(Debug, Display, From)]
 pub enum ConfigErrorReason {
-    #[display(fmt = "deserialization error: {}", _0)]
-    Deserialization(serde_yaml::Error),
+    #[display(fmt = "{}", _0)]
+    Deserialization(DeserError),
     #[display(fmt = "missing file: {}", _0)]
     MissingFile(MissingFileNameError),
     #[display(fmt = "General Io error when opening config file: {}", _0)]
     IoError(std::io::Error),
+}
+
+#[derive(Debug, Display, Constructor)]
+#[display(fmt="general deserialization: {general}\npython deserialization err: {python_err}\nappatainer deserialization error: {apptainer_err}")]
+pub struct DeserError {
+    general: serde_yaml::Error,
+    python_err: serde_yaml::Error,
+    apptainer_err: serde_yaml::Error,
 }
 
 #[derive(Debug, From, thiserror::Error)]
@@ -258,8 +266,15 @@ impl Job {
     }
 
     #[cfg(test)]
-    pub(crate) fn placeholder_data() -> Self {
+    pub(crate) fn placeholder_apptainer() -> Self {
         let job = apptainer::Job::new("some_job".into(), vec![]);
+        Self::from(job)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn placeholder_python(file: common::File) -> Self {
+        let file = file.hashed().unwrap();
+        let job = python::Job::new("python".into(), file, vec![]);
         Self::from(job)
     }
 }
@@ -422,10 +437,25 @@ pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     path: &Path,
 ) -> Result<T, ConfigurationError> {
     let file = std::fs::File::open(path)
-        .map_err(|e| (path.display().to_string(), ConfigErrorReason::from(e)))?;
+        .map_err(|e| ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e)))?;
 
-    let mut config: T = serde_yaml::from_reader(file)
-        .map_err(|e| (path.display().to_string(), ConfigErrorReason::from(e)))?;
+    let config: Result<T, _> = serde_yaml::from_reader(file);
+
+    let mut config = match config {
+        Err(e) => {
+            let file = std::fs::File::open(path)
+                .map_err(|e| ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e)))?;
+            let python_err = serde_yaml::from_reader::<_, PythonConfig<common::File>>(file).unwrap_err();
+
+            let file = std::fs::File::open(path)
+                .map_err(|e| ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e)))?;
+            let apptainer_err = serde_yaml::from_reader::<_, ApptainerConfig<common::File>>(file).unwrap_err();
+
+            let deser_error = DeserError { general: e, python_err, apptainer_err};
+            return Err(ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(deser_error)));
+        }
+        Ok(config) => config
+    };
 
     config.normalize_paths(path.parent().unwrap().to_owned());
 

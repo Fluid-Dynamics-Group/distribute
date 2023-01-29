@@ -52,7 +52,7 @@ impl WorkingDir {
     }
 
     pub(crate) fn distribute_save_folder(&self) -> PathBuf {
-        self.base.join("input")
+        self.base.join("distribute_save")
     }
 
     pub(crate) async fn clean_input(&self) -> Result<(), std::io::Error> {
@@ -193,7 +193,9 @@ impl WorkingDir {
             std::fs::copy(file.path(), input.join(filename)).unwrap();
         }
 
-        std::fs::copy(job.python_job_file().path(), self.apptainer_sif()).unwrap();
+        // copy the job file to the input directory, the python job runner will copy it to
+        // the correct location
+        std::fs::copy(job.python_job_file().path(), input.join(job.python_job_file().filename().unwrap())).unwrap();
     }
 }
 

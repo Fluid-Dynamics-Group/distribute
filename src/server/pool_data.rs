@@ -156,7 +156,7 @@ impl RunTaskInfo {
             namespace: "some_namespace".into(),
             batch_name: "some_batch".into(),
             identifier: JobSetIdentifier::Identity(1),
-            task: config::Job::placeholder_data(),
+            task: config::Job::placeholder_apptainer(),
         }
     }
 }
