@@ -19,7 +19,11 @@ impl BindingFolderState {
     }
 
     // TODO: decide if these should be hard errors and return Result< , >
-    pub(super) async fn update_binded_paths(&mut self, container_paths: Vec<PathBuf>, base_path: &Path) {
+    pub(super) async fn update_binded_paths(
+        &mut self,
+        container_paths: Vec<PathBuf>,
+        base_path: &Path,
+    ) {
         // first, clear out all the older folder bindings
         self.clear_folders();
 
@@ -407,7 +411,7 @@ mod tests {
 
     #[test]
     fn bind_arg_1() {
-        let base_path = PathBuf::from("/");
+        let base_path = WorkingDir::from(PathBuf::from("/"));
         let state = BindingFolderState::new();
         let out = create_bind_argument(&base_path, &state);
         assert_eq!(out, "/distribute_save:/distribute_save:rw,/input:/input:rw");
@@ -415,11 +419,11 @@ mod tests {
 
     #[tokio::test]
     async fn bind_arg_2() {
-        let base_path = PathBuf::from("/some/");
+        let base_path = WorkingDir::from(PathBuf::from("/some/"));
 
         let mut state = BindingFolderState::new();
         state
-            .update_binded_paths(vec![PathBuf::from("/reqpath")], &base_path)
+            .update_binded_paths(vec![PathBuf::from("/reqpath")], &base_path.base())
             .await;
 
         let out = create_bind_argument(&base_path, &state);

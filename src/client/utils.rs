@@ -153,10 +153,10 @@ impl WorkingDir {
 
 /// other methods only used for testing purposes (and running the jobs locally)
 impl WorkingDir {
-    pub(crate) async fn copy_initial_files(
+    pub(crate) async fn copy_initial_files_apptainer(
         &self,
         init: &config::apptainer::Initialize<config::common::File>,
-        state: &mut client::execute::BindingFolderState
+        state: &mut client::execute::BindingFolderState,
     ) {
         let initial_files = self.initial_files_folder();
 
@@ -167,10 +167,12 @@ impl WorkingDir {
 
         std::fs::copy(init.sif.path(), self.apptainer_sif()).unwrap();
 
-        state.update_binded_paths(init.required_mounts.clone(), self.base()).await;
+        state
+            .update_binded_paths(init.required_mounts.clone(), self.base())
+            .await;
     }
 
-    pub(crate) async fn copy_job_files(&self, job: &config::apptainer::Job<config::common::File>) {
+    pub(crate) async fn copy_job_files_apptainer(&self, job: &config::apptainer::Job<config::common::File>) {
         self.clean_input().await.unwrap();
 
         let input = self.input_folder();
@@ -179,6 +181,19 @@ impl WorkingDir {
             let filename = file.filename().unwrap();
             std::fs::copy(file.path(), input.join(filename)).unwrap();
         }
+    }
+
+    pub(crate) async fn copy_job_files_python(&self, job: &config::python::Job<config::common::File>) {
+        self.clean_input().await.unwrap();
+
+        let input = self.input_folder();
+
+        for file in job.required_files().iter() {
+            let filename = file.filename().unwrap();
+            std::fs::copy(file.path(), input.join(filename)).unwrap();
+        }
+
+        std::fs::copy(job.python_job_file().path(), self.apptainer_sif()).unwrap();
     }
 }
 

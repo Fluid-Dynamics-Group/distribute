@@ -211,7 +211,7 @@ impl Schedule for GpuPriority {
 
     fn add_job_back(&mut self, job: config::Job, identifier: JobSetIdentifier) {
         if let Some(job_set) = self.map.get_mut(&identifier) {
-            job_set.add_errored_job(job, &self.base_path)
+            job_set.add_errored_job(job)
         } else {
             error!(
                 "job set for job {} was removed from the tree when there was still 
@@ -356,6 +356,7 @@ impl Schedule for GpuPriority {
 }
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(Clone))]
 pub(crate) struct JobSet {
     build: config::Init,
     requirements: requirements::Requirements<requirements::JobRequiredCaps>,
@@ -392,7 +393,7 @@ impl JobSet {
         self.build.clone()
     }
 
-    fn add_errored_job(&mut self, job: config::Job, base_path: &Path) {
+    fn add_errored_job(&mut self, job: config::Job) {
         debug!("called add_errored_job() on corresponding job set, removing job name {} from running set list", job.name());
         self.remove_running_job_by_name(job.name());
         self.remaining_jobs.push(job)
@@ -554,6 +555,8 @@ mod tests {
     use super::*;
     use crate::config::requirements::Requirements;
     use crate::transport;
+    use config::common::{File, HashedFile};
+    use config::Jobs;
 
     fn check_init(
         current_ident: &mut JobSetIdentifier,
@@ -573,13 +576,10 @@ mod tests {
         }
     }
 
-    fn check_job(response: JobResponse, expected_job: transport::PythonJob) {
+    fn check_job(response: JobResponse, expected_job: config::python::Job<HashedFile>) {
         match response {
             JobResponse::SetupOrRun(task) => {
-                assert_eq!(
-                    task.task.unwrap_job(),
-                    transport::JobOpt::from(expected_job)
-                );
+                assert_eq!(task.task.unwrap_job().name(), expected_job.name());
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),
         }
@@ -592,7 +592,7 @@ mod tests {
         }
     }
 
-    fn init(path: &Path) -> (OwnedJobSet, OwnedJobSet, GpuPriority) {
+    fn init(path: &Path) -> (Jobs<HashedFile>, Jobs<HashedFile>, GpuPriority) {
         let scheduler = GpuPriority::new(
             Default::default(),
             Default::default(),
@@ -600,61 +600,35 @@ mod tests {
             None,
         );
 
-        let jgpu = transport::PythonJob {
-            python_file: vec![],
-            job_name: "jgpu".into(),
-            job_files: vec![],
-        };
+        let jgpu = config::python::Job::new("jgpu".into(), File::new_relative("some_path"), vec![]);
+        let j1 = config::python::Job::new("j1".into(), File::new_relative("some_path"), vec![]);
+        let j2 = config::python::Job::new("j2".into(), File::new_relative("some_path"), vec![]);
 
-        let j1 = transport::PythonJob {
-            python_file: vec![],
-            job_name: "j1".into(),
-            job_files: vec![],
-        };
+        let build = config::python::Initialize::new(
+            config::common::File::new_relative("build_file"),
+            vec![],
+        );
 
-        let j2 = transport::PythonJob {
-            python_file: vec![],
-            job_name: "j2".into(),
-            job_files: vec![],
-        };
+        let cpu_caps = vec!["fortran".into(), "fftw".into()].into_iter().collect();
+        let gpu_caps = vec!["gpu".into()].into_iter().collect();
 
-        let cpu_set = OwnedJobSet {
-            batch_name: "cpu_jobs".to_string(),
-            namespace: "test".to_string(),
-            build: transport::PythonJobInit {
-                batch_name: "cpu_jobs".to_string(),
-                python_setup_file: vec![0],
-                additional_build_files: vec![],
-            }
-            .into(),
-            remaining_jobs: vec![j1.clone(), j2.clone()].into(),
-            requirements: Requirements {
-                reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
-                marker: std::marker::PhantomData,
-            },
-            //currently_running_jobs: 0,
-            matrix_user: None,
-        };
+        let cpu_meta = config::Meta::new("cpu_jobs".into(), "namespace".into(), None, cpu_caps);
+        let gpu_meta = config::Meta::new("gpu_jobs".into(), "namespace".into(), None, gpu_caps);
 
-        let gpu_set = OwnedJobSet {
-            batch_name: "gpu_jobs".to_string(),
-            namespace: "test".to_string(),
-            build: transport::PythonJobInit {
-                batch_name: "gpu_jobs".to_string(),
-                python_setup_file: vec![1],
-                additional_build_files: vec![],
-            }
-            .into(),
-            remaining_jobs: vec![jgpu.clone()].into(),
-            requirements: Requirements {
-                reqs: vec!["gpu".into()].into_iter().collect(),
-                marker: std::marker::PhantomData,
-            },
-            //currently_running_jobs: 0,
-            matrix_user: None,
-        };
+        let cpu_description = config::python::Description::new(build.clone(), vec![j1, j2]);
+        let gpu_description = config::python::Description::new(build.clone(), vec![jgpu]);
 
-        (cpu_set, gpu_set, scheduler)
+        let cpu_config = config::Jobs::from(config::PythonConfig::new(cpu_meta, cpu_description))
+            .hashed()
+            .unwrap()
+            .into();
+
+        let gpu_config = config::Jobs::from(config::PythonConfig::new(gpu_meta, gpu_description))
+            .hashed()
+            .unwrap()
+            .into();
+
+        (cpu_config, gpu_config, scheduler)
     }
 
     #[test]
@@ -666,9 +640,9 @@ mod tests {
 
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+        let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1= cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         scheduler.insert_new_batch(cpu_set).unwrap();
         scheduler.insert_new_batch(gpu_set).unwrap();
@@ -749,9 +723,9 @@ mod tests {
 
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+        let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1= cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         scheduler.insert_new_batch(cpu_set).unwrap(); // 1
 
@@ -841,9 +815,9 @@ mod tests {
 
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+        let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1= cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         let node_meta = NodeMetadata::test_name();
 

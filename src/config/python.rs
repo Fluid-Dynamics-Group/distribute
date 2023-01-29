@@ -64,45 +64,9 @@ impl Description<common::File> {
         let mut jobs = Vec::new();
 
         for (job_idx, job) in self.jobs.iter().enumerate() {
-            //
-            // for each job ...
-            //
+            let hashed_job = job.hashed(job_idx)?;
 
-            let hash = hashing::filename_hash(job);
-
-            let required_files = job
-                .required_files
-                .iter()
-                .enumerate()
-                .map(|(file_idx, file)| {
-                    //
-                    // for each file in this job ...
-                    //
-
-                    let hashed_path = format!("{hash}_{job_idx}_{file_idx}.dist").into();
-                    let unhashed_path = file.path().into();
-                    let filename = file.filename()?;
-                    Ok(common::HashedFile::new(
-                        hashed_path,
-                        unhashed_path,
-                        filename,
-                    ))
-                })
-                .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
-
-            let hashed_path = format!("{hash}_python_run.dist").into();
-            let unhashed_path = job.python_job_file.path().into();
-            let filename = job.python_job_file.filename()?;
-            let python_job_file = common::HashedFile::new(hashed_path, unhashed_path, filename);
-
-            // assemble the new files into a new job
-            let job = Job {
-                name: job.name().to_string(),
-                python_job_file,
-                required_files,
-            };
-
-            jobs.push(job);
+            jobs.push(hashed_job);
         }
 
         let desc = Description { initialize, jobs };
@@ -169,7 +133,9 @@ pub struct Initialize<FILE> {
 
 #[cfg(feature = "cli")]
 impl Initialize<common::File> {
-    fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
+    pub(crate) fn hashed(
+        &self,
+    ) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
         let init_hash = hashing::filename_hash(self);
 
         let hashed_path = format!("setup_python_{init_hash}.dist").into();
@@ -225,6 +191,50 @@ pub struct Job<FILE> {
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
     pub(super) required_files: Vec<FILE>,
+}
+
+#[cfg(feature = "cli")]
+impl Job<common::File> {
+    pub(crate) fn hashed(
+        &self,
+        job_idx: usize,
+    ) -> Result<Job<common::HashedFile>, super::MissingFileNameError> {
+        let hash = hashing::filename_hash(self);
+
+        let required_files = self
+            .required_files
+            .iter()
+            .enumerate()
+            .map(|(file_idx, file)| {
+                //
+                // for each file in this job ...
+                //
+
+                let hashed_path = format!("{hash}_{job_idx}_{file_idx}.dist").into();
+                let unhashed_path = file.path().into();
+                let filename = file.filename()?;
+                Ok(common::HashedFile::new(
+                    hashed_path,
+                    unhashed_path,
+                    filename,
+                ))
+            })
+            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+
+        let hashed_path = format!("{hash}_python_run.dist").into();
+        let unhashed_path = self.python_job_file.path().into();
+        let filename = self.python_job_file.filename()?;
+        let python_job_file = common::HashedFile::new(hashed_path, unhashed_path, filename);
+
+        // assemble the new files into a new job
+        let job = Job {
+            name: self.name().to_string(),
+            python_job_file,
+            required_files,
+        };
+
+        Ok(job)
+    }
 }
 
 #[cfg(feature = "cli")]

@@ -88,17 +88,16 @@ async fn transport_files_with_large_file() {
     let f2name = "large_file.binary";
     let f3name = "another_small_file.txt";
 
-    let base_dir = PathBuf::from("./tests/send_files_with_large_files");
-    let save_path = base_dir.clone();
+    let base_dir = WorkingDir::from(PathBuf::from("./tests/send_files_with_large_files"));
+    let save_path = base_dir.base().to_owned();
+
     // first, create the directories required and write some large files to them
-    let dist_save = base_dir.join("distribute_save");
+    let dist_save = base_dir.distribute_save_folder();
     let file1 = dist_save.join(f1name);
     let file2 = dist_save.join(f2name);
     let file3 = dist_save.join(f3name);
 
-    std::fs::remove_dir_all(&base_dir).ok();
-    std::fs::create_dir(&base_dir).unwrap();
-    std::fs::create_dir(&dist_save).unwrap();
+    base_dir.delete_and_create_folders();
 
     {
         std::fs::File::create(file1)
@@ -148,11 +147,11 @@ async fn transport_files_with_large_file() {
     let batch_name = "batch_name".to_string();
     let job_name = "job_name".to_string();
 
-    let task_info = server::pool_data::RunTaskInfo {
+    let run_info = server::pool_data::RunTaskInfo {
         namespace: namespace.clone(),
         batch_name: batch_name.clone(),
         identifier: server::JobSetIdentifier::none(),
-        task: transport::JobOpt::placeholder_test_data(),
+        task: config::Job::placeholder_data(),
     };
 
     let (_tx, common) = super::Common::test_configuration(
@@ -164,15 +163,11 @@ async fn transport_files_with_large_file() {
     //
     // setup server state
     //
-    let extra = ReceiverFinalStore {
-        common,
-        task_info,
-        job_name,
-    };
+    let extra = ReceiverFinalStore { common, run_info };
 
     let server_state = ReceiverState {
         conn: server_conn,
-        save_location: save_path.clone(),
+        save_location: save_path.to_owned(),
         extra,
     };
 
@@ -255,7 +250,7 @@ async fn transport_files_with_large_file() {
         2000
     );
 
-    //std::fs::remove_dir_all(base_dir).ok();
+    std::fs::remove_dir_all(base_dir.base()).ok();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]

@@ -154,15 +154,6 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
             }
         };
 
-        // pull some variables from the task info so we can store them
-        // here
-        let pool_data::BuildTaskInfo {
-            namespace,
-            batch_name,
-            identifier,
-            init,
-        } = build_job.clone();
-
         // tell the node about the compiling job
         let msg = ServerMsg::InitializeJob(build_job.clone());
         let tmp_msg = self.state.conn.transport_data(&msg).await;

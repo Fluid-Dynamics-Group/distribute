@@ -149,6 +149,18 @@ pub(crate) struct RunTaskInfo {
     pub(crate) task: config::Job,
 }
 
+#[cfg(test)]
+impl RunTaskInfo {
+    pub(crate) fn placeholder_data() -> Self {
+        RunTaskInfo {
+            namespace: "some_namespace".into(),
+            batch_name: "some_batch".into(),
+            identifier: JobSetIdentifier::Identity(1),
+            task: config::Job::placeholder_data(),
+        }
+    }
+}
+
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone, Debug)]
 pub(crate) enum JobOrInit {

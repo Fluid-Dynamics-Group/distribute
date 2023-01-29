@@ -150,6 +150,7 @@ impl Node {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, From)]
+#[cfg_attr(test, derive(derive_more::Unwrap))]
 #[serde(untagged)]
 #[serde(deny_unknown_fields)]
 pub enum Jobs<FILE> {
@@ -255,6 +256,12 @@ impl Job {
             }
             Self::Apptainer(app) => common::delete_hashed_files(app.required_files),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn placeholder_data() -> Self {
+        let job = apptainer::Job::new("some_job".into(), vec![]);
+        Self::from(job)
     }
 }
 
@@ -435,43 +442,29 @@ fn serialize_nodes() {
 #[test]
 fn serialize_jobs_python() {
     let bytes = include_str!("../../static/example-jobs-python.yaml");
-    let _out: Jobs = serde_yaml::from_str(bytes).unwrap();
+    let _out: Jobs<common::File> = serde_yaml::from_str(bytes).unwrap();
 }
 
 #[test]
 fn serialize_jobs_apptainer() {
     let bytes = include_str!("../../static/example-jobs-apptainer.yaml");
-    let _out: Jobs = serde_yaml::from_str(bytes).unwrap();
+    let _out: Jobs<common::File> = serde_yaml::from_str(bytes).unwrap();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct PythonConfiguration {
-        meta: Meta,
-        python: python::Description,
-    }
-
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct ApptainerConfiguration {
-        meta: Meta,
-        apptainer: apptainer::Description,
-    }
-
     #[test]
     fn serialize_python() {
         let bytes = include_str!("../../static/example-jobs-python.yaml");
-        let _out: PythonConfiguration = serde_yaml::from_str(bytes).unwrap();
+        let _out: super::PythonConfig<common::File> = serde_yaml::from_str(bytes).unwrap();
     }
 
     #[test]
     fn serialize_apptainer() {
         let bytes = include_str!("../../static/example-jobs-apptainer.yaml");
-        let _out: ApptainerConfiguration = serde_yaml::from_str(bytes).unwrap();
+        let _out: ApptainerConfig<common::File> = serde_yaml::from_str(bytes).unwrap();
     }
 
     #[test]

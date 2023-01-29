@@ -284,7 +284,7 @@ mod tests {
         // other addrs taken elsewhere
         let cancel_addr = add_port(10_003);
 
-        let working_dir = PathBuf::from("./tests/unittests");
+        let working_dir = WorkingDir::from(PathBuf::from("./tests/unittests"));
         let client_listener = TcpListener::bind(client_transport_addr).await.unwrap();
         let raw_server_connection = TcpStream::connect(client_transport_addr).await.unwrap();
 

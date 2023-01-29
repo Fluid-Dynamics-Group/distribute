@@ -124,7 +124,7 @@ async fn add_job_set(
         .transport_data(&transport::ServerResponseToUser::Continue)
         .await
     {
-        error!("failed to notifiy user to continue sending init files");
+        error!("failed to notifiy user to continue sending init files: {e}");
         return conn;
     }
 
@@ -134,7 +134,7 @@ async fn add_job_set(
     // need some of these channels since the send_files state machine currently expects
     // to tell the scheduler at the end that it has finished the job and we have not
     // broken that portion of the code into its own state machine yet
-    let (mut tx, rx) = mpsc::channel(5);
+    let (mut empty_tx, _empty_rx) = mpsc::channel(5);
 
     //
     // receive all the files from the user
@@ -148,7 +148,7 @@ async fn add_job_set(
     };
 
     let machine = protocol::Machine::from_state(state);
-    let conn = match machine.receive_files(&mut tx).await {
+    let conn = match machine.receive_files(&mut empty_tx).await {
         Ok(conn) => conn.into_inner(),
         Err((machine, e)) => {
             error!(

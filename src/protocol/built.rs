@@ -256,8 +256,6 @@ impl Machine<Built, ServerBuiltState> {
                     run.task.name()
                 );
 
-                let job_name = run.task.name().to_string();
-
                 let tmp = self
                     .state
                     .conn

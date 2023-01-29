@@ -574,16 +574,23 @@ async fn cancel_run() {
     let folder_path = PathBuf::from("./tests/python_sleep/");
     let file_to_execute = folder_path.join("sleep30s.py");
 
-    let file_bytes = include_bytes!("../../tests/python_sleep/sleep30s.py");
+    let job = config::python::Job::new(
+        "sleep_job".into(),
+        config::common::File::new("../../tests/python_sleep/sleep30s.py").unwrap(),
+        vec![]
+    );
 
-    let work_dir = folder_path.join("run");
+    let work_dir = WorkingDir::from(folder_path.join("run"));
 
     assert_eq!(folder_path.exists(), true);
     assert_eq!(file_to_execute.exists(), true);
 
     // set up the distribute environment
     // this is a little frail depending on how APIs shift in the future
-    client::utils::clean_output_dir(&work_dir).await.unwrap();
+    work_dir.delete_and_create_folders().await.unwrap();
+
+    // load all the required files into the folders before we run
+    work_dir.copy_job_files_python(&job).await;
 
     let keepalive_port = 10_007;
     let transport_port = 10_008;
@@ -606,20 +613,23 @@ async fn cancel_run() {
     //
     // setup client state
     //
-    let job = transport::JobOpt::from(transport::PythonJob {
-        python_file: file_bytes.to_vec(),
-        job_name: "test_job".into(),
-        job_files: vec![],
-    });
+
+    let job_identifier = server::JobSetIdentifier::Identity(1);
+    let run_info = server::pool_data::RunTaskInfo {
+        namespace: "test_namespace".into(),
+        batch_name: "test_batchname".into(),
+        identifier: job_identifier,
+        task: config::Job::placeholder_data(),
+    };
 
     let folder_state = client::execute::BindingFolderState::new();
 
     let client_state = ClientExecutingState {
         conn: client_conn,
         working_dir: work_dir.clone(),
-        job,
         folder_state,
         cancel_addr,
+        run_info: run_info.clone(),
     };
 
     //
@@ -628,21 +638,12 @@ async fn cancel_run() {
 
     let (cancel_tx, common) =
         protocol::Common::test_configuration(transport_addr, keepalive_addr, cancel_addr);
-    let job_identifier = server::JobSetIdentifier::Identity(1);
-
-    let task_info = server::pool_data::RunTaskInfo {
-        namespace: "test_namespace".into(),
-        batch_name: "test_batchname".into(),
-        identifier: job_identifier,
-        task: transport::JobOpt::placeholder_test_data(),
-    };
 
     let server_state = ServerExecutingState {
         conn: server_conn,
         common,
-        job_name: "test_name".into(),
-        save_location: work_dir.join("server_backup"),
-        task_info,
+        save_location: work_dir.base().join("server_backup"),
+        run_info: run_info.clone(),
     };
 
     //
@@ -705,5 +706,5 @@ async fn cancel_run() {
 
     // clean up the folder after
     assert_eq!(work_dir.exists(), true, "workdir does not exist somehow");
-    std::fs::remove_dir_all(work_dir).unwrap();
+    std::fs::remove_dir_all(work_dir.base()).unwrap();
 }
