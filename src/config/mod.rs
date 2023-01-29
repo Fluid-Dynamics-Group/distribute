@@ -6,13 +6,12 @@ pub mod requirements;
 #[cfg(feature = "cli")]
 mod hashing;
 
-#[cfg(feature = "cli")]
-use crate::transport;
+
 
 #[cfg(feature = "cli")]
 use crate::client::execute::FileMetadata;
 
-use derive_more::{Constructor, Display, From, Unwrap};
+use derive_more::{Constructor, Display, From};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::Path;

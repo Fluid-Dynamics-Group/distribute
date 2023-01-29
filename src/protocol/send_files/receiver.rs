@@ -1,14 +1,14 @@
 use super::Machine;
 use crate::prelude::*;
 use crate::server::pool_data::NodeMetadata;
-use client::utils;
+
 use tokio::io::AsyncWriteExt;
 
-use super::super::built::{self, Built, ClientBuiltState, ServerBuiltState};
-use super::super::uninit::{self, ClientUninitState, Uninit};
+use super::super::built::{self};
+use super::super::uninit::{self, ClientUninitState};
 use super::super::{UninitClient, UninitServer};
 use super::NextState;
-use super::{ClientMsg, SendFiles, ServerError, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};
+use super::{ClientMsg, SendFiles, ServerError, ServerMsg};
 
 // in the job execution process, this is the server
 pub(crate) struct ReceiverState<T> {

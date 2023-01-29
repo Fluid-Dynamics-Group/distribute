@@ -1,7 +1,7 @@
 use crate::error::{self, Error};
 use crate::prelude::*;
 
-use crate::client::execute::FileMetadata;
+
 
 pub async fn add(args: cli::Add) -> Result<(), Error> {
     //

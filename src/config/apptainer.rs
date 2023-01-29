@@ -1,15 +1,14 @@
 use super::NormalizePaths;
 use derive_more::Constructor;
 
-use super::LoadJobsError;
-use super::ReadBytesError;
+
+
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use super::common;
-#[cfg(feature = "cli")]
-use super::common::load_from_file;
-use super::common::File;
+
+
 
 #[cfg(feature = "cli")]
 use super::hashing;
@@ -17,10 +16,9 @@ use super::hashing;
 #[cfg(feature = "cli")]
 use crate::client::execute::FileMetadata;
 
-#[cfg(feature = "cli")]
-use crate::transport;
 
-use getset::{Getters, MutGetters, Setters};
+
+use getset::{Getters};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]

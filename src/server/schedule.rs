@@ -554,7 +554,7 @@ pub struct RunningJobDuration {
 mod tests {
     use super::*;
     use crate::config::requirements::Requirements;
-    use crate::transport;
+    
     use config::common::{File, HashedFile};
     use config::Jobs;
 

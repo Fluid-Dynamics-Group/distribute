@@ -29,7 +29,7 @@ async fn wrap_main() -> Result<(), ErrorWrap> {
         //cli::Arguments::Template(template) => {
         //    distribute::template(template).map_err(ErrorWrap::from)
         //}
-        cli::Arguments::Template(template) => todo!(),
+        cli::Arguments::Template(_template) => todo!(),
         cli::Arguments::Pull(pull) => distribute::pull(pull).await.map_err(ErrorWrap::from),
         cli::Arguments::Run(run) => distribute::run_local(run).await.map_err(ErrorWrap::from),
         cli::Arguments::ServerStatus(s) => {

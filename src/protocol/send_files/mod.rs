@@ -3,11 +3,11 @@ mod sender;
 
 use super::Machine;
 use crate::prelude::*;
-use crate::server::pool_data::NodeMetadata;
-use client::utils;
-use tokio::io::AsyncWriteExt;
 
-use super::built::{Built, ClientBuiltState, ServerBuiltState};
+
+
+
+
 
 pub(crate) use receiver::{
     BuildingReceiver, ExecutingReceiver, Nothing, ReceiverFinalStore, ReceiverState,
@@ -97,7 +97,7 @@ async fn transport_files_with_large_file() {
     let file2 = dist_save.join(f2name);
     let file3 = dist_save.join(f3name);
 
-    base_dir.delete_and_create_folders();
+    base_dir.delete_and_create_folders().await.unwrap();
 
     {
         std::fs::File::create(file1)
@@ -145,7 +145,7 @@ async fn transport_files_with_large_file() {
 
     let namespace = "namespace".to_string();
     let batch_name = "batch_name".to_string();
-    let job_name = "job_name".to_string();
+    let _job_name = "job_name".to_string();
 
     let run_info = server::pool_data::RunTaskInfo {
         namespace: namespace.clone(),

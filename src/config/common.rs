@@ -4,7 +4,7 @@ use super::MissingFileNameError;
 use super::ReadBytesError;
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+
 use std::path::PathBuf;
 
 #[cfg(feature = "cli")]
