@@ -7,6 +7,7 @@ use pyo3::prelude::*;
 use std::path::PathBuf;
 
 use wrap::{ApptainerConfig, Description, File, Initialize, Job, Meta};
+use distribute::Slurm;
 
 #[pyfunction(matrix_username = "None")]
 /// construct the metadata ``Meta`` object for information about what this job batch will run
@@ -92,7 +93,7 @@ pub fn initialize(
     }
 }
 
-#[pyfunction]
+#[pyfunction(slurm = "None")]
 /// creates a job from its name and the required input files
 ///
 /// once you have a list of jobs that should be run in the batch, move on to creating a
@@ -123,10 +124,11 @@ pub fn initialize(
 ///     job_1_required_files = [job_1_config_file]
 ///
 ///     job_1 = distribute.job("job_1", job_1_required_files)
-pub fn job(name: String, required_files: Vec<File>) -> Job {
+pub fn job(name: String, required_files: Vec<File>, slurm: Option<Slurm>) -> Job {
     Job {
         name,
         required_files,
+        slurm
     }
 }
 
@@ -215,7 +217,7 @@ pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<Fi
     Ok(file)
 }
 
-#[pyfunction]
+#[pyfunction(slurm="None")]
 /// assemble the :func:`metadata` and :func:`description` into a config file that can be written
 /// to disk
 ///
@@ -223,8 +225,8 @@ pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<Fi
 /// :param description: output of :func:`description` function
 ///
 /// You can write this description object to disk with :func:`write_config_to_file`
-pub fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig {
-    ApptainerConfig { meta, description }
+pub fn apptainer_config(meta: Meta, description: Description, slurm: Option<Slurm>) -> ApptainerConfig {
+    ApptainerConfig { meta, description, slurm }
 }
 
 #[pyfunction]

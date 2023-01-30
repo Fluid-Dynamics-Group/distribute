@@ -510,6 +510,7 @@ pub fn load_config<T: DeserializeOwned + NormalizePaths>(
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, getset::Getters)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Slurm {
     #[getset(get = "pub(crate)")]
     job_name: Option<String>,

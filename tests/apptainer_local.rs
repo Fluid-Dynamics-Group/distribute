@@ -43,7 +43,7 @@ async fn verify_apptainer_execution() {
 
 #[test]
 fn slurm_output_verify() {
-    if true {
+    if false {
         distribute::logger();
     }
 
@@ -66,7 +66,8 @@ fn slurm_output_verify() {
 
     assert!(output_dir.join("apptainer.sif").exists());
 
-    // output should look like
+    // output should look like this
+    //
     // ├── apptainer.sif
     // ├── first_job
     // │   ├── input

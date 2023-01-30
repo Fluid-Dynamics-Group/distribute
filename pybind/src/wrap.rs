@@ -1,4 +1,5 @@
 pub use distribute::common::File;
+pub use distribute::Slurm;
 
 use std::path::PathBuf;
 
@@ -7,6 +8,7 @@ use std::path::PathBuf;
 pub struct ApptainerConfig {
     pub meta: Meta,
     pub description: Description,
+    pub slurm: Option<Slurm>
 }
 
 impl ApptainerConfig {
@@ -34,15 +36,16 @@ impl ApptainerConfig {
                 let Job {
                     name,
                     required_files,
+                    slurm
                 } = job;
-                distribute::apptainer::Job::new(name, required_files)
+                distribute::apptainer::Job::new(name, required_files, slurm)
             })
             .collect();
 
         let meta = distribute::Meta::new(batch_name, namespace, matrix, capabilities);
         let description = distribute::apptainer::Description::new(initialize, jobs);
 
-        distribute::ApptainerConfig::new(meta, description)
+        distribute::ApptainerConfig::new(meta, description, self.slurm)
     }
 }
 
@@ -66,6 +69,7 @@ pub struct Initialize {
 pub struct Job {
     pub name: String,
     pub required_files: Vec<File>,
+    pub slurm: Option<Slurm>
 }
 
 #[derive(Debug, Clone)]
