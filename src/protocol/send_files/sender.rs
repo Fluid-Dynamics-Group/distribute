@@ -96,7 +96,11 @@ impl FileSender for FlatFileList {
         warn!("enumerating files (flat send) and their destinations");
 
         for file in self.files.iter() {
-            debug!("{} -> {}", file.absolute_file_path.display(), file.relative_file_path.display());
+            debug!(
+                "{} -> {}",
+                file.absolute_file_path.display(),
+                file.relative_file_path.display()
+            );
         }
 
         Box::new(self.files.clone().into_iter())
@@ -145,7 +149,11 @@ impl FileSender for BuildingSender {
         warn!("enumerating files (BUILDING) and their destinations");
 
         for file in sendable_files.iter() {
-            debug!("{} -> {}", file.absolute_file_path.display(), file.relative_file_path.display());
+            debug!(
+                "{} -> {}",
+                file.absolute_file_path.display(),
+                file.relative_file_path.display()
+            );
         }
 
         Box::new(sendable_files.into_iter())

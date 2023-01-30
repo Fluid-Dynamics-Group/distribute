@@ -16,7 +16,7 @@ use std::time::Duration;
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn cancel_job() {
     println!("starting cancel job test");
-    if true {
+    if false {
         distribute::logger();
     }
 

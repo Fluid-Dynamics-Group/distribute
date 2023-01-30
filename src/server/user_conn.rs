@@ -84,7 +84,7 @@ async fn single_user_request(
 
         match request {
             transport::UserMessageToServer::AddJobSet(set) => {
-                let mut set : config::Jobs<_> = set.into();
+                let mut set: config::Jobs<_> = set.into();
                 // normalize all the paths in the configuration to use the base path of
                 // the storage location that they were stored in earlier
                 set.normalize_paths(job_input_file_dir.clone());
