@@ -39,6 +39,8 @@ pub enum Error {
     PullErrorLocal(#[from] PullErrorLocal),
     #[error("{0}")]
     Timeout(#[from] TimeoutError),
+    #[error("{0}")]
+    Slurm(#[from] Slurm),
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -307,12 +309,12 @@ pub enum AddError {
     FailedSend,
     #[error("There were no actual jobs specified in the configuration file")]
     NoJobsToAdd,
-    #[error("Duplicate job name `{0}` appeared in config file. Job names must be unique")]
-    DuplicateJobName(String),
     #[error("{0}")]
     MissingFilename(config::MissingFileNameError),
     #[error("{0}")]
     ConfigError(config::ConfigErrorReason),
+    #[error("{0}")]
+    DuplicateJobName(DuplicateJobName),
 }
 
 #[derive(Debug, From, thiserror::Error)]
@@ -439,4 +441,23 @@ pub struct TimeoutError {
 pub struct ExecutableMissing {
     executable: String,
     err: std::io::Error,
+}
+
+#[derive(thiserror::Error, Debug, From)]
+/// an error that occurs in src/slurm.rs
+pub enum Slurm {
+    #[error(".yaml config file had no jobs to convert to SLURM configuration")]
+    NoJobs,
+    #[error("{0}")]
+    DuplicateJobName(DuplicateJobName),
+    #[error("Error with configuration file: {0}")]
+    Config(config::ConfigurationError),
+}
+
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "There was a duplicate job name in the config file: {job_name}")]
+/// duplicate job name in the configuration file
+pub struct DuplicateJobName {
+    job_name: String,
 }

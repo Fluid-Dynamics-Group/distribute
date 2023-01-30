@@ -201,6 +201,7 @@ pub struct ApptainerConfig<FILE> {
     #[serde(rename = "apptainer")]
     #[getset(get = "pub(crate)", get_mut = "pub(crate)")]
     description: apptainer::Description<FILE>,
+    slurm: Option<Slurm>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
@@ -211,6 +212,7 @@ pub struct PythonConfig<FILE> {
     #[serde(rename = "python")]
     #[getset(get = "pub(crate)")]
     description: python::Description<FILE>,
+    slurm: Option<Slurm>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, From)]
@@ -293,14 +295,14 @@ impl Job {
 
     #[cfg(test)]
     pub(crate) fn placeholder_apptainer() -> Self {
-        let job = apptainer::Job::new("some_job".into(), vec![]);
+        let job = apptainer::Job::new("some_job".into(), vec![], None);
         Self::from(job)
     }
 
     #[cfg(test)]
     pub(crate) fn placeholder_python(file: common::File) -> Self {
         let file = file.hashed().unwrap();
-        let job = python::Job::new("python".into(), file, vec![]);
+        let job = python::Job::new("python".into(), file, vec![], None);
         Self::from(job)
     }
 }
@@ -343,6 +345,7 @@ impl Jobs<common::File> {
                 Ok(Jobs::from(PythonConfig {
                     meta: pyconfig.meta.clone(),
                     description,
+                    slurm: pyconfig.slurm.clone()
                 }))
             }
             Self::Apptainer(apptainer_config) => {
@@ -351,6 +354,7 @@ impl Jobs<common::File> {
                 Ok(Jobs::from(ApptainerConfig {
                     meta: apptainer_config.meta.clone(),
                     description,
+                    slurm: apptainer_config.slurm.clone()
                 }))
             }
         }
@@ -498,6 +502,28 @@ pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     config.normalize_paths(path.parent().unwrap().to_owned());
 
     Ok(config)
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct Slurm {
+    job_name: Option<String>,
+    output: Option<String>,
+    nodes: Option<usize>,
+    ntasks: Option<usize>,
+    /// Ex: 10M
+    #[serde(rename = "mem-per-cpu")]
+    mem_per_cpu: Option<usize>,
+    /// Ex: nomultithread
+    hint: Option<String>,
+    // TODO: could make this more robust
+    time: Option<String>,
+    /// Ex: cpu-core-0
+    partition: Option<String>,
+    account: Option<String>,
+    #[serde(rename = "mail-user")]
+    mail_user: Option<String>,
+    #[serde(rename = "mail-type")]
+    mail_type: Option<String>,
 }
 
 #[test]

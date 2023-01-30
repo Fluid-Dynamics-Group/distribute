@@ -12,7 +12,8 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     }
 
     // ensure that there are no duplicate job names
-    check_has_duplicates(&config.job_names())?;
+    check_has_duplicates(&config.job_names())
+        .map_err(error::AddError::from)?;
 
     debug!("ensuring all files exist on disk in the locations described");
 
@@ -122,7 +123,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     Ok(())
 }
 
-fn check_has_duplicates<T: Eq + std::fmt::Display>(list: &[T]) -> Result<(), error::AddError> {
+pub(crate) fn check_has_duplicates<T: Eq + std::fmt::Display>(list: &[T]) -> Result<(), error::DuplicateJobName> {
     for i in list {
         let mut count = 0;
         for j in list {
@@ -132,7 +133,7 @@ fn check_has_duplicates<T: Eq + std::fmt::Display>(list: &[T]) -> Result<(), err
         }
 
         if count > 1 {
-            return Err(error::AddError::DuplicateJobName(i.to_string()));
+            return Err(error::DuplicateJobName::new(i.to_string()));
         }
     }
 

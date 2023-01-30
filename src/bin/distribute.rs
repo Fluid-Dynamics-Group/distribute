@@ -35,6 +35,7 @@ async fn wrap_main() -> Result<(), ErrorWrap> {
             distribute::server_status(s).await.map_err(ErrorWrap::from)
         }
         cli::Arguments::NodeStatus(s) => distribute::node_status(s).await.map_err(ErrorWrap::from),
+        cli::Arguments::Slurm(s) => distribute::slurm(s).map_err(Error::from).map_err(ErrorWrap::from),
     }
 }
 

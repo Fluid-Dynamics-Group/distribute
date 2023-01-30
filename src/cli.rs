@@ -38,6 +38,7 @@ pub enum Arguments {
     Run(Run),
     ServerStatus(ServerStatus),
     NodeStatus(NodeStatus),
+    Slurm(Slurm),
 }
 
 impl Arguments {
@@ -151,6 +152,7 @@ pub struct Pause {
 /// add a job set to the queue
 pub struct Add {
     #[arg(default_value = "distribute-jobs.yaml")]
+    /// distribute-jobs.yaml configuration file
     pub jobs: PathBuf,
 
     #[arg(long, short, default_value = SERVER_PORT_STR)]
@@ -262,4 +264,12 @@ fn check_send<T: Send>() {}
 
 fn other_send() {
     check_send::<Server>();
+}
+
+#[derive(Parser, PartialEq, Debug, Constructor, Eq)]
+/// transpile a set of jobs in `distribute-jobs.yaml` to be run on a SLURM cluster
+pub struct Slurm {
+    #[arg(default_value = "distribute-jobs.yaml")]
+    /// distribute-jobs.yaml configuration file
+    pub jobs: PathBuf,
 }

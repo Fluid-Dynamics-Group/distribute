@@ -32,6 +32,8 @@ mod server_status;
 mod template;
 #[cfg(feature = "cli")]
 mod transport;
+#[cfg(feature = "cli")]
+mod slurm;
 
 #[cfg(feature = "cli")]
 use prelude::*;
@@ -66,6 +68,7 @@ pub use {
     server_status::get_current_jobs,
     server_status::server_status,
     template::template,
+    slurm::slurm
 };
 
 #[cfg(test)]

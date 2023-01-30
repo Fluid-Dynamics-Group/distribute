@@ -178,6 +178,9 @@ pub struct Job<FILE> {
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
     pub(super) required_files: Vec<FILE>,
+    /// slurm configuration. This level of information will override the defeaults at the outer 
+    /// most level of the configuration
+    slurm: Option<super::Slurm>
 }
 
 #[cfg(feature = "cli")]
@@ -218,6 +221,7 @@ impl Job<common::File> {
             name: self.name().to_string(),
             python_job_file,
             required_files,
+            slurm: self.slurm.clone()
         };
 
         Ok(job)
