@@ -1,4 +1,7 @@
 use crate::prelude::*;
+use crate::server::ok_if_exists;
+
+const SIF_FILE: &str = "apptainer.sif";
 
 pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
     //
@@ -13,6 +16,191 @@ pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
     // ensure that there are no duplicate job names
     crate::add::check_has_duplicates(&jobs.job_names())?;
 
+    let apptainer_config = match jobs {
+        config::Jobs::Python(_) => return Err(error::Slurm::PythonConfig),
+        config::Jobs::Apptainer(apptainer) => apptainer,
+    };
+
+    let global_slurm = apptainer_config.slurm();
+
+    let description = apptainer_config.description();
+    let initialize = description.initialize();
+
+    let sif_path = initialize.sif().path();
+    let overall_files = initialize.required_files();
+    let required_mounts = initialize.required_mounts();
+
+    // get a list of mounts for this folder
+    let mounts: Vec<Mount> = required_mounts
+        .iter()
+        .map(PathBuf::to_owned)
+        .enumerate()
+        .map(|(idx, container_path)| {
+            let host_fs_folder_name = format!("mnt_{idx:02}");
+            Mount {
+                container_path,
+                host_fs_folder_name,
+            }
+        })
+        .collect();
+
+    let jobs = description.jobs();
+
+    // create the output directory
+    create_dir_ok_if_exists(&args.output_folder)?;
+
+    //
+    // Input files
+    //
+
+    let mut global_input_files: Vec<InputFile> = Vec::with_capacity(overall_files.len());
+
+    // create the input directory within the output folder that will store
+    // symlinks to the files that should be moved to the server
+    let overall_input_files = args.output_folder.join("input");
+    create_dir_ok_if_exists(&overall_input_files)?;
+
+    // copy the input files to this directory, using the alias that was stored in the config file
+    for file in overall_files {
+        let filename_or_alias = file.filename()?;
+        let destination = overall_input_files.join(&filename_or_alias);
+
+        copy(file.path(), &destination)?;
+
+        let input = InputFile::new(destination, filename_or_alias);
+        global_input_files.push(input);
+    }
+
+    // copy the input SIF file to the output folder (no symlink)
+    let stored_sif = args.output_folder.join(SIF_FILE);
+    copy(sif_path, stored_sif)?;
+
+    //
+    // Jobs
+    //
+
+    for job in jobs {
+        let job_folder = args.output_folder.join(job.name());
+        let job_input_folder = job_folder.join("input");
+
+        create_dir_ok_if_exists(&job_folder)?;
+        create_dir_ok_if_exists(&job_input_folder)?;
+
+        create_mounts_at_basepath(&job_folder, &mounts)?;
+
+        //
+        // Batch file handling
+        //
+        let slurm_batch_file = job_folder.join("slurm_input.sl");
+        let file = std::fs::File::create(&slurm_batch_file)
+            .map_err(|e| error::CreateFile::new(e, slurm_batch_file))?;
+
+        let slurm_config =
+            determine_slurm_configuration(job.name(), global_slurm.clone(), job.slurm().clone());
+
+        //
+        // copy the input files for this job to the correct directory
+        //
+        for file in job.required_files() {
+            let filename_or_alias = file.filename()?;
+            let destination = overall_input_files.join(&filename_or_alias);
+            copy(file.path(), &destination)?;
+        }
+
+        // now, symlink all the input files `overall_files` to the input directory
+        // for this particular
+        for file in global_input_files.iter() {
+            // folder structure is
+            //  output_folder
+            //      - input
+            //          - input_file_1
+            //          - input_file_2
+            //      - job_folder
+            //          - input
+            //              - input_file_1
+            //              - input_file_2
+            //              - input_file_3
+            //
+            // from job_folder/input/ we know that
+            //  ../ gets to job_folder
+            //  ../../ gets to output_folder
+            //  ../../input gets to output_folder/input
+
+            // the location that the symlink will point to
+            let original_file = PathBuf::from(format!("../../input/{}", file.filename));
+            // the location where we place the symlink on the filesystem
+            let place_symlink_at = job_input_folder.join(&file.filename);
+
+            std::os::unix::fs::symlink(original_file, place_symlink_at)
+                .expect("failed to create symlink, this should not happen");
+        }
+    }
 
     Ok(())
+}
+
+fn copy<T: AsRef<Path>, U: AsRef<Path>>(src: T, dest: U) -> Result<(), error::CopyFile> {
+    let src = src.as_ref();
+    let dest = dest.as_ref();
+
+    std::fs::copy(src, dest)
+        .map_err(|e| error::CopyFile::new(e, src.to_owned(), dest.to_owned()))?;
+
+    Ok(())
+}
+
+fn create_mounts_at_basepath(basepath: &Path, mounts: &[Mount]) -> Result<(), error::CreateDir> {
+    for mount in mounts {
+        let folder_path = basepath.join(&mount.host_fs_folder_name);
+        create_dir_ok_if_exists(folder_path)?;
+    }
+
+    Ok(())
+}
+
+fn create_dir_ok_if_exists<T: AsRef<Path>>(dir: T) -> Result<(), error::CreateDir> {
+    ok_if_exists(fs::create_dir(&dir.as_ref()))
+        .map_err(|e| error::CreateDir::new(e, dir.as_ref().to_owned()))?;
+
+    Ok(())
+}
+
+struct Mount {
+    container_path: PathBuf,
+    host_fs_folder_name: String,
+}
+
+#[derive(Debug, Constructor)]
+struct InputFile {
+    path: PathBuf,
+    filename: String,
+}
+
+fn determine_slurm_configuration(
+    job_name: &str,
+    batch_slurm_config: Option<config::Slurm>,
+    // configuration for an individual job in the batch of jobs
+    job_slurm_config: Option<config::Slurm>,
+) -> Result<config::Slurm, error::SlurmInformation> {
+    match (batch_slurm_config, job_slurm_config) {
+        (Some(batch), Some(mut job)) => {
+            // default the job_name slurm field to the name of the job that we have in the config
+            // file
+            job.set_default_job_name(job_name);
+            Ok(batch.override_with(&job))
+        }
+        (Some(mut batch), None) => {
+            // default the job_name slurm field to the name of the job that we have in the config
+            // file
+            batch.set_default_job_name(job_name);
+            Ok(batch)
+        }
+        (None, Some(mut job)) => {
+            // default the job_name slurm field to the name of the job that we have in the config
+            // file
+            job.set_default_job_name(job_name);
+            Ok(job)
+        }
+        (None, None) => Err(error::SlurmInformation::new(job_name.into())),
+    }
 }

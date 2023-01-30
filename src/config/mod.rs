@@ -48,7 +48,7 @@ pub enum ConfigErrorReason {
     #[display(fmt = "{}", _0)]
     Deserialization(DeserError),
     #[display(fmt = "missing file: {}", _0)]
-    MissingFile(MissingFileNameError),
+    MissingFile(MissingFilename),
     #[display(fmt = "General Io error when opening config file: {}", _0)]
     IoError(std::io::Error),
 }
@@ -68,9 +68,19 @@ pub enum LoadJobsError {
     #[error("{0}")]
     ReadBytes(ReadBytesError),
     #[error("{0}")]
-    MissingFileName(MissingFileNameError),
+    MissingFileName(MissingFilename),
     #[error("{0}")]
     Canonicalize(CanonicalizeError),
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
+    fmt = "The filename for the path {} was missing, and no alias was supplied",
+    "path.display()"
+)]
+/// a path was supplied to the configuration that does not have filename associated with the path
+pub struct MissingFilename {
+    path: PathBuf,
 }
 
 #[derive(Debug, From, thiserror::Error, Constructor, Display)]
@@ -83,13 +93,6 @@ pub enum LoadJobsError {
 pub struct CanonicalizeError {
     path: PathBuf,
     err: std::io::Error,
-}
-
-#[derive(Debug, Display, From, thiserror::Error, Constructor)]
-#[display(fmt = "Error loading configuration for jobs {:?} ", path)]
-/// happens when a file path does not contain a filename
-pub struct MissingFileNameError {
-    path: PathBuf,
 }
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
@@ -201,6 +204,7 @@ pub struct ApptainerConfig<FILE> {
     #[serde(rename = "apptainer")]
     #[getset(get = "pub(crate)", get_mut = "pub(crate)")]
     description: apptainer::Description<FILE>,
+    #[getset(get = "pub(crate)")]
     slurm: Option<Slurm>
 }
 
@@ -337,7 +341,7 @@ impl Jobs<common::File> {
         Ok(())
     }
 
-    pub fn hashed(&self) -> Result<Jobs<common::HashedFile>, MissingFileNameError> {
+    pub fn hashed(&self) -> Result<Jobs<common::HashedFile>, MissingFilename> {
         match &self {
             Self::Python(pyconfig) => {
                 let description = pyconfig.description.hashed()?;
@@ -524,6 +528,40 @@ pub struct Slurm {
     mail_user: Option<String>,
     #[serde(rename = "mail-type")]
     mail_type: Option<String>,
+}
+
+macro_rules! slurm_helper {
+    ($overrides:ident, $self:ident; $($field:ident),*) => {
+        Self {
+            $(
+                $field: $overrides.$field.as_ref().or($self.$field.as_ref()).cloned()
+            ),*
+        }
+    }
+}
+
+impl Slurm {
+    /// Using `self` default values, override the values of `self` with `overrides` for each of the
+    /// fields in `overrides` that are not none
+    pub(crate) fn override_with(&self, overrides: &Self) -> Self {
+        slurm_helper!(overrides, self;
+            job_name,
+            output,
+            nodes,
+            ntasks,
+            mem_per_cpu,
+            hint,
+            time,
+            partition,
+            account,
+            mail_user,
+            mail_type
+        )
+    }
+
+    pub(crate) fn set_default_job_name(&mut self, job_name: &str) {
+        self.job_name.as_mut().and(Some(job_name.to_string()));
+    }
 }
 
 #[test]

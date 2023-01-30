@@ -29,11 +29,11 @@ mod server;
 #[cfg(feature = "cli")]
 mod server_status;
 #[cfg(feature = "cli")]
+mod slurm;
+#[cfg(feature = "cli")]
 mod template;
 #[cfg(feature = "cli")]
 mod transport;
-#[cfg(feature = "cli")]
-mod slurm;
 
 #[cfg(feature = "cli")]
 use prelude::*;

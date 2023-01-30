@@ -269,7 +269,11 @@ fn other_send() {
 #[derive(Parser, PartialEq, Debug, Constructor, Eq)]
 /// transpile a set of jobs in `distribute-jobs.yaml` to be run on a SLURM cluster
 pub struct Slurm {
+    /// path to the folder that will be created to store the assimilated data to be shipped
+    /// off to the cluster
+    pub(crate) output_folder: PathBuf,
+
     #[arg(default_value = "distribute-jobs.yaml")]
     /// distribute-jobs.yaml configuration file
-    pub jobs: PathBuf,
+    pub(crate) jobs: PathBuf,
 }

@@ -123,7 +123,9 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     Ok(())
 }
 
-pub(crate) fn check_has_duplicates<T: Eq + std::fmt::Display>(list: &[T]) -> Result<(), error::DuplicateJobName> {
+pub(crate) fn check_has_duplicates<T: Eq + std::fmt::Display>(
+    list: &[T],
+) -> Result<(), error::DuplicateJobName> {
     for i in list {
         let mut count = 0;
         for j in list {

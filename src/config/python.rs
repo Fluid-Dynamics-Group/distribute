@@ -27,7 +27,7 @@ pub struct Description<FILE> {
 
 #[cfg(feature = "cli")]
 impl Description<common::File> {
-    pub(super) fn verify_config(&self) -> Result<(), super::MissingFileNameError> {
+    pub(super) fn verify_config(&self) -> Result<(), super::MissingFilename> {
         self.initialize.python_build_file_path().exists_or_err()?;
 
         self.initialize
@@ -50,7 +50,7 @@ impl Description<common::File> {
 
     pub(super) fn hashed(
         &self,
-    ) -> Result<Description<common::HashedFile>, super::MissingFileNameError> {
+    ) -> Result<Description<common::HashedFile>, super::MissingFilename> {
         let initialize = self.initialize.hashed()?;
 
         let mut jobs = Vec::new();
@@ -122,7 +122,7 @@ pub struct Initialize<FILE> {
 impl Initialize<common::File> {
     pub(crate) fn hashed(
         &self,
-    ) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
+    ) -> Result<Initialize<common::HashedFile>, super::MissingFilename> {
         let init_hash = hashing::filename_hash(self);
 
         let hashed_path = format!("setup_python_{init_hash}.dist").into();
@@ -145,7 +145,7 @@ impl Initialize<common::File> {
                     filename,
                 ))
             })
-            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+            .collect::<Result<Vec<_>, super::MissingFilename>>()?;
 
         let init = Initialize {
             python_build_file_path,
@@ -188,7 +188,7 @@ impl Job<common::File> {
     pub(crate) fn hashed(
         &self,
         job_idx: usize,
-    ) -> Result<Job<common::HashedFile>, super::MissingFileNameError> {
+    ) -> Result<Job<common::HashedFile>, super::MissingFilename> {
         let hash = hashing::filename_hash(self);
 
         let required_files = self
@@ -209,7 +209,7 @@ impl Job<common::File> {
                     filename,
                 ))
             })
-            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+            .collect::<Result<Vec<_>, super::MissingFilename>>()?;
 
         let hashed_path = format!("{hash}_python_run.dist").into();
         let unhashed_path = self.python_job_file.path().into();

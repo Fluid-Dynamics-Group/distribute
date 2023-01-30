@@ -25,7 +25,7 @@ pub struct Description<FILE> {
 
 #[cfg(feature = "cli")]
 impl Description<common::File> {
-    pub(super) fn verify_config(&self) -> Result<(), super::MissingFileNameError> {
+    pub(super) fn verify_config(&self) -> Result<(), super::MissingFilename> {
         self.initialize.sif.exists_or_err()?;
 
         self.initialize
@@ -48,7 +48,7 @@ impl Description<common::File> {
 
     pub(super) fn hashed(
         &self,
-    ) -> Result<Description<common::HashedFile>, super::MissingFileNameError> {
+    ) -> Result<Description<common::HashedFile>, super::MissingFilename> {
         let initialize = self.initialize.hashed()?;
 
         let jobs = self
@@ -56,7 +56,7 @@ impl Description<common::File> {
             .iter()
             .enumerate()
             .map(|(job_idx, job)| job.hashed(job_idx))
-            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+            .collect::<Result<Vec<_>, super::MissingFilename>>()?;
 
         let desc = Description { initialize, jobs };
 
@@ -100,21 +100,24 @@ where
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
 pub struct Initialize<FILE> {
+    #[getset(get = "pub(crate)")]
     pub sif: FILE,
     #[serde(default = "Default::default")]
+    #[getset(get = "pub(crate)")]
     pub required_files: Vec<FILE>,
     /// paths in the folder that need to have mount points to
     /// the host file system
-    #[serde(default)]
+    #[serde(default = "Default::default")]
+    #[getset(get = "pub(crate)")]
     pub required_mounts: Vec<PathBuf>,
 }
 
 #[cfg(feature = "cli")]
 impl Initialize<common::File> {
-    fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
+    fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFilename> {
         let init_hash = hashing::filename_hash(self);
 
         // hash the sif
@@ -138,7 +141,7 @@ impl Initialize<common::File> {
                     filename,
                 ))
             })
-            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+            .collect::<Result<Vec<_>, super::MissingFilename>>()?;
 
         let init = Initialize {
             sif,
@@ -171,7 +174,8 @@ pub struct Job<FILE> {
     pub required_files: Vec<FILE>,
     /// slurm configuration. This level of information will override the defeaults at the outer 
     /// most level of the configuration
-    slurm: Option<super::Slurm>
+    #[getset(get = "pub(crate)")]
+    slurm: Option<super::Slurm>,
 }
 
 #[cfg(feature = "cli")]
@@ -179,7 +183,7 @@ impl Job<common::File> {
     pub(crate) fn hashed(
         &self,
         job_idx: usize,
-    ) -> Result<Job<common::HashedFile>, super::MissingFileNameError> {
+    ) -> Result<Job<common::HashedFile>, super::MissingFilename> {
         //
         // for each job ...
         //
@@ -202,7 +206,7 @@ impl Job<common::File> {
                     filename,
                 ))
             })
-            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+            .collect::<Result<Vec<_>, super::MissingFilename>>()?;
 
         // assemble the new files into a new job
         let job = Job {
