@@ -103,7 +103,7 @@ impl File {
         Ok(HashedFile {
             hashed_path,
             unhashed_path_user,
-            original_filename
+            original_filename,
         })
     }
 }

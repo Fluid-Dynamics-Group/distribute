@@ -3,9 +3,8 @@ use crate::prelude::*;
 
 use client::utils;
 
-
 use super::super::built::{Built, ClientBuiltState};
-use super::super::uninit::{ClientUninitState};
+use super::super::uninit::ClientUninitState;
 use super::super::UninitClient;
 use super::super::UninitServer;
 use super::{ClientError, ClientMsg, NextState, SendFiles, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};

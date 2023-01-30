@@ -19,7 +19,9 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let base_path = client.base_folder;
     let working_dir = WorkingDir::from(base_path.clone());
 
-    working_dir.delete_and_create_folders().await
+    working_dir
+        .delete_and_create_folders()
+        .await
         .map_err(error::ClientInitError::from)?;
 
     // ensure that `apptainer` was included in the path of the executable

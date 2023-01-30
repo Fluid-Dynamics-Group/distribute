@@ -574,14 +574,9 @@ async fn cancel_run() {
     let folder_path = PathBuf::from("./tests/python_sleep/");
     let file_to_execute = folder_path.join("sleep30s.py");
 
-    let exec_file = 
-        config::common::File::new("./tests/python_sleep/sleep30s.py").unwrap();
+    let exec_file = config::common::File::new("./tests/python_sleep/sleep30s.py").unwrap();
 
-    let job = config::python::Job::new(
-        "sleep_job".into(),
-        exec_file.clone(),
-        vec![]
-    );
+    let job = config::python::Job::new("sleep_job".into(), exec_file.clone(), vec![]);
 
     let work_dir = WorkingDir::from(folder_path.join("run"));
 
@@ -622,7 +617,7 @@ async fn cancel_run() {
         namespace: "test_namespace".into(),
         batch_name: "test_batchname".into(),
         identifier: job_identifier,
-        task: config::Job::placeholder_python(exec_file)
+        task: config::Job::placeholder_python(exec_file),
     };
 
     let folder_state = client::execute::BindingFolderState::new();

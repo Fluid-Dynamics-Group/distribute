@@ -1,4 +1,3 @@
-
 use crate::prelude::*;
 
 pub(crate) fn send_matrix_message(

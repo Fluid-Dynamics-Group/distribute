@@ -3,8 +3,6 @@ use crate::client;
 use crate::config;
 use crate::error::RunErrorLocal;
 
-
-
 use crate::prelude::*;
 
 pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {

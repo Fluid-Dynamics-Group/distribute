@@ -172,7 +172,10 @@ impl WorkingDir {
             .await;
     }
 
-    pub(crate) async fn copy_job_files_apptainer(&self, job: &config::apptainer::Job<config::common::File>) {
+    pub(crate) async fn copy_job_files_apptainer(
+        &self,
+        job: &config::apptainer::Job<config::common::File>,
+    ) {
         self.clean_input().await.unwrap();
 
         let input = self.input_folder();
@@ -183,7 +186,10 @@ impl WorkingDir {
         }
     }
 
-    pub(crate) async fn copy_job_files_python(&self, job: &config::python::Job<config::common::File>) {
+    pub(crate) async fn copy_job_files_python(
+        &self,
+        job: &config::python::Job<config::common::File>,
+    ) {
         self.clean_input().await.unwrap();
 
         let input = self.input_folder();
@@ -195,7 +201,11 @@ impl WorkingDir {
 
         // copy the job file to the input directory, the python job runner will copy it to
         // the correct location
-        std::fs::copy(job.python_job_file().path(), input.join(job.python_job_file().filename().unwrap())).unwrap();
+        std::fs::copy(
+            job.python_job_file().path(),
+            input.join(job.python_job_file().filename().unwrap()),
+        )
+        .unwrap();
     }
 }
 

@@ -4,11 +4,6 @@ mod sender;
 use super::Machine;
 use crate::prelude::*;
 
-
-
-
-
-
 pub(crate) use receiver::{
     BuildingReceiver, ExecutingReceiver, Nothing, ReceiverFinalStore, ReceiverState,
 };

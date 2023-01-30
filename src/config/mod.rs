@@ -6,8 +6,6 @@ pub mod requirements;
 #[cfg(feature = "cli")]
 mod hashing;
 
-
-
 #[cfg(feature = "cli")]
 use crate::client::execute::FileMetadata;
 
@@ -56,7 +54,9 @@ pub enum ConfigErrorReason {
 }
 
 #[derive(Debug, Display, Constructor)]
-#[display(fmt="general deserialization: {general}\npython deserialization err: {python_err}\nappatainer deserialization error: {apptainer_err}")]
+#[display(
+    fmt = "general deserialization: {general}\npython deserialization err: {python_err}\nappatainer deserialization error: {apptainer_err}"
+)]
 pub struct DeserError {
     general: serde_yaml::Error,
     python_err: serde_yaml::Error,
@@ -436,25 +436,37 @@ impl NormalizePaths for Nodes {
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     path: &Path,
 ) -> Result<T, ConfigurationError> {
-    let file = std::fs::File::open(path)
-        .map_err(|e| ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e)))?;
+    let file = std::fs::File::open(path).map_err(|e| {
+        ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e))
+    })?;
 
     let config: Result<T, _> = serde_yaml::from_reader(file);
 
     let mut config = match config {
         Err(e) => {
-            let file = std::fs::File::open(path)
-                .map_err(|e| ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e)))?;
-            let python_err = serde_yaml::from_reader::<_, PythonConfig<common::File>>(file).unwrap_err();
+            let file = std::fs::File::open(path).map_err(|e| {
+                ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e))
+            })?;
+            let python_err =
+                serde_yaml::from_reader::<_, PythonConfig<common::File>>(file).unwrap_err();
 
-            let file = std::fs::File::open(path)
-                .map_err(|e| ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e)))?;
-            let apptainer_err = serde_yaml::from_reader::<_, ApptainerConfig<common::File>>(file).unwrap_err();
+            let file = std::fs::File::open(path).map_err(|e| {
+                ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e))
+            })?;
+            let apptainer_err =
+                serde_yaml::from_reader::<_, ApptainerConfig<common::File>>(file).unwrap_err();
 
-            let deser_error = DeserError { general: e, python_err, apptainer_err};
-            return Err(ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(deser_error)));
+            let deser_error = DeserError {
+                general: e,
+                python_err,
+                apptainer_err,
+            };
+            return Err(ConfigurationError::new(
+                path.display().to_string(),
+                ConfigErrorReason::from(deser_error),
+            ));
         }
-        Ok(config) => config
+        Ok(config) => config,
     };
 
     config.normalize_paths(path.parent().unwrap().to_owned());

@@ -1,14 +1,10 @@
 use super::NormalizePaths;
 use derive_more::Constructor;
 
-
-
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use super::common;
-
-
 
 #[cfg(feature = "cli")]
 use super::hashing;
@@ -16,9 +12,7 @@ use super::hashing;
 #[cfg(feature = "cli")]
 use crate::client::execute::FileMetadata;
 
-
-
-use getset::{Getters};
+use getset::Getters;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]

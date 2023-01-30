@@ -554,7 +554,7 @@ pub struct RunningJobDuration {
 mod tests {
     use super::*;
     use crate::config::requirements::Requirements;
-    
+
     use config::common::{File, HashedFile};
     use config::Jobs;
 
@@ -641,7 +641,7 @@ mod tests {
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
         let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
-        let j1= cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1 = cpu_set.clone().unwrap_python().description().jobs()[0].clone();
         let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         scheduler.insert_new_batch(cpu_set).unwrap();
@@ -724,7 +724,7 @@ mod tests {
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
         let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
-        let j1= cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1 = cpu_set.clone().unwrap_python().description().jobs()[0].clone();
         let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         scheduler.insert_new_batch(cpu_set).unwrap(); // 1
@@ -816,7 +816,7 @@ mod tests {
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
         let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
-        let j1= cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1 = cpu_set.clone().unwrap_python().description().jobs()[0].clone();
         let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         let node_meta = NodeMetadata::test_name();

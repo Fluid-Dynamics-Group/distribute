@@ -1,8 +1,6 @@
 use crate::error::{self, Error};
 use crate::prelude::*;
 
-
-
 pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files

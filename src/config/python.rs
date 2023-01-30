@@ -1,8 +1,4 @@
-
 use super::NormalizePaths;
-
-
-
 
 // event though these are included in the prelude, the prelude only exists for the cli
 // feature
@@ -11,8 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use super::common;
-
-
 
 #[cfg(feature = "cli")]
 use super::hashing;
