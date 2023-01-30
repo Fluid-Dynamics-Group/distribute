@@ -20,7 +20,7 @@ fn to_template(template: cli::TemplateType) -> Result<String, TemplateError> {
 
 fn python_template() -> Result<String, TemplateError> {
     let initialize = python::Initialize::new(
-        "/path/to/build.py".into(),
+        common::File::new_relative("/path/to/build.py"),
         vec![
             common::File::with_alias_relative("/file/always/present/1.txt", "optional_alias.txt"),
             common::File::new_relative("/another/file/2.json"),
@@ -30,7 +30,7 @@ fn python_template() -> Result<String, TemplateError> {
 
     let job_1 = python::Job::new(
         "job_1".into(),
-        "execute_job.py".into(),
+        common::File::new_relative("execute_job.py"),
         vec![
             common::File::new_relative("job_configuration_file.json"),
             common::File::with_alias_relative(
@@ -42,7 +42,7 @@ fn python_template() -> Result<String, TemplateError> {
 
     let python = python::Description::new(initialize, vec![job_1]);
     let meta = meta();
-    let desc: config::Jobs = config::PythonConfig::new(meta, python).into();
+    let desc: config::Jobs<common::File> = config::PythonConfig::new(meta, python).into();
     let serialized = serde_yaml::to_string(&desc)?;
 
     Ok(serialized)
@@ -50,7 +50,7 @@ fn python_template() -> Result<String, TemplateError> {
 
 fn apptainer_template() -> Result<String, TemplateError> {
     let initialize = apptainer::Initialize::new(
-        "execute_container.sif".into(),
+        common::File::new_relative("execute_container.sif"),
         vec![
             common::File::with_alias_relative("/file/always/present/1.txt", "optional_alias.txt"),
             common::File::new_relative("/another/file/2.json"),
@@ -72,7 +72,7 @@ fn apptainer_template() -> Result<String, TemplateError> {
 
     let apptainer = apptainer::Description::new(initialize, vec![job_1]);
     let meta = meta();
-    let desc: config::Jobs = config::ApptainerConfig::new(meta, apptainer).into();
+    let desc: config::Jobs<common::File> = config::ApptainerConfig::new(meta, apptainer).into();
     let serialized = serde_yaml::to_string(&desc)?;
 
     Ok(serialized)

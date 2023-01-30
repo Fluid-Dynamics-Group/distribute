@@ -235,7 +235,6 @@ pub enum RegexFilter {
     /// basis.
     ///
     /// --exclude "file_1" --exclude "file_2" will exclude matches for both file_1 or file_2
-
     Exclude {
         #[structopt(long, short)]
         exclude: Vec<String>,

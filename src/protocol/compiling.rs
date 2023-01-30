@@ -11,9 +11,9 @@ use crate::prelude::*;
 pub(crate) struct Building;
 
 pub(crate) struct ClientBuildingState {
-    pub(super) build_opt: transport::BuildOpts,
+    pub(crate) build_info: server::pool_data::BuildTaskInfo,
     pub(super) conn: transport::Connection<ClientMsg>,
-    pub(super) working_dir: PathBuf,
+    pub(super) working_dir: WorkingDir,
     pub(super) cancel_addr: SocketAddr,
 }
 
@@ -55,17 +55,13 @@ impl Machine<Building, ClientBuildingState> {
     /// Cancelled compilations or Failed compilations return `Machine<PrepareBuild, _>`
     ///
     /// this routine is also responsible for listening for cancellation requests from the server
-    #[instrument(skip(self), fields(batch_name=self.state.build_opt.batch_name()))]
+    #[instrument(skip(self), fields(batch_name=self.state.build_info.batch_name))]
     pub(crate) async fn build_job(
         mut self,
     ) -> Result<
         Either<Machine<Built, ClientBuiltState>, Machine<PrepareBuild, ClientPrepareBuildState>>,
         (Self, ClientError),
     > {
-        if self.state.working_dir.exists() {
-            let _tmp = client::utils::clean_output_dir(&self.state.working_dir).await;
-        }
-
         // TODO: monitor for cancellation
         let (tx_result, rx_result) = oneshot::channel();
 
@@ -73,21 +69,25 @@ impl Machine<Building, ClientBuildingState> {
         let working_dir = self.state.working_dir.clone();
         // TODO: we can probably avoid this clone if we are clever with transporting the data
         // back from the proc after it finishes
-        let build_opt = self.state.build_opt.clone();
+        let build_info = self.state.build_info.clone();
 
         // spawn off a worker to perform the compilation so that we can monitor
         // for cancellation signals from the master node
         tokio::spawn(async move {
-            match build_opt {
-                transport::BuildOpts::Python(python_job) => {
-                    let build_result =
-                        crate::client::initialize_python_job(python_job, &working_dir).await;
+            match build_info.init {
+                config::Init::Python(python_init) => {
+                    let build_result = crate::client::initialize_python_job(
+                        &python_init,
+                        &build_info.batch_name,
+                        &working_dir,
+                    )
+                    .await;
                     let msg = ClientMsg::from_build_result(build_result);
                     tx_result.send((folder_state, msg)).ok().unwrap();
                 }
-                transport::BuildOpts::Apptainer(apptainer_job) => {
+                config::Init::Apptainer(apptainer_init) => {
                     let build_result = crate::client::initialize_apptainer_job(
-                        apptainer_job,
+                        &apptainer_init,
                         &working_dir,
                         &mut folder_state,
                     )

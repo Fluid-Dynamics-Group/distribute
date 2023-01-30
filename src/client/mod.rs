@@ -1,6 +1,8 @@
 pub(crate) mod execute;
 pub(crate) mod utils;
 
+pub(crate) use utils::WorkingDir;
+
 pub(crate) use execute::{
     initialize_apptainer_job, initialize_python_job, run_apptainer_job, run_python_job,
     BindingFolderState,
@@ -15,8 +17,10 @@ use crate::{cli, error, transport};
 
 pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let base_path = client.base_folder;
+    let working_dir = WorkingDir::from(base_path.clone());
 
-    utils::clean_output_dir(&base_path)
+    working_dir
+        .delete_and_create_folders()
         .await
         .map_err(error::ClientInitError::from)?;
 
@@ -25,14 +29,23 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         error!(error = %e, "failed to verify that `apptainer` was in the $PATH environment variable - further execution will cause errors");
     }
 
+    debug!(
+        transport_port = client.transport_port,
+        "starting transport port"
+    );
     let addr = SocketAddr::from(([0, 0, 0, 0], client.transport_port));
     let listener = TcpListener::bind(addr)
         .await
         .map_err(error::TcpConnection::from)?;
 
+    debug!(
+        keepalive_port = client.keepalive_port,
+        "starting keepalive port"
+    );
     let keepalive_addr = SocketAddr::from(([0, 0, 0, 0], client.keepalive_port));
     start_keepalive_checker(keepalive_addr).await?;
 
+    debug!(cancel_port = client.cancel_port, "starting cancel port");
     let cancel_addr = SocketAddr::from(([0, 0, 0, 0], client.cancel_port));
 
     info!("starting client listener on port {}", addr);
@@ -46,7 +59,9 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
         println!("new TCP connection from the server - preparing setup / run structures - STDOUT");
         info!("new TCP connection from the server - preparing setup / run structures");
 
-        run_job(tcp_conn, &base_path, cancel_addr).await.ok();
+        run_job(tcp_conn, working_dir.clone(), cancel_addr)
+            .await
+            .ok();
     }
 
     #[allow(unreachable_code)]
@@ -59,12 +74,12 @@ pub async fn client_command(client: cli::Client) -> Result<(), Error> {
 /// Only return from this function if there is a TcpConnection error
 async fn run_job(
     conn: tokio::net::TcpStream,
-    working_dir: &Path,
+    working_dir: WorkingDir,
     cancel_addr: SocketAddr,
 ) -> Result<(), ()> {
     let mut machine = protocol::Machine::<_, protocol::uninit::ClientUninitState>::new(
         conn,
-        working_dir.to_owned(),
+        working_dir,
         cancel_addr,
     );
 
@@ -98,10 +113,24 @@ async fn inner_prepare_build_to_compile_result(
     protocol::Either<protocol::BuiltClient, protocol::PrepareBuildClient>,
     (UninitClient, protocol::ClientError),
 > {
-    let building_state = match prepare_build.receive_job().await {
-        Ok(building) => building,
+    let sending_compilation_files_state = match prepare_build.receive_job().await {
+        Ok(send_files) => send_files,
         Err((prepare_build, err)) => {
             tracing::error!("error when trying to get a job to build : {}", err);
+            return Err((prepare_build.into_uninit(), err.into()));
+        }
+    };
+
+    // TODO: we can remove these by adding a new state to the send_files output that happens
+    // after the job is executed. until then, we need this useless channel
+    let (mut tx, _rx) = mpsc::channel(5);
+    let building_state = match sending_compilation_files_state.receive_files(&mut tx).await {
+        Ok(building) => building,
+        Err((prepare_build, err)) => {
+            tracing::error!(
+                "error when trying to receive files that we will compile (send_files): {}",
+                err
+            );
             return Err((prepare_build.into_uninit(), err.into()));
         }
     };
@@ -193,7 +222,7 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
     #[allow(unreachable_code)]
     loop {
         // now that we have compiled, we should
-        let execute = match built.get_execute_instructions().await {
+        let receive_files = match built.get_execute_instructions().await {
             Ok(protocol::Either::Right(executing)) => executing,
             Ok(protocol::Either::Left(prepare_build)) => {
                 built = prepare_build_to_built(prepare_build).await?;
@@ -202,6 +231,17 @@ async fn run_job_inner(uninit: UninitClient) -> Result<(), (UninitClient, protoc
             Err((built, err)) => {
                 tracing::error!("error from built client: {}", err);
                 return Err((built.into_uninit(), err.into()));
+            }
+        };
+
+        // TODO: we can remove these by adding a new state to the send_files output that happens
+        // after the job is executed. until then, we need this useless channel
+        let (mut tx, _rx) = mpsc::channel(5);
+        let execute = match receive_files.receive_files(&mut tx).await {
+            Ok(execute) => execute,
+            Err((receive_files, err)) => {
+                tracing::error!("error when trying to receive files to execute {}", err);
+                return Err((receive_files.into_uninit(), err.into()));
             }
         };
 

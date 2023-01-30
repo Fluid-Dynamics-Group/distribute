@@ -53,7 +53,7 @@ macro_rules! throw_error_with_self {
         match $result {
             Ok(x) => x,
             Err(e) => {
-                debug!("just threw with error");
+                error!("just threw with error");
                 return Err(($_self, e.into()));
             }
         }
@@ -70,16 +70,18 @@ pub(crate) mod uninit;
 pub(crate) type UninitClient = Machine<uninit::Uninit, uninit::ClientUninitState>;
 pub(crate) type PrepareBuildClient =
     Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>;
+pub(crate) type BuildingClient = Machine<compiling::Building, compiling::ClientBuildingState>;
 pub(crate) type BuiltClient = Machine<built::Built, built::ClientBuiltState>;
 pub(crate) type ExecuteClient = Machine<executing::Executing, executing::ClientExecutingState>;
-pub(crate) type SendFilesClient = Machine<send_files::SendFiles, send_files::ClientSendFilesState>;
+pub(crate) type SendFilesClient<T> = Machine<send_files::SendFiles, send_files::SenderState<T>>;
 
 pub(crate) type UninitServer = Machine<uninit::Uninit, uninit::ServerUninitState>;
 pub(crate) type PrepareBuildServer =
     Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>;
+pub(crate) type BuildingServer = Machine<compiling::Building, compiling::ServerBuildingState>;
 pub(crate) type BuiltServer = Machine<built::Built, built::ServerBuiltState>;
 pub(crate) type ExecuteServer = Machine<executing::Executing, executing::ServerExecutingState>;
-pub(crate) type SendFilesServer = Machine<send_files::SendFiles, send_files::ServerSendFilesState>;
+pub(crate) type SendFilesServer<T> = Machine<send_files::SendFiles, send_files::ReceiverState<T>>;
 
 #[derive(Debug)]
 pub(crate) struct Machine<StateMarker, State> {
@@ -91,11 +93,23 @@ impl<StateMarker, State> Machine<StateMarker, State>
 where
     StateMarker: Default,
 {
-    fn from_state(state: State) -> Self {
+    pub(crate) fn from_state(state: State) -> Self {
         Self {
             state,
             _marker: StateMarker::default(),
         }
+    }
+}
+
+impl<StateMarker, T> Machine<StateMarker, transport::Connection<T>> {
+    pub(crate) fn into_inner(self) -> transport::Connection<T> {
+        self.state
+    }
+}
+
+impl<T> SendFilesServer<T> {
+    pub(crate) fn into_connection(self) -> transport::Connection<send_files::ServerMsg> {
+        self.state.conn
     }
 }
 
@@ -118,6 +132,8 @@ pub(crate) enum ClientError {
     Executing(executing::ClientError),
     #[error("error in send files state: `{0}`")]
     SendFiles(send_files::ClientError),
+    #[error("error in send files state: `{0}`")]
+    ReceiveFiles(send_files::ServerError),
 }
 
 impl ClientError {
@@ -130,6 +146,7 @@ impl ClientError {
                 | Self::Built(built::ClientError::TcpConnection(_))
                 | Self::Executing(executing::ClientError::TcpConnection(_))
                 | Self::SendFiles(send_files::ClientError::TcpConnection(_))
+                | Self::ReceiveFiles(send_files::ServerError::TcpConnection(_))
         )
     }
 }
@@ -147,7 +164,9 @@ pub(crate) enum ServerError {
     #[error("error in executing state: `{0}`")]
     Executing(executing::ServerError),
     #[error("error in send files state: `{0}`")]
-    SendFiles(send_files::ServerError),
+    ReceiveFiles(send_files::ServerError),
+    #[error("error in send files state: `{0}`")]
+    SendFiles(send_files::ClientError),
 }
 
 impl ServerError {
@@ -159,7 +178,8 @@ impl ServerError {
                 | Self::Building(compiling::ServerError::TcpConnection(_))
                 | Self::Built(built::ServerError::TcpConnection(_))
                 | Self::Executing(executing::ServerError::TcpConnection(_))
-                | Self::SendFiles(send_files::ServerError::TcpConnection(_))
+                | Self::ReceiveFiles(send_files::ServerError::TcpConnection(_))
+                | Self::SendFiles(send_files::ClientError::TcpConnection(_))
         )
     }
 }

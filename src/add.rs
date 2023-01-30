@@ -5,20 +5,18 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files
     //
-    let jobs = config::load_config::<config::Jobs>(&args.jobs)?;
+    let config = config::load_config::<config::Jobs<config::common::File>>(&args.jobs)?;
 
-    if jobs.len_jobs() == 0 {
+    if config.len_jobs() == 0 {
         return Err(Error::Add(error::AddError::NoJobsToAdd));
     }
 
     // ensure that there are no duplicate job names
-    check_has_duplicates(&jobs.job_names())?;
+    check_has_duplicates(&config.job_names())?;
 
-    debug!("loading job information from files");
-    let loaded_jobs = jobs.load_jobs().await.map_err(error::ServerError::from)?;
+    debug!("ensuring all files exist on disk in the locations described");
 
-    debug!("loading build information from files");
-    let loaded_build = jobs.load_build().await.map_err(error::ServerError::from)?;
+    config.verify_config().map_err(error::AddError::from)?;
 
     //
     // check the server for all of the node capabilities
@@ -53,7 +51,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     let mut working_nodes = 0;
 
     for cap in &caps {
-        if cap.can_accept_job(jobs.capabilities()) {
+        if cap.can_accept_job(config.capabilities()) {
             working_nodes += 1;
         }
     }
@@ -71,31 +69,55 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     // construct the job set and send it off
     //
 
-    let job_set = server::OwnedJobSet::new(
-        loaded_build,
-        jobs.capabilities().clone(),
-        loaded_jobs,
-        jobs.batch_name(),
-        jobs.matrix_user(),
-        jobs.namespace(),
-    );
+    let hashed_config = config.hashed().map_err(error::AddError::from)?;
 
-    if !args.dry {
-        debug!("sending job set to server");
-        conn.transport_data(&transport::UserMessageToServer::AddJobSet(job_set))
-            .await?;
+    dbg!(&hashed_config);
 
-        match conn.receive_data().await {
-            Ok(transport::ServerResponseToUser::JobSetAdded) => (),
-            Ok(transport::ServerResponseToUser::JobSetAddedFailed) => {
-                Err(error::AddError::FailedToAdd)?
-            }
-            Ok(x) => return Err(Error::from(error::AddError::NotCapabilities(x))),
-            Err(e) => Err(e)?,
-        };
-    } else {
+    let hashed_files_to_send = hashed_config.sendable_files(true);
+
+    if args.dry {
         debug!("skipping message to the server for dry run");
+        return Ok(());
     }
+
+    let sendable_config = hashed_config.into();
+
+    debug!("sending job set to server");
+    conn.transport_data(&transport::UserMessageToServer::AddJobSet(sendable_config))
+        .await?;
+
+    // wait for the notice that we can continue
+    debug!("awaiting notice from the server that we can continue with sending the files");
+    conn.receive_data().await?;
+
+    //
+    // send all the files with send_files state machine
+    //
+    let conn = conn.update_state();
+
+    let extra = protocol::send_files::FlatFileList {
+        files: hashed_files_to_send,
+    };
+    let state = protocol::send_files::SenderState { conn, extra };
+    let machine = protocol::Machine::from_state(state);
+
+    let mut conn: transport::Connection<transport::UserMessageToServer> =
+        match machine.send_files().await {
+            Ok(next) => next.into_inner().update_state(),
+            Err((_machine, e)) => {
+                error!("failed to send_files to server, error: {e}");
+                return Err(Error::from(error::AddError::FailedSend));
+            }
+        };
+
+    match conn.receive_data().await {
+        Ok(transport::ServerResponseToUser::JobSetAdded) => (),
+        Ok(transport::ServerResponseToUser::JobSetAddedFailed) => {
+            Err(error::AddError::FailedToAdd)?
+        }
+        Ok(x) => return Err(Error::from(error::AddError::NotCapabilities(x))),
+        Err(e) => Err(e)?,
+    };
 
     Ok(())
 }

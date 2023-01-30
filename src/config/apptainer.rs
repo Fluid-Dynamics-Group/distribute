@@ -1,72 +1,92 @@
 use super::NormalizePaths;
 use derive_more::Constructor;
 
-use super::LoadJobsError;
-use super::ReadBytesError;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[cfg(feature = "cli")]
-use super::common::load_from_file;
-use super::common::File;
+use super::common;
 
 #[cfg(feature = "cli")]
-use crate::transport;
+use super::hashing;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[cfg(feature = "cli")]
+use crate::client::execute::FileMetadata;
+
+use getset::Getters;
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
-pub struct Description {
-    pub initialize: Initialize,
-    pub jobs: Vec<Job>,
+pub struct Description<FILE> {
+    #[getset(get = "pub(crate)")]
+    pub initialize: Initialize<FILE>,
+    #[getset(get = "pub(crate)")]
+    pub jobs: Vec<Job<FILE>>,
 }
 
 #[cfg(feature = "cli")]
-impl Description {
+impl Description<common::File> {
+    pub(super) fn verify_config(&self) -> Result<(), super::MissingFileNameError> {
+        self.initialize.sif.exists_or_err()?;
+
+        self.initialize
+            .required_files
+            .iter()
+            .try_for_each(|f| f.exists_or_err())?;
+
+        self.jobs.iter().try_for_each(|job| {
+            job.required_files
+                .iter()
+                .try_for_each(|f| f.exists_or_err())
+        })?;
+
+        Ok(())
+    }
+
     pub(crate) fn len_jobs(&self) -> usize {
         self.jobs.len()
     }
 
-    pub(crate) async fn load_jobs(&self) -> Result<Vec<transport::ApptainerJob>, LoadJobsError> {
-        let mut out = Vec::with_capacity(self.jobs.len());
-
-        for job in &self.jobs {
-            let job_files = load_from_file(&job.required_files).await?;
-
-            let job = transport::ApptainerJob {
-                job_name: job.name.clone(),
-                job_files,
-            };
-            out.push(job)
-        }
-
-        Ok(out)
-    }
-
-    pub(crate) async fn load_build(
+    pub(super) fn hashed(
         &self,
-        batch_name: String,
-    ) -> Result<transport::ApptainerJobInit, LoadJobsError> {
-        let sif_bytes = tokio::fs::read(&self.initialize.sif)
-            .await
-            .map_err(|e| ReadBytesError::new(e, self.initialize.sif.clone()))?;
+    ) -> Result<Description<common::HashedFile>, super::MissingFileNameError> {
+        let initialize = self.initialize.hashed()?;
 
-        let build_files = load_from_file(&self.initialize.required_files).await?;
+        let jobs = self
+            .jobs
+            .iter()
+            .enumerate()
+            .map(|(job_idx, job)| job.hashed(job_idx))
+            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
 
-        Ok(transport::ApptainerJobInit {
-            sif_bytes,
-            batch_name,
-            build_files,
-            container_bind_paths: self.initialize.required_mounts.clone(),
-        })
+        let desc = Description { initialize, jobs };
+
+        Ok(desc)
     }
 }
 
-impl NormalizePaths for Description {
+#[cfg(feature = "cli")]
+impl Description<common::HashedFile> {
+    pub(super) fn sendable_files(&self, is_user: bool) -> Vec<FileMetadata> {
+        let mut files = Vec::new();
+
+        self.initialize.sendable_files(is_user, &mut files);
+
+        for job in self.jobs.iter() {
+            job.sendable_files(is_user, &mut files);
+        }
+
+        files
+    }
+}
+
+impl<FILE> NormalizePaths for Description<FILE>
+where
+    FILE: NormalizePaths,
+{
     fn normalize_paths(&mut self, base: PathBuf) {
         // for initialize
-        self.initialize.sif =
-            super::common::normalize_pathbuf(self.initialize.sif.clone(), base.clone());
+        self.initialize.sif.normalize_paths(base.clone());
+
         for file in self.initialize.required_files.iter_mut() {
             file.normalize_paths(base.clone());
         }
@@ -82,28 +102,119 @@ impl NormalizePaths for Description {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
-pub struct Initialize {
-    sif: PathBuf,
-    #[serde(default)]
-    required_files: Vec<File>,
+pub struct Initialize<FILE> {
+    pub sif: FILE,
+    #[serde(default = "Default::default")]
+    pub required_files: Vec<FILE>,
     /// paths in the folder that need to have mount points to
     /// the host file system
     #[serde(default)]
-    required_mounts: Vec<PathBuf>,
+    pub required_mounts: Vec<PathBuf>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor)]
+#[cfg(feature = "cli")]
+impl Initialize<common::File> {
+    fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFileNameError> {
+        let init_hash = hashing::filename_hash(self);
+
+        // hash the sif
+        let hashed_path = format!("setup_sif_{init_hash}.dist").into();
+        let unhashed_path = self.sif.path().into();
+        let filename = self.sif.filename()?;
+        let sif = common::HashedFile::new(hashed_path, unhashed_path, filename);
+
+        // hashed required files
+        let required_files = self
+            .required_files
+            .iter()
+            .enumerate()
+            .map(|(idx, init_file)| {
+                let hashed_path = format!("{init_hash}_{idx}.dist").into();
+                let unhashed_path = init_file.path().into();
+                let filename = init_file.filename()?;
+                Ok(common::HashedFile::new(
+                    hashed_path,
+                    unhashed_path,
+                    filename,
+                ))
+            })
+            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+
+        let init = Initialize {
+            sif,
+            required_files,
+            required_mounts: self.required_mounts.clone(),
+        };
+
+        Ok(init)
+    }
+}
+
+#[cfg(feature = "cli")]
+impl Initialize<common::HashedFile> {
+    pub(super) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
+        files.push(self.sif.as_sendable(is_user));
+
+        self.required_files
+            .iter()
+            .for_each(|hashed_file| files.push(hashed_file.as_sendable(is_user)));
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
-pub struct Job {
+pub struct Job<FILE> {
+    #[getset(get = "pub(crate)")]
     name: String,
-    #[serde(default)]
-    required_files: Vec<File>,
+    #[serde(default = "Default::default")]
+    #[getset(get = "pub(crate)")]
+    pub required_files: Vec<FILE>,
 }
 
-impl Job {
-    pub(crate) fn name(&self) -> &str {
-        &self.name
+#[cfg(feature = "cli")]
+impl Job<common::File> {
+    pub(crate) fn hashed(
+        &self,
+        job_idx: usize,
+    ) -> Result<Job<common::HashedFile>, super::MissingFileNameError> {
+        //
+        // for each job ...
+        //
+        let hash = hashing::filename_hash(self);
+        let required_files = self
+            .required_files
+            .iter()
+            .enumerate()
+            .map(|(file_idx, file)| {
+                //
+                // for each file in this job ...
+                //
+
+                let hashed_path = format!("{hash}_{job_idx}_{file_idx}.dist").into();
+                let unhashed_path = file.path().into();
+                let filename = file.filename()?;
+                Ok(common::HashedFile::new(
+                    hashed_path,
+                    unhashed_path,
+                    filename,
+                ))
+            })
+            .collect::<Result<Vec<_>, super::MissingFileNameError>>()?;
+
+        // assemble the new files into a new job
+        let job = Job {
+            name: self.name().to_string(),
+            required_files,
+        };
+
+        Ok(job)
+    }
+}
+#[cfg(feature = "cli")]
+impl Job<common::HashedFile> {
+    pub(crate) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
+        self.required_files
+            .iter()
+            .for_each(|hashed_file| files.push(hashed_file.as_sendable(is_user)));
     }
 }

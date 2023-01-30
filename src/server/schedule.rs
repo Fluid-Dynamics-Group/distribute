@@ -1,6 +1,5 @@
 use super::matrix;
 use super::pool_data::{JobOrInit, JobResponse, NodeMetadata, TaskInfo};
-use super::storage::{self, StoredJob, StoredJobInit};
 
 use crate::config::{self, requirements};
 use crate::error::{self, ScheduleError};
@@ -20,9 +19,12 @@ pub(crate) trait Schedule {
         node_meta: NodeMetadata,
     ) -> JobResponse;
 
-    fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError>;
+    fn insert_new_batch(
+        &mut self,
+        jobs: config::Jobs<config::common::HashedFile>,
+    ) -> Result<(), ScheduleError>;
 
-    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobSetIdentifier);
+    fn add_job_back(&mut self, job: config::Job, identifier: JobSetIdentifier);
 
     fn finish_job(&mut self, job: JobSetIdentifier, job_name: &str);
 
@@ -37,7 +39,7 @@ pub(crate) trait Schedule {
     fn cancel_batch(&mut self, ident: JobSetIdentifier);
 }
 
-#[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug)]
+#[derive(Clone, Ord, PartialEq, Eq, PartialOrd, Copy, Display, Debug, Serialize, Deserialize)]
 /// Identify a batch of jobs
 pub(crate) enum JobSetIdentifier {
     #[display(fmt = "{}", _0)]
@@ -60,6 +62,8 @@ impl JobSetIdentifier {
 pub(crate) struct GpuPriority {
     map: BTreeMap<JobSetIdentifier, JobSet>,
     last_identifier: u64,
+    // location where temp files are stored before they are sent off to scheduled
+    // jobs
     base_path: PathBuf,
     matrix: Option<matrix::MatrixData>,
 }
@@ -83,9 +87,8 @@ impl GpuPriority {
             // make sure that the job we are pulling has not failed to build on this node before
             .find(|(ident, _job_set)| !build_failures.contains(ident))
         {
-            // TODO: fix this unwrap - its not that good but i dont have a better way to handle
-            // it right now
-            let init = job_set.init_file().unwrap();
+            let init = job_set.init_file();
+
             JobResponse::SetupOrRun(TaskInfo::new(
                 job_set.namespace.clone(),
                 job_set.batch_name.clone(),
@@ -168,9 +171,7 @@ impl Schedule for GpuPriority {
                     JobOrInit::Job(job),
                 ))
             } else {
-                // TODO: fix this unwrap - there has to be a better way
-                // to do this but i have not worked around it right now
-                let init = gpu_job_set.init_file().unwrap();
+                let init = gpu_job_set.init_file();
                 JobResponse::SetupOrRun(TaskInfo::new(
                     gpu_job_set.namespace.clone(),
                     gpu_job_set.batch_name.clone(),
@@ -188,8 +189,11 @@ impl Schedule for GpuPriority {
         }
     }
 
-    fn insert_new_batch(&mut self, jobs: storage::OwnedJobSet) -> Result<(), ScheduleError> {
-        let jobs = JobSet::from_owned(jobs, &self.base_path).map_err(error::StoreSet::from)?;
+    fn insert_new_batch(
+        &mut self,
+        jobs: config::Jobs<config::common::HashedFile>,
+    ) -> Result<(), ScheduleError> {
+        let jobs = JobSet::from_config(jobs).map_err(error::StoreSet::from)?;
 
         self.last_identifier += 1;
         let ident = JobSetIdentifier::new(self.last_identifier);
@@ -198,9 +202,9 @@ impl Schedule for GpuPriority {
         Ok(())
     }
 
-    fn add_job_back(&mut self, job: transport::JobOpt, identifier: JobSetIdentifier) {
+    fn add_job_back(&mut self, job: config::Job, identifier: JobSetIdentifier) {
         if let Some(job_set) = self.map.get_mut(&identifier) {
-            job_set.add_errored_job(job, &self.base_path)
+            job_set.add_errored_job(job)
         } else {
             error!(
                 "job set for job {} was removed from the tree when there was still 
@@ -228,7 +232,7 @@ impl Schedule for GpuPriority {
                 let removed_set = self.map.remove(&identifier).unwrap();
 
                 // since we are done with this job set then we should deallocate the build file
-                removed_set.build.delete().ok();
+                removed_set.build.delete_files().ok();
 
                 if let Some(matrix_id) = &removed_set.matrix_user {
                     if let Some(matrix) = &self.matrix {
@@ -242,7 +246,7 @@ impl Schedule for GpuPriority {
                         // send the matrix message
                         super::matrix::send_matrix_message(
                             matrix_id,
-                            removed_set,
+                            removed_set.batch_name,
                             super::matrix::Reason::FinishedAll,
                             matrix.clone(),
                         )
@@ -301,7 +305,7 @@ impl Schedule for GpuPriority {
 
                         super::matrix::send_matrix_message(
                             matrix_id,
-                            removed_set,
+                            removed_set.batch_name,
                             super::matrix::Reason::BuildFailures,
                             matrix.clone(),
                         )
@@ -345,10 +349,11 @@ impl Schedule for GpuPriority {
 }
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(Clone))]
 pub(crate) struct JobSet {
-    build: StoredJobInit,
+    build: config::Init,
     requirements: requirements::Requirements<requirements::JobRequiredCaps>,
-    remaining_jobs: Vec<StoredJob>,
+    remaining_jobs: Vec<config::Job>,
     running_jobs: Vec<RunningJob>,
     pub(crate) batch_name: String,
     namespace: String,
@@ -361,33 +366,30 @@ impl JobSet {
         !self.remaining_jobs.is_empty()
     }
 
-    fn next_job(&mut self, node_meta: &NodeMetadata) -> Option<transport::JobOpt> {
+    fn next_job(&mut self, node_meta: &NodeMetadata) -> Option<config::Job> {
         if let Some(job) = self.remaining_jobs.pop() {
-            let running_job_desc = RunningJob::new(job.job_name().to_string(), node_meta.clone());
+            let running_job_desc = RunningJob::new(job.name().to_string(), node_meta.clone());
             self.running_jobs.push(running_job_desc);
 
             debug!(
                 "calling next_job() -> currently running jobs is now length {}",
                 self.running_jobs.len()
             );
-            job.load_job().ok()
+
+            Some(job)
         } else {
             None
         }
     }
 
-    fn init_file(&mut self) -> Result<transport::BuildOpts, std::io::Error> {
-        self.build.load_build()
+    fn init_file(&mut self) -> config::Init {
+        self.build.clone()
     }
 
-    fn add_errored_job(&mut self, job: transport::JobOpt, base_path: &Path) {
+    fn add_errored_job(&mut self, job: config::Job) {
         debug!("called add_errored_job() on corresponding job set, removing job name {} from running set list", job.name());
         self.remove_running_job_by_name(job.name());
-
-        match StoredJob::from_opt(job, base_path) {
-            Ok(job) => self.remaining_jobs.push(job),
-            Err(e) => error!("could not add job back to lazy storage: {}", e),
-        }
+        self.remaining_jobs.push(job)
     }
 
     fn remove_running_job_by_name(&mut self, job_name: &str) {
@@ -425,7 +427,7 @@ impl JobSet {
             jobs_left: self
                 .remaining_jobs
                 .iter()
-                .map(|x| x.job_name().to_string())
+                .map(|x| x.name().to_string())
                 .collect(),
             running_jobs: self
                 .running_jobs
@@ -443,7 +445,7 @@ impl JobSet {
             //
             // also - there is no reason to load this data into memory if we are just throwing it
             // out
-            job.load_job()?;
+            job.delete_files()?;
         }
 
         debug!(
@@ -455,38 +457,31 @@ impl JobSet {
         Ok(())
     }
 
-    pub(crate) fn from_owned(
-        owned: storage::OwnedJobSet,
-        base_path: &Path,
+    pub(crate) fn from_config(
+        config: config::Jobs<config::common::HashedFile>,
     ) -> Result<Self, std::io::Error> {
-        let storage::OwnedJobSet {
-            build,
-            requirements,
-            remaining_jobs,
-            //currently_running_jobs,
-            batch_name,
-            matrix_user,
-            namespace,
-        } = owned;
+        let namespace = config.namespace();
+        let batch_name = config.batch_name();
+        let requirements = config.capabilities().clone();
+        let matrix_user = config.matrix_user();
 
-        let build = StoredJobInit::from_opt(build, base_path)?;
-        let remaining_jobs = match remaining_jobs {
-            config::JobOpts::Python(python_jobs) => {
-                let mut out = vec![];
-                for job in python_jobs {
-                    let stored_job = StoredJob::from_python(job, base_path)?;
-                    out.push(stored_job);
-                }
-                out
-            }
-            config::JobOpts::Apptainer(python_jobs) => {
-                let mut out = vec![];
-                for job in python_jobs {
-                    let stored_job = StoredJob::from_apptainer(job, base_path)?;
-                    out.push(stored_job);
-                }
-                out
-            }
+        let build = config::Init::from(&config);
+
+        let remaining_jobs = match config {
+            config::Jobs::Python(python) => python
+                .description()
+                .jobs()
+                .into_iter()
+                .map(Clone::clone)
+                .map(config::Job::from)
+                .collect::<Vec<_>>(),
+            config::Jobs::Apptainer(apptainer) => apptainer
+                .description()
+                .jobs()
+                .into_iter()
+                .map(Clone::clone)
+                .map(config::Job::from)
+                .collect::<Vec<_>>(),
         };
 
         Ok(Self {
@@ -552,8 +547,9 @@ pub struct RunningJobDuration {
 mod tests {
     use super::*;
     use crate::config::requirements::Requirements;
-    use crate::server::storage::OwnedJobSet;
-    use crate::transport;
+
+    use config::common::{File, HashedFile};
+    use config::Jobs;
 
     fn check_init(
         current_ident: &mut JobSetIdentifier,
@@ -573,13 +569,10 @@ mod tests {
         }
     }
 
-    fn check_job(response: JobResponse, expected_job: transport::PythonJob) {
+    fn check_job(response: JobResponse, expected_job: config::python::Job<HashedFile>) {
         match response {
             JobResponse::SetupOrRun(task) => {
-                assert_eq!(
-                    task.task.unwrap_job(),
-                    transport::JobOpt::from(expected_job)
-                );
+                assert_eq!(task.task.unwrap_job().name(), expected_job.name());
             }
             JobResponse::EmptyJobs => panic!("empty jobs returned when all jobs still present"),
         }
@@ -592,7 +585,7 @@ mod tests {
         }
     }
 
-    fn init(path: &Path) -> (OwnedJobSet, OwnedJobSet, GpuPriority) {
+    fn init(path: &Path) -> (Jobs<HashedFile>, Jobs<HashedFile>, GpuPriority) {
         let scheduler = GpuPriority::new(
             Default::default(),
             Default::default(),
@@ -600,61 +593,35 @@ mod tests {
             None,
         );
 
-        let jgpu = transport::PythonJob {
-            python_file: vec![],
-            job_name: "jgpu".into(),
-            job_files: vec![],
-        };
+        let jgpu = config::python::Job::new("jgpu".into(), File::new_relative("some_path"), vec![]);
+        let j1 = config::python::Job::new("j1".into(), File::new_relative("some_path"), vec![]);
+        let j2 = config::python::Job::new("j2".into(), File::new_relative("some_path"), vec![]);
 
-        let j1 = transport::PythonJob {
-            python_file: vec![],
-            job_name: "j1".into(),
-            job_files: vec![],
-        };
+        let build = config::python::Initialize::new(
+            config::common::File::new_relative("build_file"),
+            vec![],
+        );
 
-        let j2 = transport::PythonJob {
-            python_file: vec![],
-            job_name: "j2".into(),
-            job_files: vec![],
-        };
+        let cpu_caps = vec!["fortran".into(), "fftw".into()].into_iter().collect();
+        let gpu_caps = vec!["gpu".into()].into_iter().collect();
 
-        let cpu_set = OwnedJobSet {
-            batch_name: "cpu_jobs".to_string(),
-            namespace: "test".to_string(),
-            build: transport::PythonJobInit {
-                batch_name: "cpu_jobs".to_string(),
-                python_setup_file: vec![0],
-                additional_build_files: vec![],
-            }
-            .into(),
-            remaining_jobs: vec![j1.clone(), j2.clone()].into(),
-            requirements: Requirements {
-                reqs: vec!["fortran".into(), "fftw".into()].into_iter().collect(),
-                marker: std::marker::PhantomData,
-            },
-            //currently_running_jobs: 0,
-            matrix_user: None,
-        };
+        let cpu_meta = config::Meta::new("cpu_jobs".into(), "namespace".into(), None, cpu_caps);
+        let gpu_meta = config::Meta::new("gpu_jobs".into(), "namespace".into(), None, gpu_caps);
 
-        let gpu_set = OwnedJobSet {
-            batch_name: "gpu_jobs".to_string(),
-            namespace: "test".to_string(),
-            build: transport::PythonJobInit {
-                batch_name: "gpu_jobs".to_string(),
-                python_setup_file: vec![1],
-                additional_build_files: vec![],
-            }
-            .into(),
-            remaining_jobs: vec![jgpu.clone()].into(),
-            requirements: Requirements {
-                reqs: vec!["gpu".into()].into_iter().collect(),
-                marker: std::marker::PhantomData,
-            },
-            //currently_running_jobs: 0,
-            matrix_user: None,
-        };
+        let cpu_description = config::python::Description::new(build.clone(), vec![j1, j2]);
+        let gpu_description = config::python::Description::new(build.clone(), vec![jgpu]);
 
-        (cpu_set, gpu_set, scheduler)
+        let cpu_config = config::Jobs::from(config::PythonConfig::new(cpu_meta, cpu_description))
+            .hashed()
+            .unwrap()
+            .into();
+
+        let gpu_config = config::Jobs::from(config::PythonConfig::new(gpu_meta, gpu_description))
+            .hashed()
+            .unwrap()
+            .into();
+
+        (cpu_config, gpu_config, scheduler)
     }
 
     #[test]
@@ -666,9 +633,9 @@ mod tests {
 
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+        let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1 = cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         scheduler.insert_new_batch(cpu_set).unwrap();
         scheduler.insert_new_batch(gpu_set).unwrap();
@@ -749,9 +716,9 @@ mod tests {
 
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+        let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1 = cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         scheduler.insert_new_batch(cpu_set).unwrap(); // 1
 
@@ -841,9 +808,9 @@ mod tests {
 
         let (cpu_set, gpu_set, mut scheduler) = init(path);
 
-        let jgpu = gpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j1 = cpu_set.remaining_jobs.clone().unwrap_python()[0].clone();
-        let j2 = cpu_set.remaining_jobs.clone().unwrap_python()[1].clone();
+        let jgpu = gpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j1 = cpu_set.clone().unwrap_python().description().jobs()[0].clone();
+        let j2 = cpu_set.clone().unwrap_python().description().jobs()[1].clone();
 
         let node_meta = NodeMetadata::test_name();
 

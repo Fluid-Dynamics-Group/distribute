@@ -5,7 +5,6 @@ mod user_conn;
 
 pub(crate) mod pool_data;
 mod schedule;
-mod storage;
 
 use crate::protocol::Common;
 use job_pool::JobPool;
@@ -13,7 +12,6 @@ pub(crate) use pool_data::JobRequest;
 
 pub use pool_data::CancelResult;
 pub(crate) use schedule::JobSetIdentifier;
-pub(crate) use storage::OwnedJobSet;
 
 pub use schedule::RemainingJobs;
 
@@ -66,8 +64,10 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     let req_clone = request_job.clone();
     let caps_clone = node_caps.clone();
     let save_path = server.save_path.clone();
+    let job_input_file_dir = server.temp_dir.clone();
     tokio::spawn(async move {
-        user_conn::handle_user_requests(port, req_clone, caps_clone, save_path).await;
+        user_conn::handle_user_requests(port, req_clone, caps_clone, save_path, job_input_file_dir)
+            .await;
     });
 
     //
@@ -167,6 +167,18 @@ where
     debug!("creating directory at {}", path.display());
 
     match ok_if_exists(std::fs::create_dir(path)) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(T::from((path.to_owned(), e))),
+    }
+}
+
+pub(crate) fn create_dir_all_helper<T>(path: &Path) -> Result<(), T>
+where
+    T: From<(PathBuf, std::io::Error)>,
+{
+    debug!("creating directory (recursively) at {}", path.display());
+
+    match ok_if_exists(std::fs::create_dir_all(path)) {
         Ok(_) => Ok(()),
         Err(e) => Err(T::from((path.to_owned(), e))),
     }

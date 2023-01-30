@@ -1,4 +1,3 @@
-use super::utils;
 use crate::prelude::*;
 use error::Error;
 
@@ -19,7 +18,11 @@ impl BindingFolderState {
     }
 
     // TODO: decide if these should be hard errors and return Result< , >
-    async fn update_binded_paths(&mut self, container_paths: Vec<PathBuf>, base_path: &Path) {
+    pub(super) async fn update_binded_paths(
+        &mut self,
+        container_paths: Vec<PathBuf>,
+        base_path: &Path,
+    ) {
         // first, clear out all the older folder bindings
         self.clear_folders();
 
@@ -76,27 +79,48 @@ pub(crate) struct BindedFolder {
     pub(crate) container_path: PathBuf,
 }
 
-pub(crate) struct FileMetadata {
-    pub file_path: PathBuf,
+#[derive(Debug, Clone)]
+pub struct FileMetadata {
+    pub absolute_file_path: PathBuf,
+    pub relative_file_path: PathBuf,
     pub is_file: bool,
 }
 
 impl FileMetadata {
     pub(crate) fn into_send_file(self) -> Result<transport::SendFile, error::ReadBytes> {
-        let Self { file_path, is_file } = self;
+        let Self {
+            absolute_file_path,
+            is_file,
+            relative_file_path,
+        } = self;
 
         // if its a file read the bytes, otherwise skip it
         let bytes = if is_file {
-            std::fs::read(&file_path).map_err(|e| error::ReadBytes::new(e, file_path.to_owned()))?
+            std::fs::read(&absolute_file_path)
+                .map_err(|e| error::ReadBytes::new(e, absolute_file_path.to_owned()))?
         } else {
             vec![]
         };
 
         Ok(transport::SendFile {
-            file_path,
+            file_path: relative_file_path,
             is_file,
             bytes,
         })
+    }
+
+    pub(crate) fn file<T: AsRef<Path>, U: AsRef<Path>>(
+        absolute_file_path: T,
+        relative_file_path: U,
+    ) -> Self {
+        let absolute_file_path = absolute_file_path.as_ref().to_owned();
+        let relative_file_path = relative_file_path.as_ref().to_owned();
+
+        FileMetadata {
+            absolute_file_path,
+            relative_file_path,
+            is_file: true,
+        }
     }
 }
 
@@ -104,127 +128,99 @@ impl FileMetadata {
 ///
 /// returns None if the job was cancelled
 pub(crate) async fn run_python_job(
-    job: transport::PythonJob,
-    base_path: &Path,
+    job: config::python::Job<config::common::HashedFile>,
+    base_path: &WorkingDir,
     cancel: &mut broadcast::Receiver<()>,
 ) -> Result<Option<()>, Error> {
     info!("running general job");
 
-    let file_path = base_path.join("run.py");
-    let mut file = tokio::fs::File::create(&file_path)
-        .await
-        .map_err(|full_error| {
-            error::RunJobError::CreateFile(error::CreateFile::new(full_error, file_path.clone()))
-        })?;
+    let file_path = base_path.python_run_file();
+    let input_files = base_path.input_folder();
 
-    debug!("created run file");
-
-    file.write_all(&job.python_file)
-        .await
-        .map_err(|full_error| error::RunJobError::WriteBytes {
-            full_error,
-            path: file_path.clone(),
-        })?;
+    let src = input_files.join(job.python_job_file().original_filename());
+    let dest = file_path;
+    std::fs::rename(&src, &dest)
+        .map_err(|e| error::RenameFile::new(e, src, dest))
+        .map_err(error::RunJobError::from)?;
 
     debug!("wrote bytes to run file");
 
-    // reset the input files directory
-    utils::clear_input_files(base_path)
-        .await
-        .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
-        .map_err(error::RunJobError::CreateDir)?;
-
-    // write all of _our_ job files to the output directory
-    write_all_init_files(&base_path.join("input"), &job.job_files).await?;
+    // all job files were written to ./base_path/input in the previous state machine
+    // so we do not need to write them to the folder here
 
     debug!("wrote all job file bytes to file - running job");
-    let original_dir = enter_output_dir(base_path);
+    let original_dir = enter_output_dir(base_path.base());
 
     let command = tokio::process::Command::new("python3")
         .args(["run.py", &num_cpus::get_physical().to_string()])
         .output();
 
-    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+    let output_file_path = base_path
+        .distribute_save_folder()
+        .join(format!("{}_output.txt", job.name()));
 
     generalized_run(
         Some(&original_dir),
         command,
         output_file_path,
-        &job.job_name,
+        &job.name(),
         cancel,
     )
     .await
-}
-
-async fn write_init_file<T: AsRef<Path>>(
-    base_path: &Path,
-    file_name: T,
-    bytes: &[u8],
-) -> Result<(), error::InitJobError> {
-    let file_path = base_path.join(file_name);
-
-    info!("creating file {} for job init", file_path.display());
-
-    let mut file = tokio::fs::File::create(&file_path)
-        .await
-        .map_err(error::InitJobError::from)?;
-
-    file.write_all(bytes)
-        .await
-        .map_err(error::InitJobError::from)?;
-
-    Ok(())
 }
 
 /// run the build file for a job
 ///
 /// returns None if the process was cancelled
 pub(crate) async fn initialize_python_job(
-    init: transport::PythonJobInit,
-    base_path: &Path,
+    init: &config::python::Initialize<config::common::HashedFile>,
+    batch_name: &str,
+    base_path: &WorkingDir,
 ) -> Result<(), Error> {
     info!("running initialization for new job");
-    write_init_file(base_path, "run.py", &init.python_setup_file).await?;
 
-    write_all_init_files(
-        &base_path.join("initial_files"),
-        &init.additional_build_files,
-    )
-    .await?;
+    let initial_files = base_path.initial_files_folder();
+
+    let src = initial_files.join(init.python_build_file_path.original_filename());
+    let dest = base_path.python_run_file();
+    std::fs::rename(&src, &dest)
+        .map_err(|e| error::RenameFile::new(e, src, dest))
+        .map_err(error::ClientInitError::from)?;
 
     info!("initialized all init files");
 
     // enter the file to execute the file from
-    let original_dir = enter_output_dir(base_path);
+    let original_dir = enter_output_dir(&base_path.base());
     debug!("current file path is {:?}", std::env::current_dir());
 
     let command = tokio::process::Command::new("python3")
         .args(["run.py"])
         .output();
 
-    let output_file_path = base_path.join(format!(
-        "distribute_save/{}_init_output.txt",
-        init.batch_name
-    ));
+    let output_file_path = base_path
+        .distribute_save_folder()
+        .join(format!("{batch_name}_init_output.txt",));
 
     generalized_init(&original_dir, command, output_file_path).await
 }
 
 pub(crate) async fn initialize_apptainer_job(
-    init: transport::ApptainerJobInit,
-    base_path: &Path,
+    init: &config::apptainer::Initialize<config::common::HashedFile>,
+    base_path: &WorkingDir,
     folder_state: &mut BindingFolderState,
 ) -> Result<(), Error> {
-    // write the .sif file to the root
-    write_init_file(base_path, "apptainer.sif", &init.sif_bytes).await?;
-    // write any included files for the initialization to the `initial_files` directory
-    // and they will be copied over to `input` at the start of each job run
-    write_all_init_files(&base_path.join("initial_files"), &init.build_files).await?;
+    let initial_files = base_path.initial_files_folder();
+
+    let src = initial_files.join(init.sif.original_filename());
+    let dest = base_path.apptainer_sif();
+    std::fs::rename(&src, &dest)
+        .map_err(|e| error::RenameFile::new(e, src, dest))
+        .map_err(error::ClientInitError::from)?;
 
     // clear out all the older bindings and create new folders for our mounts
     // for this container
     folder_state
-        .update_binded_paths(init.container_bind_paths, base_path)
+        .update_binded_paths(init.required_mounts.clone(), base_path.base())
         .await;
     Ok(())
 }
@@ -233,26 +229,17 @@ pub(crate) async fn initialize_apptainer_job(
 ///
 /// returns None if the job was cancelled
 pub(crate) async fn run_apptainer_job(
-    job: transport::ApptainerJob,
-    base_path: &Path,
+    job: config::apptainer::Job<config::common::HashedFile>,
+    base_path: &WorkingDir,
     cancel: &mut broadcast::Receiver<()>,
     folder_state: &BindingFolderState,
 ) -> Result<Option<()>, Error> {
     info!("running apptainer job");
 
-    // reset the input files directory
-    utils::clear_input_files(base_path)
-        .await
-        .map_err(|e| error::CreateDir::new(e, base_path.to_owned()))
-        .map_err(error::RunJobError::CreateDir)?;
+    // all job files were written to ./base_path/input in the previous state machine
+    // so we do not need to write them to the folder here
 
-    // copy all the files for this job to the directory
-    write_all_init_files(&base_path.join("input"), &job.job_files).await?;
-
-    let apptainer_path = base_path
-        .join("apptainer.sif")
-        .to_string_lossy()
-        .to_string();
+    let apptainer_path = base_path.apptainer_sif().to_string_lossy().to_string();
 
     let bind_arg = create_bind_argument(base_path, folder_state);
 
@@ -274,25 +261,19 @@ pub(crate) async fn run_apptainer_job(
 
     let command_output = command.output();
 
-    let output_file_path = base_path.join(format!("distribute_save/{}_output.txt", job.job_name));
+    let output_file_path = base_path
+        .distribute_save_folder()
+        .join(format!("{}_output.txt", job.name()));
 
     debug!("starting generalized run");
 
-    generalized_run(
-        None,
-        command_output,
-        output_file_path,
-        &job.job_name,
-        cancel,
-    )
-    .await
+    generalized_run(None, command_output, output_file_path, &job.name(), cancel).await
 }
 
 /// create a --bind argument for `apptainer run`
-fn create_bind_argument(base_path: &Path, folder_state: &BindingFolderState) -> String {
-    let dist_save = base_path.join("distribute_save");
-
-    let input = base_path.join("input");
+fn create_bind_argument(base_path: &WorkingDir, folder_state: &BindingFolderState) -> String {
+    let dist_save = base_path.distribute_save_folder();
+    let input = base_path.input_folder();
 
     let mut bind_arg = format!(
         "{}:{}:rw,{}:{}:rw",
@@ -318,23 +299,6 @@ fn create_bind_argument(base_path: &Path, folder_state: &BindingFolderState) -> 
     }
 
     bind_arg
-}
-
-async fn write_all_init_files(base_path: &Path, files: &[transport::File]) -> Result<(), Error> {
-    for additional_file in files {
-        debug!(
-            "init file {} number of bytes written: {}",
-            additional_file.file_name,
-            additional_file.file_bytes.len()
-        );
-        write_init_file(
-            base_path,
-            &additional_file.file_name,
-            &additional_file.file_bytes,
-        )
-        .await?;
-    }
-    Ok(())
 }
 
 fn enter_output_dir(base_path: &Path) -> PathBuf {
@@ -445,7 +409,7 @@ mod tests {
 
     #[test]
     fn bind_arg_1() {
-        let base_path = PathBuf::from("/");
+        let base_path = WorkingDir::from(PathBuf::from("/"));
         let state = BindingFolderState::new();
         let out = create_bind_argument(&base_path, &state);
         assert_eq!(out, "/distribute_save:/distribute_save:rw,/input:/input:rw");
@@ -453,11 +417,11 @@ mod tests {
 
     #[tokio::test]
     async fn bind_arg_2() {
-        let base_path = PathBuf::from("/some/");
+        let base_path = WorkingDir::from(PathBuf::from("/some/"));
 
         let mut state = BindingFolderState::new();
         state
-            .update_binded_paths(vec![PathBuf::from("/reqpath")], &base_path)
+            .update_binded_paths(vec![PathBuf::from("/reqpath")], &base_path.base())
             .await;
 
         let out = create_bind_argument(&base_path, &state);

@@ -5,7 +5,8 @@ meta:
   capabilities: []
 apptainer:
   initialize:
-    sif: apptainer_local.sif
+    sif: 
+      path: apptainer_local.sif
     required_files: []
     required_mounts:
       - /dir1

@@ -6,6 +6,7 @@ meta:
 python:
   initialize:
     # this field is required just to parse correctly
-    build_file: required_for_parse.py
+    build_file: 
+      path: required_for_parse.py
     required_files: []
   jobs: []

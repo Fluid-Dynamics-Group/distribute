@@ -9,7 +9,8 @@ meta:
 
 python:
   initialize: 
-    build_file: build.py
+    build_file: 
+      path: build.py
 
     required_files:
       - path: dataset_always.csv
@@ -17,11 +18,13 @@ python:
   # a list of python files and their associated file to be included
   jobs:
     - name: job_1
-      file: run.py
+      file: 
+        path: run.py
       required_files:
         - path: dataset_sometimes.csv
           alias: dataset.csv
 
     - name: job_2
-      file: run.py
+      file: 
+        path: run.py
       required_files: []

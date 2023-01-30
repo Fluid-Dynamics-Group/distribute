@@ -65,13 +65,18 @@ async fn run_all_jobs(
     #[allow(unreachable_code)]
     loop {
         // now that we have compiled, we should
-        let execute = match built.send_job_execution_instructions(scheduler_tx).await {
+        let send_execute_files = match built.send_job_execution_instructions(scheduler_tx).await {
             Ok(protocol::Either::Right(executing)) => executing,
             Ok(protocol::Either::Left(prepare_build)) => {
                 built = prepare_build_to_built(prepare_build, scheduler_tx).await?;
                 continue;
             }
             Err((built, err)) => return Err((built.into_uninit(), err.into())),
+        };
+
+        let execute = match send_execute_files.send_files().await {
+            Ok(execute) => execute,
+            Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
         };
 
         // fully execute the job and return back to the built state
@@ -202,17 +207,22 @@ async fn inner_prepare_build_to_compile_result(
     protocol::Either<protocol::BuiltServer, protocol::PrepareBuildServer>,
     (UninitServer, protocol::ServerError),
 > {
-    let building_state = match prepare_build.send_job(scheduler_tx).await {
+    let send_compiling_state = match prepare_build.send_job(scheduler_tx).await {
         Ok(building) => building,
         Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
     };
 
-    let building_state_or_prepare = match building_state.prepare_for_execution().await {
+    let building_state = match send_compiling_state.send_files().await {
+        Ok(building) => building,
+        Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
+    };
+
+    let built_state_or_prepare = match building_state.prepare_for_execution().await {
         Ok(built) => built,
         Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
     };
 
-    Ok(building_state_or_prepare)
+    Ok(built_state_or_prepare)
 }
 
 //async fn make_connection(addr: SocketAddr, name: &str) -> tokio::net::TcpStream {

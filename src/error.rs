@@ -106,6 +106,8 @@ pub enum RunJobError {
     },
     #[error("{0}")]
     ExecuteProcess(CommandExecutionError),
+    #[error("{0}")]
+    RenameFile(#[from] RenameFile),
 }
 
 #[derive(Debug, Display, From, thiserror::Error)]
@@ -175,6 +177,18 @@ pub struct OpenFile {
 pub struct CreateFile {
     error: std::io::Error,
     path: PathBuf,
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
+    fmt = "failed to rename file from `{}` to `{}`: {error}",
+    "src.display()",
+    "dest.display()"
+)]
+pub struct RenameFile {
+    error: std::io::Error,
+    src: PathBuf,
+    dest: PathBuf,
 }
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
@@ -251,6 +265,8 @@ pub enum ClientInitError {
     #[error("`{0}`")]
     Io(std::io::Error),
     #[error("`{0}`")]
+    RenameFile(RenameFile),
+    #[error("`{0}`")]
     TcpConnection(TcpConnection),
     #[error("`{0}`")]
     CreateDir(CreateDir),
@@ -287,10 +303,16 @@ pub enum AddError {
     NoCompatableNodes,
     #[error("Could not add the job set on the server side. This is generally a really really bad error. You should tell brooks about this.")]
     FailedToAdd,
+    #[error("Failed to send jobs to the server")]
+    FailedSend,
     #[error("There were no actual jobs specified in the configuration file")]
     NoJobsToAdd,
     #[error("Duplicate job name `{0}` appeared in config file. Job names must be unique")]
     DuplicateJobName(String),
+    #[error("{0}")]
+    MissingFilename(config::MissingFileNameError),
+    #[error("{0}")]
+    ConfigError(config::ConfigErrorReason),
 }
 
 #[derive(Debug, From, thiserror::Error)]

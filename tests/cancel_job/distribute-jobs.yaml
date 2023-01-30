@@ -6,21 +6,27 @@ meta:
   capabilities: []
 python:
   initialize:
-    build_file: ../python_sleep/build.py
+    build_file: 
+      path: ../python_sleep/build.py
     required_files: []
   jobs:
     - name: job_1
-      file: ../python_sleep/sleep30s.py
+      file:
+        path: ../python_sleep/sleep30s.py
       required_files: []
     - name: job_2
-      file: ../python_sleep/sleep30s.py
+      file:
+        path: ../python_sleep/sleep30s.py
       required_files: []
     - name: job_3
-      file: ../python_sleep/sleep30s.py
+      file:
+        path: ../python_sleep/sleep30s.py
       required_files: []
     - name: job_4
-      file: ../python_sleep/sleep30s.py
+      file:
+        path: ../python_sleep/sleep30s.py
       required_files: []
     - name: job_5
-      file: ../python_sleep/sleep30s.py
+      file:
+        path: ../python_sleep/sleep30s.py
       required_files: []
