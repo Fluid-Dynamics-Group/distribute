@@ -14,6 +14,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
+use std::io::Write;
 
 use getset::Getters;
 
@@ -508,15 +509,17 @@ pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     Ok(config)
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, getset::Getters)]
 pub struct Slurm {
+    #[getset(get = "pub(crate)")]
     job_name: Option<String>,
     output: Option<String>,
     nodes: Option<usize>,
+    #[getset(get = "pub(crate)")]
     ntasks: Option<usize>,
+    cpus_per_task: Option<usize>,
     /// Ex: 10M
-    #[serde(rename = "mem-per-cpu")]
-    mem_per_cpu: Option<usize>,
+    mem_per_cpu: Option<String>,
     /// Ex: nomultithread
     hint: Option<String>,
     // TODO: could make this more robust
@@ -524,9 +527,7 @@ pub struct Slurm {
     /// Ex: cpu-core-0
     partition: Option<String>,
     account: Option<String>,
-    #[serde(rename = "mail-user")]
     mail_user: Option<String>,
-    #[serde(rename = "mail-type")]
     mail_type: Option<String>,
 }
 
@@ -537,7 +538,15 @@ macro_rules! slurm_helper {
                 $field: $overrides.$field.as_ref().or($self.$field.as_ref()).cloned()
             ),*
         }
-    }
+    };
+    ($self:ident, $writer:ident; $($prefix:expr => $field:ident),*) => {
+        $(
+            if let Some(inner) = &$self.$field {
+                let prefix = $prefix;
+                writeln!(&mut $writer, "#SBATCH --{prefix}={inner}")?;
+            }
+        )*
+    };
 }
 
 impl Slurm {
@@ -549,6 +558,7 @@ impl Slurm {
             output,
             nodes,
             ntasks,
+            cpus_per_task,
             mem_per_cpu,
             hint,
             time,
@@ -560,7 +570,26 @@ impl Slurm {
     }
 
     pub(crate) fn set_default_job_name(&mut self, job_name: &str) {
-        self.job_name.as_mut().and(Some(job_name.to_string()));
+        self.job_name = self.job_name.as_ref().or(Some(&job_name.to_string())).cloned();
+    }
+
+    pub(crate) fn write_slurm_config<W: Write>(&self, mut writer: W) -> Result<(), std::io::Error> {
+        slurm_helper!(self, writer;
+            "job-name"=>job_name,
+            "output"=>output,
+            "nodes"=>nodes,
+            "ntasks"=>ntasks,
+            "cpus-per-task"=>cpus_per_task,
+            "mem-per-cpu"=>mem_per_cpu,
+            "hint"=>hint,
+            "time"=>time,
+            "partition"=>partition,
+            "account"=>account,
+            "mail-user"=>mail_user,
+            "mail-type"=>mail_type
+        );
+
+        Ok(())
     }
 }
 

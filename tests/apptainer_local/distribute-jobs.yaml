@@ -7,7 +7,8 @@ apptainer:
   initialize:
     sif: 
       path: apptainer_local.sif
-    required_files: []
+    required_files: 
+      - path: "hello.txt"
     required_mounts:
       - /dir1
       - /dir2
@@ -16,7 +17,21 @@ apptainer:
       required_files:
         - path: input_1.txt
           alias: input.txt
+      slurm:
+        job_name: first_job
     - name: job_2
       required_files:
         - path: input_2.txt
           alias: input.txt
+      slurm:
+        mem_per_cpu: 20M
+        time: 00:05:00
+
+slurm:
+  nodes: 1
+  ntasks: 4
+  mem_per_cpu: 10M
+  hint: nomultithread
+  time: 00:01:00
+  partition: somepart
+  account: accountname

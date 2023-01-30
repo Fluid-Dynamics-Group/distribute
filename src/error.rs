@@ -470,6 +470,10 @@ pub enum Slurm {
     CopyFile(CopyFile),
     #[error("{0}")]
     CreateFile(CreateFile),
+    #[error("{0}")]
+    SlurmInformation(SlurmInformation),
+    #[error("{0}")]
+    WriteFile(WriteFile),
 }
 
 #[derive(Debug, Display, thiserror::Error, Constructor)]

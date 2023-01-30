@@ -1,0 +1,1 @@
+Hello! this file will be placed in every simulation /input directory

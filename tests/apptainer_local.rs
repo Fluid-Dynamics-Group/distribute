@@ -1,4 +1,5 @@
 use distribute::cli::Run;
+use distribute::cli::Slurm;
 
 use std::fs;
 
@@ -38,4 +39,29 @@ async fn verify_apptainer_execution() {
     assert_eq!(data_2, "the square of the input was 225");
 
     fs::remove_dir_all(dir.join("output")).unwrap();
+}
+
+#[test]
+fn slurm_output_verify() {
+    if true {
+        distribute::logger();
+    }
+
+    let dir = PathBuf::from("./tests/apptainer_local");
+
+    assert_eq!(
+        dir.join("apptainer_local.sif").exists(),
+        true,
+        "you need to run ./tests/apptainer_local/build.sh before executing tests"
+    );
+
+    let output_dir = dir.join("slurm_output");
+
+    let slurm_command = Slurm::new(output_dir.clone(), dir.join("distribute-jobs.yaml"));
+
+    distribute::slurm(slurm_command).unwrap();
+
+
+    panic!()
+    //fs::remove_dir_all(output_dir).unwrap();
 }
