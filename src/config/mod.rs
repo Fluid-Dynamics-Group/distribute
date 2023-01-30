@@ -156,6 +156,23 @@ impl Node {
     }
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+/// special type that can be sent over TCP with bincode
+pub enum TransportJobs<FILE> {
+    Python(PythonConfig<FILE>),
+    Apptainer(ApptainerConfig<FILE>),
+}
+
+impl<F> From<Jobs<F>> for TransportJobs<F> {
+    fn from(x: Jobs<F>) -> TransportJobs<F> {
+        match x {
+            Jobs::Python(py) => TransportJobs::Python(py),
+            Jobs::Apptainer(app) => TransportJobs::Apptainer(app),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, From)]
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[serde(untagged)]
@@ -163,6 +180,15 @@ impl Node {
 pub enum Jobs<FILE> {
     Python(PythonConfig<FILE>),
     Apptainer(ApptainerConfig<FILE>),
+}
+
+impl<F> From<TransportJobs<F>> for Jobs<F> {
+    fn from(x: TransportJobs<F>) -> Jobs<F> {
+        match x {
+            TransportJobs::Python(py) => Jobs::Python(py),
+            TransportJobs::Apptainer(app) => Jobs::Apptainer(app),
+        }
+    }
 }
 
 #[derive(

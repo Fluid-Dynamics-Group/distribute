@@ -47,6 +47,15 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
     pub(crate) async fn receive_job(
         mut self,
     ) -> Result<Machine<send_files::SendFiles, ClientReceivingState>, (Self, ClientError)> {
+        if self.state.working_dir.exists() {
+            // TODO: probably some better error handling on this
+            self.state
+                .working_dir
+                .delete_and_create_folders()
+                .await
+                .ok();
+        }
+
         let msg = self.state.conn.receive_data().await;
         let msg: ServerMsg = throw_error_with_self!(msg, self);
 

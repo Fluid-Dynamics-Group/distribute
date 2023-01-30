@@ -71,6 +71,8 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
 
     let hashed_config = config.hashed().map_err(error::AddError::from)?;
 
+    dbg!(&hashed_config);
+
     let hashed_files_to_send = hashed_config.sendable_files(true);
 
     if args.dry {
@@ -78,8 +80,10 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
         return Ok(());
     }
 
+    let sendable_config = hashed_config.into();
+
     debug!("sending job set to server");
-    conn.transport_data(&transport::UserMessageToServer::AddJobSet(hashed_config))
+    conn.transport_data(&transport::UserMessageToServer::AddJobSet(sendable_config))
         .await?;
 
     // wait for the notice that we can continue

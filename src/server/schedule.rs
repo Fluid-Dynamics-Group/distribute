@@ -1,7 +1,7 @@
 use super::matrix;
 use super::pool_data::{JobOrInit, JobResponse, NodeMetadata, TaskInfo};
 
-use crate::config::{self, requirements, NormalizePaths};
+use crate::config::{self, requirements};
 use crate::error::{self, ScheduleError};
 
 use crate::prelude::*;
@@ -191,16 +191,9 @@ impl Schedule for GpuPriority {
 
     fn insert_new_batch(
         &mut self,
-        mut jobs: config::Jobs<config::common::HashedFile>,
+        jobs: config::Jobs<config::common::HashedFile>,
     ) -> Result<(), ScheduleError> {
-        // normalize all the paths in the configuration to use the base path of
-        // the storage location that they were stored in earlier
-        //
-        // TODO: may be better to perform this in the user_conn.rs file
-        jobs.normalize_paths(self.base_path.clone());
-
-        // todo: update jobs with the base bath of the temp directory
-        let jobs = JobSet::from_owned(jobs).map_err(error::StoreSet::from)?;
+        let jobs = JobSet::from_config(jobs).map_err(error::StoreSet::from)?;
 
         self.last_identifier += 1;
         let ident = JobSetIdentifier::new(self.last_identifier);
@@ -464,7 +457,7 @@ impl JobSet {
         Ok(())
     }
 
-    pub(crate) fn from_owned(
+    pub(crate) fn from_config(
         config: config::Jobs<config::common::HashedFile>,
     ) -> Result<Self, std::io::Error> {
         let namespace = config.namespace();

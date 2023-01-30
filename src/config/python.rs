@@ -75,12 +75,7 @@ impl Description<common::HashedFile> {
         self.initialize.sendable_files(is_user, &mut files);
 
         for job in self.jobs.iter() {
-            let file_iter = job.required_files.iter();
-
-            for hashed_file in file_iter {
-                let meta = hashed_file.as_sendable(is_user);
-                files.push(meta);
-            }
+            job.sendable_files(is_user, &mut files);
         }
 
         files

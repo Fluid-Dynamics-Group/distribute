@@ -62,15 +62,6 @@ impl Machine<Building, ClientBuildingState> {
         Either<Machine<Built, ClientBuiltState>, Machine<PrepareBuild, ClientPrepareBuildState>>,
         (Self, ClientError),
     > {
-        if self.state.working_dir.exists() {
-            // TODO: probably some better error handling on this
-            self.state
-                .working_dir
-                .delete_and_create_folders()
-                .await
-                .ok();
-        }
-
         // TODO: monitor for cancellation
         let (tx_result, rx_result) = oneshot::channel();
 

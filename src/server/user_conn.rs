@@ -5,6 +5,8 @@ use crate::prelude::*;
 
 use walkdir::{DirEntry, WalkDir};
 
+use config::NormalizePaths;
+
 /// handle incomming requests from the user over CLI on any node
 pub(crate) async fn handle_user_requests(
     port: u16,
@@ -82,6 +84,13 @@ async fn single_user_request(
 
         match request {
             transport::UserMessageToServer::AddJobSet(set) => {
+                let mut set : config::Jobs<_> = set.into();
+                // normalize all the paths in the configuration to use the base path of
+                // the storage location that they were stored in earlier
+                set.normalize_paths(job_input_file_dir.clone());
+
+                dbg!(&set);
+
                 conn = add_job_set(&tx, set, conn, &job_input_file_dir).await;
                 debug!("the new request was AddJobSet");
             }

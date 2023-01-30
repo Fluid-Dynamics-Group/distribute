@@ -93,6 +93,12 @@ impl FileSender for FlatFileList {
         "user_file_send"
     }
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
+        warn!("enumerating files (flat send) and their destinations");
+
+        for file in self.files.iter() {
+            debug!("{} -> {}", file.absolute_file_path.display(), file.relative_file_path.display());
+        }
+
         Box::new(self.files.clone().into_iter())
     }
 }
@@ -135,7 +141,14 @@ impl FileSender for BuildingSender {
     }
 
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
-        Box::new(self.build_info.init.sendable_files(false).into_iter())
+        let sendable_files = self.build_info.init.sendable_files(false);
+        warn!("enumerating files (BUILDING) and their destinations");
+
+        for file in sendable_files.iter() {
+            debug!("{} -> {}", file.absolute_file_path.display(), file.relative_file_path.display());
+        }
+
+        Box::new(sendable_files.into_iter())
     }
 }
 
