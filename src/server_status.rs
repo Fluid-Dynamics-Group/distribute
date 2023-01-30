@@ -17,7 +17,7 @@ pub async fn server_status(args: cli::ServerStatus) -> Result<(), Error> {
         println!("{}", batch.batch_name);
 
         for job in batch.jobs_left {
-            println!("\t-{}", job);
+            println!("\t- {}", job);
         }
 
         println!("\t:jobs running now:");

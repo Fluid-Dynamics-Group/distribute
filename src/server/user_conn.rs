@@ -89,8 +89,6 @@ async fn single_user_request(
                 // the storage location that they were stored in earlier
                 set.normalize_paths(job_input_file_dir.clone());
 
-                dbg!(&set);
-
                 conn = add_job_set(&tx, set, conn, &job_input_file_dir).await;
                 debug!("the new request was AddJobSet");
             }

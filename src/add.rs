@@ -71,8 +71,6 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
 
     let hashed_config = config.hashed().map_err(error::AddError::from)?;
 
-    dbg!(&hashed_config);
-
     let hashed_files_to_send = hashed_config.sendable_files(true);
 
     if args.dry {

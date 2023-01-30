@@ -6,7 +6,7 @@
 | lab2       | 16                  | 134.197.27.105 | compute   |
 | lab3       | 32                  | 134.197.94.104 | compute   |
 | lab4       | 12                  | 134.197.94.155 | storage   |
-| lab5       | 32                  | 134.197.27.180 | compute   |
+| lab5       | 32                  | 134.197.27.69  | compute   |
 | distserver | 12                  | 134.197.95.21  | head node |
 
 * If you are adding a job with `distribute add`, you should use `distserver` ip address.
