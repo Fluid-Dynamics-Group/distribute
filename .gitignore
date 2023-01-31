@@ -11,3 +11,5 @@ tests/send_files_with_large_files
 tests/check_pull/server
 **/.venv
 pybind/distribute-jobs.yaml
+paper/paper.jats
+paper/paper.pdf
