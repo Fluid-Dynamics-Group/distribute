@@ -2,6 +2,7 @@
 title: 'distribute: Easy to use Distributed Computing without Assumptions'
 tags:
   - Rust
+  - Python
   - computing
   - gpu
   - linux
@@ -43,7 +44,7 @@ Computational resources of many research groups are either underutilized or over
 While one computer may work several days to get through a queue of simulations, other computers
 that are available to the group sit unused. Manually dividing up simulations to run on different computers
 is time consuming, and with heterogeneous hardware configurations, usually inefficient. Moreover, 
-different group members may run jobs on a given computer at the same time, slowing the progress of 
+multiple individuals may run jobs on a given computer at the same time, slowing the progress of 
 both.
 
 The use of existing workload managers ([@SLURM], [@TORQUE], etc) address cluster computing well, but require
@@ -52,43 +53,29 @@ assume that the nodes they run on are exclusively used for compute and allocate 
 
 distribute makes almost no assumptions about the architecture of your computers: no memory fabric or shared
 filesystems are required to operate it. distribute does not attempt to run a single job across many computers
-simultaneously, but instead solves computing problems by scheduling several jobs on several computers
-concurrently. Since distribute is built to utilize existing hardware, the normal use of the workstations 
+simultaneously. Instead, \autoref{fig:computing-layout} shows that distribute solves computing problems by scheduling 
+several jobs on several computers concurrently. 
+Since distribute is built to utilize existing hardware, the normal use of the workstations 
 may be slowed while the simulations are executed. To alleviate this burden, distribute provides a way to pause
 the execution of a background job on a system for normal work to continue.
 
-Sweeps over combination of a dozen simulation parameters may lead to hundreds of jobs to run, so distribute
+Sweeps over a multidimensional parameter space may lead to hundreds of jobs to run, so distribute
 provides a python package to generate its configuration file programmatically.
 distribute also provides a way to transpile its job execution configuration to a SLURM configuration format.
 Therefore, a batch of jobs that was previously run on a distrbute cluster of in-house machines may be easily
 translated to run on a much larger cluster and execute on hundreds of cores concurrently.
 
-# Citations
-
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
-
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit.
-
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
-
-# Figures
-
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
-
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
+![
+Distributed computing in traditional systems such as [@SLURM] (left), 
+distributed computing system of distribute (right) over time as they process two jobs. 
+Colored boxes denote equal cpu-hours of compute time.
+Since distribute does not require or use shared memory or filesystems, each 
+job is run independently of other nodes in the cluster.
+\label{fig:computing-layout}
+](./node_layout.png)
 
 # Acknowledgements
 
-We acknowledge contributions from Brigitta Sipocz, Syrtis Major, and Semyeong
-Oh, and support from Kathryn Johnston during the genesis of this project.
+TODO
 
 # References
