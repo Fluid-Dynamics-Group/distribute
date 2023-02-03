@@ -42,11 +42,11 @@ jobs:
       - name: copy sphinx docs into book directory
         run: |
           mv ./pybind/docs/build/html/ ./docs/book/python
+            
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
-          external_repository: Fluid-Dynamics-Group/distribute-docs
-          personal_token: ${{ secrets.PERSONAL_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs/book
           publish_branch: gh-pages
