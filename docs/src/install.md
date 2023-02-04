@@ -13,6 +13,8 @@ and you are good to go! If you run into any trouble installing, let Brooks know.
 
 ## Python api install
 
+After `rustc` and `cargo` are installed, the python package can be installed with
+
 ```
 pip3 install distribute_compute_config
 ```
