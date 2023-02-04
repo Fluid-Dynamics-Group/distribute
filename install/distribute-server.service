@@ -1,0 +1,13 @@
+[Unit]
+Description=Accessible Distributed Computing Server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=distribute
+Type=simple
+ExecStart=/bin/bash -c "PATH=/opt/apptainer/bin/:/home/distribute/.cargo/bin:$PATH exec /home/distribute/.cargo/bin/distribute --save-log --show-logs server --save-path /home/distribute/server/results --temp-dir /home/distribute/server/tmp --nodes-file /home/distribute/server/distribute-nodes.yaml
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

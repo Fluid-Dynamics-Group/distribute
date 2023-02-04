@@ -6,7 +6,7 @@ After=network-online.target
 [Service]
 User=distribute
 Type=simple
-ExecStart=/bin/bash -c "PATH=/opt/paraview59headless/bin:/opt/apptainer/bin/:/home/distribute/.cargo/bin:$PATH exec /home/distribute/.cargo/bin/distribute --save-log --show-logs client '/home/distribute/data' --log-file '/home/distribute/logs/output.log'"
+ExecStart=/bin/bash -c "PATH=$PATH exec /opt/apptainer/bin/:/home/distribute/.cargo/bin/distribute --save-log --show-logs client '/home/distribute/data' --log-file '/home/distribute/logs/output.log'"
 Restart=on-failure
 
 [Install]
