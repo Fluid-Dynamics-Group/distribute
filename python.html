@@ -1,0 +1,526 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Python Jobs - distribute-docs</title>
+                
+
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+                <link rel="icon" href="favicon.svg">
+                        <link rel="shortcut icon" href="favicon.png">
+                <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+                <link rel="stylesheet" href="css/print.css" media="print">
+        
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="fonts/fonts.css">
+        
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+            </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">3.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="python.html" class="active"><strong aria-hidden="true">4.1.</strong> Python Jobs</a></li><li class="chapter-item expanded "><a href="apptainer.html"><strong aria-hidden="true">4.2.</strong> Apptainer Jobs</a></li></ol></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">5.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">6.</strong> Available Capabilities</a></li><li class="chapter-item expanded "><a href="machines.html"><strong aria-hidden="true">7.</strong> Machines</a></li></ol>            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                                                <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                                            </div>
+
+                    <h1 class="menu-title">distribute-docs</h1>
+
+                    <div class="right-buttons">
+                                                <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                                                                        
+                    </div>
+                </div>
+
+                                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="python"><a class="header" href="#python">Python</a></h1>
+<p>Python configuration file templates can be generated as follows:</p>
+<pre><code>distribute template python
+</code></pre>
+<p>At the time of writing, it outputs something like this:</p>
+<pre><code class="language-yaml">---
+meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  matrix: ~
+  capabilities:
+    - gfortran
+    - python3
+    - apptainer
+python:
+  initialize:
+    build_file: /path/to/build.py
+    required_files:
+      - path: /file/always/present/1.txt
+        alias: optional_alias.txt
+      - path: /another/file/2.json
+        alias: ~
+      - path: /maybe/python/utils_file.py
+        alias: ~
+  jobs:
+    - name: job_1
+      file: execute_job.py
+      required_files:
+        - path: job_configuration_file.json
+          alias: ~
+        - path: job_configuration_file_with_alias.json
+          alias: input.json
+</code></pre>
+<h2 id="what-you-are-provided"><a class="header" href="#what-you-are-provided">What You Are Provided</a></h2>
+<p>You may ask, what do your see when they are executed on a node? While the base folder structure remains the same,
+the files you are provided differ. Lets say you are executing the following section of a configuration file:</p>
+<pre><code class="language-yaml">python:
+  initialize:
+    build_file: /path/to/build.py
+    required_files:
+      - path: file1.txt
+      - path: file999.txt
+        alias: file2.txt
+  jobs:
+    - name: job_1
+      file: execute_job.py
+      required_files:
+        - path: file3.txt
+    - name: job_2
+      file: execute_job.py
+      required_files: []
+</code></pre>
+<p>When executing the compilation, the folder structure would look like this:</p>
+<pre><code>.
+├── build.py
+├── distribute_save
+├── initial_files
+│   ├── file1.txt
+│   └── file2.txt
+└── input
+    ├── file1.txt
+    ├── file2.txt
+</code></pre>
+<p>In other words: when building you only have access to the files from the <code>required_files</code> section in <code>initialize</code>. Another thing 
+to note is that even though you have specified the path to the <code>file999.txt</code> file on your local computer, the file has <em>actually</em> 
+been named <code>file2.txt</code> on the node. This is an additional feature to help your job execution scripts work uniform file names; you
+dont actually need to need to keep a bunch of solver inputs named <code>solver_input.json</code> in separate folders to prevent name collision.
+You can instead have several inputs <code>solver_input_1.json</code>, <code>solver_input_2.json</code>, <code>solver_input_3.json</code> on your local machine and
+then set the <code>alias</code> filed to <code>solver_input.json</code> so that you run script can simply read the file at <code>./input/solver_input.json</code>!</p>
+<p>Lets say your python build script (which has been renamed to <code>build.py</code> by <code>distribute</code> for uniformity) clones the STREAmS solver 
+repository and compiled the project. Then, when executing <code>job_1</code> your folder structure would look something like this:</p>
+<pre><code>.
+├── job.py
+├── distribute_save
+├── initial_files
+│   ├── file1.txt
+│   └── file2.txt
+├── input
+│   ├── file1.txt
+│   ├── file2.txt
+│   └── file3.txt
+└── STREAmS
+    ├── README.md
+    └── src
+        └── main.f90
+</code></pre>
+<p>Now, the folder structure is <em>exactly</em> as you have left it, plus the addition of a new <code>file3.txt</code> that you specified in your <code>required_files</code> 
+section under <code>jobs</code>. Since <code>job_2</code> does not specify any additional <code>required_files</code>, the directory structure when running the python
+script would look like this:</p>
+<pre><code>.
+├── job.py
+├── distribute_save
+├── initial_files
+│   ├── file1.txt
+│   └── file2.txt
+├── input
+│   ├── file1.txt
+│   ├── file2.txt
+└── STREAmS
+    ├── README.md
+    └── src
+        └── main.f90
+</code></pre>
+<p>In general, the presence of <code>./initial_files</code> is an implementation detail. The files in this section are <em>not</em> refreshed
+between job executions. You should not rely on the existance of this folder - or modify any of the contents of it. The 
+contents of the folder are copied to <code>./input</code> with every new job; use those files instead.</p>
+<h2 id="saving-results-of-your-compute-jobs"><a class="header" href="#saving-results-of-your-compute-jobs">Saving results of your compute jobs</a></h2>
+<p>Archiving jobs to the head node is <em>super</em> easy. All you have to do is ensure that your execution script moves all files
+you wish to save to the <code>./distribute_save</code> folder before exiting. <code>distribute</code> will automatically read all the files
+in <code>./distribute_save</code> and save them to the corresponding job folder on the head node permenantly. <code>distribute</code> will 
+also clear out the <code>./distribute_save</code> folder for you between jobs so that you dont end up with duplicate files.</p>
+<h2 id="build-scripts"><a class="header" href="#build-scripts">Build Scripts</a></h2>
+<p>The build script is specified in the <code>initialize</code> section under the <code>build_file</code> key. The build script is simply responsible
+for cloning relevant git repositories and compiling any scripts in the project. Since private repositories require
+a github SSH key, a read-only ssh key is provided on the system so that you can clone any private <code>fluid-dynamics-group</code>
+repo. An example build script that I have personally used for working with <code>hit3d</code> looks like this:</p>
+<pre><code class="language-python">import subprocess
+import os
+import sys
+import shutil
+# hit3d_helpers is a python script that I have specified in 
+# my `required_files` section of `initialize`
+from initial_files import hit3d_helpers
+import traceback
+
+HIT3D = &quot;https://github.com/Fluid-Dynamics-Group/hit3d.git&quot;
+HIT3D_UTILS = &quot;https://github.com/Fluid-Dynamics-Group/hit3d-utils.git&quot;
+VTK = &quot;https://github.com/Fluid-Dynamics-Group/vtk.git&quot;
+VTK_ANALYSIS = &quot;https://github.com/Fluid-Dynamics-Group/vtk-analysis.git&quot;
+FOURIER = &quot;https://github.com/Fluid-Dynamics-Group/fourier-analysis.git&quot;
+GRADIENT = &quot;https://github.com/Fluid-Dynamics-Group/ndarray-gradient.git&quot;
+DIST = &quot;https://github.com/Fluid-Dynamics-Group/distribute.git&quot;
+NOTIFY = &quot;https://github.com/Fluid-Dynamics-Group/matrix-notify.git&quot;
+
+# executes a command as if you were typing it in a terminal
+def run_shell_command(command):
+    print(f&quot;running {command}&quot;)
+    output = subprocess.run(command,shell=True, check=True)
+    if not output.stdout is None:
+        print(output.stdout)
+
+# construct a `git clone` string to run as a shell command
+def make_clone_url(ssh_url, branch=None):
+    if branch is not None:
+        return f&quot;git clone -b {branch} {ssh_url} --depth 1&quot;
+    else:
+        return f&quot;git clone {ssh_url} --depth 1&quot;
+
+def main():
+    build = hit3d_helpers.Build.load_json(&quot;./initial_files&quot;)
+
+    print(&quot;input files:&quot;)
+    run_shell_command(make_clone_url(HIT3D, build.hit3d_branch))
+    run_shell_command(make_clone_url(HIT3D_UTILS, build.hit3d_utils_branch))
+    run_shell_command(make_clone_url(VTK))
+    run_shell_command(make_clone_url(VTK_ANALYSIS))
+    run_shell_command(make_clone_url(FOURIER))
+    run_shell_command(make_clone_url(GRADIENT))
+    run_shell_command(make_clone_url(DIST, &quot;cancel-tasks&quot;))
+    run_shell_command(make_clone_url(NOTIFY))
+    
+    # move the directory for book keeping purposes
+    shutil.move(&quot;fourier-analysis&quot;, &quot;fourier&quot;)
+
+    # build hit3d
+    os.chdir(&quot;hit3d/src&quot;)
+    run_shell_command(&quot;make&quot;)
+    os.chdir(&quot;../../&quot;)
+
+    # build hit3d-utils
+    os.chdir(&quot;hit3d-utils&quot;)
+    run_shell_command(&quot;cargo install --path .&quot;)
+    os.chdir(&quot;../&quot;)
+
+    # build vtk-analysis
+    os.chdir(&quot;vtk-analysis&quot;)
+    run_shell_command(&quot;cargo install --path .&quot;)
+    os.chdir(&quot;../&quot;)
+
+    # all the other projects cloned are dependencies of the built projects
+    # they don't need to be explicitly built themselves
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<p>note that <code>os.chdir</code> is the equivalent of the GNU coreutils <code>cd</code> command: it simply changes the current working 
+directory.</p>
+<h2 id="job-execution-scripts"><a class="header" href="#job-execution-scripts">Job Execution Scripts</a></h2>
+<p>Execution scripts are specified in the <code>file</code> key of a list item a job <code>name</code> in <code>jobs</code>. Execution scripts
+can do a lot of things. I have found it productive to write a single <code>generic_run.py</code> script that
+reads a configuration file from <code>./input/input.json</code> is spefied under my <code>required_files</code> for the job)
+and then run the sovler from there. </p>
+<p>One import thing about execution scripts is that they are run with a command line argument specifying
+how many cores you are allowed to use. If you hardcode the number of cores you use you will either
+oversaturate the processor (therefore slowing down the overall execution speed), or undersaturate 
+the resources available on the machine. Your script will be &quot;executed&quot; as if it was a command line 
+program. If the computer had 16 cores available, this would be the command:</p>
+<pre><code class="language-bash">python3 ./job.py 16
+</code></pre>
+<p>you can parse this value using the <code>sys.argv</code> value in your script:</p>
+<pre><code class="language-python">import sys
+allowed_processors = sys.argv[1]
+allowed_processors_int = int(allowed_processors)
+assert(allowed_processors_int, 16)
+</code></pre>
+<p><strong>You must ensure that you use all available cores on the machine</strong>. If your code can only use a reduced number
+of cores, make sure you specify this in your <code>capabilities</code> section! <strong>Do not run single threaded
+processes on the distributed computing network - they will not go faster</strong>.</p>
+<p>A full working example of a run script that I use is this:</p>
+<pre><code class="language-python">import os
+import sys
+import json
+from input import hit3d_helpers
+import shutil
+import traceback
+
+IC_SPEC_NAME = &quot;initial_condition_espec.pkg&quot;
+IC_WRK_NAME = &quot;initial_condition_wrk.pkg&quot;
+
+def load_json():
+    path = &quot;./input/input.json&quot;
+
+    with open(path, 'r') as f:
+        data = json.load(f)
+        print(data)
+        return data
+
+# copies some initial condition files from ./input 
+# to the ./hit3d/src directory so they can be used 
+# by the solver
+def move_wrk_files(is_root):
+	outfile = &quot;hit3d/src/&quot;
+	infile = &quot;input/&quot;
+
+    shutil.copy(infile + IC_SPEC_NAME, outfile + IC_SPEC_NAME)
+    shutil.copy(infile + IC_WRK_NAME, outfile + IC_WRK_NAME)
+
+
+# copy the ./input/input.json file to the output directory
+# so that we can see it later when we download the data for viewing
+def copy_input_json(is_root):
+	outfile = &quot;distribute_save/&quot;
+	infile = &quot;input/&quot;
+
+    shutil.copy(infile  + &quot;input.json&quot;, outfile + &quot;input.json&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    try:
+        data = load_json();
+
+        # get the number of cores that we are allowed to use from the command line
+        nprocs = int(sys.argv[1])
+
+        print(f&quot;running with nprocs = &quot;, nprocs)
+
+        # parse the json data into parameters to run the solver with
+        skip_diffusion = data[&quot;skip_diffusion&quot;]
+        size = data[&quot;size&quot;]
+        dt = data[&quot;dt&quot;]
+        steps = data[&quot;steps&quot;]
+        restarts = data[&quot;restarts&quot;]
+        reynolds_number = data[&quot;reynolds_number&quot;]
+        path = data[&quot;path&quot;]
+        load_initial_data = data[&quot;load_initial_data&quot;]
+        export_vtk = data[&quot;export_vtk&quot;]
+        epsilon1 = data[&quot;epsilon1&quot;]
+        epsilon2 = data[&quot;epsilon2&quot;]
+        restart_time = data[&quot;restart_time&quot;]
+        skip_steps = data[&quot;skip_steps&quot;]
+        scalar_type = data[&quot;scalar_type&quot;]
+        validate_viscous_compensation = data[&quot;validate_viscous_compensation&quot;]
+        viscous_compensation = data[&quot;viscous_compensation&quot;]
+        require_forcing = data[&quot;require_forcing&quot;]
+        io_steps = data[&quot;io_steps&quot;]
+        export_divergence = data[&quot;export_divergence&quot;]
+        
+		# if we need initial condition data then we copy it into ./hit3d/src/
+        if not load_initial_data == 1:
+            move_wrk_files()
+
+        root = os.getcwd()
+
+        # open hit3d folder
+        openhit3d(is_root)
+
+		# run the solver using the `hit3d_helpers` file that we have
+		# ensured is present from `required_files`
+        hit3d_helpers.RunCase(
+            skip_diffusion,
+            size,
+            dt,
+            steps, 
+            restarts, 
+            reynolds_number,
+            path,
+            load_initial_data, 
+            nprocs, 
+            export_vtk, 
+            epsilon1,
+            epsilon2, 
+            restart_time,
+            skip_steps,
+            scalar_type,
+            validate_viscous_compensation,
+            viscous_compensation,
+            require_forcing,
+            io_steps,
+            export_divergence
+        ).run(0)
+
+        # go back to main folder that we started in 
+        os.chdir(root)
+
+        copy_input_json(is_root)
+
+        sys.exit(0)
+
+    # this section will ensure that the exception and traceback 
+	# is printed to the console (and therefore appears in stdout files saved
+	# on the server
+    except Exception as e:
+        print(&quot;EXCEPTION occured:\n&quot;,e)
+        print(e.__cause__)
+        print(e.__context__)
+        traceback.print_exc()
+        sys.exit(1)
+</code></pre>
+<h2 id="full-example"><a class="header" href="#full-example">Full Example</a></h2>
+<p>A simpler example of a python job has been compiled and verified 
+<a href="https://github.com/Fluid-Dynamics-Group/distribute/tree/cancel-tasks/examples/python">here</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                                                    <a rel="prev" href="configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+                                                    <a rel="next" href="apptainer.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                                    <a rel="prev" href="configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+                                    <a rel="next" href="apptainer.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                            </nav>
+
+        </div>
+
+        
+        
+        
+                <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+        
+                <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        
+    </body>
+</html>

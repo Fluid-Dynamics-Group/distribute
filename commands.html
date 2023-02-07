@@ -1,0 +1,407 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Command Basics - distribute-docs</title>
+                
+
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+                <link rel="icon" href="favicon.svg">
+                        <link rel="shortcut icon" href="favicon.png">
+                <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+                <link rel="stylesheet" href="css/print.css" media="print">
+        
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="fonts/fonts.css">
+        
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+            </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="commands.html" class="active"><strong aria-hidden="true">3.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.1.</strong> Python Jobs</a></li><li class="chapter-item expanded "><a href="apptainer.html"><strong aria-hidden="true">4.2.</strong> Apptainer Jobs</a></li></ol></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">5.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">6.</strong> Available Capabilities</a></li><li class="chapter-item expanded "><a href="machines.html"><strong aria-hidden="true">7.</strong> Machines</a></li></ol>            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                                                <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                                            </div>
+
+                    <h1 class="menu-title">distribute-docs</h1>
+
+                    <div class="right-buttons">
+                                                <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                                                                        
+                    </div>
+                </div>
+
+                                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="command-basics"><a class="header" href="#command-basics">Command Basics</a></h1>
+<p>There are a few commands that you will need to know to effectively work with <code>distribute</code>. Don't worry,
+they are not too complex. The full list of commands and their specific parameters can be found by running</p>
+<pre><code class="language-bash">$ distribute
+</code></pre>
+<p>at the time of writing, this yields:</p>
+<pre><code>distribute 0.9.4
+A utility for scheduling jobs on a cluster
+
+USAGE:
+    distribute [FLAGS] &lt;SUBCOMMAND&gt;
+
+FLAGS:
+    -h, --help         Prints help information
+        --save-log
+        --show-logs
+    -V, --version      Prints version information
+
+SUBCOMMANDS:
+    add              add a job set to the queue
+    client           start this workstation as a node and prepare it for a server connection
+    help             Prints this message or the help of the given subcommand(s)
+    kill             terminate any running jobs of a given batch name and remove the batch from the queue
+    node-status      check the status of all the nodes
+    pause            pause all currently running processes on this node for a specified amount of time
+    pull             Pull files from the server to your machine
+    run              run a apptainer configuration file locally (without sending it off to a server)
+    server           start serving jobs out to nodes using the provied configuration file
+    server-status    check the status of all the nodes
+    template         generate a template file to fill for executing with `distribute add`
+</code></pre>
+<h2 id="add"><a class="header" href="#add">add</a></h2>
+<p><code>distribute add</code> is how you can add jobs to the server queue. There are two main things needed to operate this command: 
+a configuration file and the IP of the main server node. If you do not specify the name of a configuration
+file, it will default to <code>distribute-jobs.yaml</code>. This command can be run (for most cases) as such:</p>
+<pre><code class="language-bash">distribute add --ip &lt;server ip address here&gt; my-distribute-jobs-file.yaml
+</code></pre>
+<p>or, using defaults:</p>
+<pre><code class="language-bash">distribute add --ip &lt;server ip address here&gt;
+</code></pre>
+<p>If there exists no node that matches all of your required capabilities, the job will not be run. There also exists a <code>--dry</code> flag
+if you want to check that your configuration file syntax is correct, and a <code>--show-caps</code> flag to print the capabilities 
+of each node.</p>
+<h2 id="template"><a class="header" href="#template">template</a></h2>
+<p><code>distribute template</code> is a simple way to create a <code>distribute-jobs.yaml</code> file that either runs with <code>python</code> or <code>apptainer</code>s. The specifics
+of each configuration file will be discussed later.</p>
+<pre><code class="language-bash">distribute template python
+</code></pre>
+<pre><code class="language-yaml">---
+meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  matrix: ~
+  capabilities:
+    - gfortran
+    - python3
+    - apptainer
+python:
+  initialize:
+    build_file: /path/to/build.py
+    required_files:
+      - path: /file/always/present/1.txt
+        alias: optional_alias.txt
+      - path: /another/file/2.json
+        alias: ~
+      - path: /maybe/python/utils_file.py
+        alias: ~
+  jobs:
+    - name: job_1
+      file: execute_job.py
+      required_files:
+        - path: job_configuration_file.json
+          alias: ~
+        - path: job_configuration_file_with_alias.json
+          alias: input.json
+</code></pre>
+<p>and</p>
+<pre><code class="language-bash">distribute template apptainer
+</code></pre>
+<pre><code class="language-yaml">---
+meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  matrix: ~
+  capabilities:
+    - gfortran
+    - python3
+    - apptainer
+apptainer:
+  initialize:
+    sif: execute_container.sif
+    required_files:
+      - path: /file/always/present/1.txt
+        alias: optional_alias.txt
+      - path: /another/file/2.json
+        alias: ~
+      - path: /maybe/python/utils_file.py
+        alias: ~
+    required_mounts:
+      - /path/inside/container/to/mount
+  jobs:
+    - name: job_1
+      required_files:
+        - path: job_configuration_file.json
+          alias: ~
+        - path: job_configuration_file_with_alias.json
+          alias: input.json
+</code></pre>
+<h2 id="pause"><a class="header" href="#pause">pause</a></h2>
+<p>If you use a compute node as a work station, <code>distribute pause</code> will pause all locally running jobs so that you 
+can use the workstation normally. It takes a simple argument as an upper bound on how long the tasks can be paused. The maximum amount of time that 
+a job can be paused is four hours (<code>4h</code>), but if this is not enough you can simply rerun the command. This 
+upper bound is just present to remove any chance of you accidentally leaving the jobs paused for an extended
+period of time.</p>
+<p>If you decide that you no longer need the tasks paused, you can simply <code>Ctrl-C</code> to quit the hanging command
+and all processes will be automatically resumed. <strong>Do not close your terminal</strong> before the pausing finishes or
+you have canceled it with <code>Ctrl-C</code> as the job on your machine will never resume.</p>
+<p>some examples of this command:</p>
+<pre><code class="language-bash">sudo distribute pause --duration 4h
+</code></pre>
+<pre><code class="language-bash">sudo distribute pause --duration 1h30m10s
+</code></pre>
+<pre><code class="language-bash">sudo distribute pause --duration 60s
+</code></pre>
+<h2 id="server-status"><a class="header" href="#server-status">server-status</a></h2>
+<p><code>distribute status</code> prints out all the running jobs at the head node. It will show you all the job batches
+that are currently running, as well as the number of jobs in that set currently running and the 
+names of the jobs that have not been run yet. You can use this command to fetch the required parameters
+to execute the <code>kill</code> command if needed.</p>
+<pre><code class="language-bash">distribute server-status --ip &lt;server ip here&gt;
+</code></pre>
+<p>If there is no output then there are no jobs currently in the queue or executing on nodes.</p>
+<p><strong>TODO</strong> An example output here</p>
+<pre><code>260sec
+        :jobs running now: 1
+10sec_positive
+        -unforced_viscous_decay
+        -unforced_inviscid_decay
+        -viscous_forcing_no_compensation_eh_first
+        -viscous_forcing_no_compensation_eh_second
+        -viscous_forcing_no_compensation_eh_both
+        :jobs running now: 0
+</code></pre>
+<h2 id="pull"><a class="header" href="#pull">pull</a></h2>
+<p><code>distribute pull</code> takes a <code>distribute-jobs.yaml</code> config file and pulls all the files associated with that batch
+to a specified <code>--save-dir</code> (default is the current directory). This is really convenient because the only thing
+you need to fetch your files is the original file you used to compute the results in the first place!</p>
+<p>Since you often dont want to pull <em>all the files</em> - which might include tens or hundreds of gigabytes of flowfield
+files - this command also accepts <code>include</code> or <code>exclude</code> filters, which consist of a list of regular expressions
+to apply to the file path.  If using a <code>include</code> query, any file matching one of the regexs will be pulled to 
+your machine. If using a <code>exclude</code> query, any file matching a regex will <em>not</em> be pulled to your computer. </p>
+<p>The full documentation on regular expressions is found <a href="https://docs.rs/regex/latest/regex/">here</a>, but luckily 
+most character strings are valid regular exprssions (barring characters like <code>+</code>, <code>-</code>, <code>(</code>, <code>)</code>). Lets say your
+<code>meta</code> section of the config file looks like this:</p>
+<pre><code class="language-yaml">---
+meta:
+  batch_name: incompressible_5second_cases
+  namespace: brooks_openfoam_cases
+  capabilities: []
+</code></pre>
+<p>and your directory tree looks something like this</p>
+<pre><code>├── incompressible_5second_cases
+    ├── case1
+    │   ├── flowfield.vtk
+    │   └── statistics.csv
+    ├── case2
+    │   ├── flowfield.vtk
+    │   └── statistics.csv
+    └── case3
+        ├── flowfield.vtk
+        └── statistics.csv
+</code></pre>
+<p>If you wanted to exclude any file with a <code>vtk</code> extension, you could</p>
+<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
+	exclude \
+		--exclude &quot;vtk&quot;
+</code></pre>
+<p>Or, if you wanted to exclude all of the case3 files and all vtk files:</p>
+<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
+	exclude \
+		--exclude &quot;vtk&quot; \
+		--exclude &quot;case3&quot;
+</code></pre>
+<p>Maybe you only want to pull case1 files:</p>
+<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
+	include \
+		--include &quot;case1&quot;
+</code></pre>
+<h2 id="run"><a class="header" href="#run">run</a></h2>
+<p><code>distribute run</code> will run an apptainer job locally. It is usefull for debugging apptainer jobs
+since the exact commands that are passed to the container are not always intuitive. </p>
+<pre><code>distribute run --help
+</code></pre>
+<pre><code>distribute-run 0.6.0
+run a apptainer configuration file locally (without sending it off to a server)
+
+USAGE:
+    distribute run [FLAGS] [OPTIONS] [job-file]
+
+FLAGS:
+        --clean-save    allow the save_dir to exist, but remove all the contents of it before executing the code
+    -h, --help          Prints help information
+    -V, --version       Prints version information
+
+OPTIONS:
+    -s, --save-dir &lt;save-dir&gt;    the directory where all the work will be performed [default: ./distribute-run]
+
+ARGS:
+    &lt;job-file&gt;    location of your configuration file [default: distribute-jobs.yaml]
+</code></pre>
+<p>An example is provided in the apptainer jobs section.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                                                    <a rel="prev" href="install.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+                                                    <a rel="next" href="configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                                    <a rel="prev" href="install.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+                                    <a rel="next" href="configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                            </nav>
+
+        </div>
+
+        
+        
+        
+                <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+        
+                <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        
+    </body>
+</html>
