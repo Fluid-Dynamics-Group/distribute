@@ -12,7 +12,7 @@ cargo install --git https://github.com/fluid-Dynamics-Group/distribute --force
 
 ## Documentation:
 
-User documentation (which you are most likely interested in) is hosted on github: https://fluid-dynamics-group.github.io/distribute-docs
+User documentation (which you are most likely interested in) is hosted on github: https://fluid-dynamics-group.github.io/distribute
 
 Developer documentation is built with 
 

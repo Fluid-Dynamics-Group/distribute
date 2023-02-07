@@ -239,7 +239,7 @@ pub fn apptainer_config(meta: Meta, description: Description, slurm: Option<Slur
 ///
 /// Example:
 ///
-/// See the `User Documentation <https://fluid-dynamics-group.github.io/distribute-docs/python_api.html>`_ page in on the python api for a worked example
+/// See the `User Documentation <https://fluid-dynamics-group.github.io/distribute/python_api.html>`_ page in on the python api for a worked example
 pub fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<()> {
     let file = std::fs::File::create(&path).map_err(|e| {
         PyValueError::new_err(format!(

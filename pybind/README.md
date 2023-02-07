@@ -30,4 +30,4 @@ source .venv/bin/activate.fish
 
 ## Example
 
-See the [user documentation](https://fluid-dynamics-group.github.io/distribute-docs/python_api.html) page in on the python api for a worked example
+See the [user documentation](https://fluid-dynamics-group.github.io/distribute/python_api.html) page in on the python api for a worked example
