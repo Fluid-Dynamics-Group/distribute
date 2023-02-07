@@ -1,5 +1,31 @@
 #![doc = include_str!("../README.md")]
 
+//! # Creating a Developer Environment
+//! 
+//! In your virtual environment:
+//! 
+//! ```
+//! maturin develop
+//! ```
+//! 
+//! ## Virtual Environments
+//! 
+//! create a virtual environment:
+//! 
+//! ```
+//! python3 -m venv .venv
+//! ```
+//! 
+//! ```
+//! source .venv/bin/activate
+//! ```
+//! 
+//! For fish shells:
+//! 
+//! ```
+//! source .venv/bin/activate.fish
+//! ```
+
 mod wrap;
 
 use pyo3::exceptions::PyValueError;

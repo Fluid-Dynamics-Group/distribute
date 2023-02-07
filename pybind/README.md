@@ -1,33 +1,19 @@
 # pybind
 
-Python bindings for creating `distribute` configs
+Python bindings to `distribute` for automated creation of configuration files
 
-## Developing
+## Documentation
 
-In your virtual environment:
+Python documentation is available 
+[here](https://fluid-dynamics-group.github.io/distribute/python/).
+Python installation instructions are available
+[here](file:///home/brooks/github/fluids/distribute/docs/book/install.html#python-api-install)
 
-```
-maturin develop
-```
+## Developer Documentation
 
-## Virtual Environments
-
-create a virtual environment:
-
-```
-python3 -m venv .venv
-```
+Information on setting up a python developer environment with `maturin` is available in the 
+crate-level documentation:
 
 ```
-source .venv/bin/activate
+cargo doc --open
 ```
-
-For fish shells:
-
-```
-source .venv/bin/activate.fish
-```
-
-## Example
-
-See the [user documentation](https://fluid-dynamics-group.github.io/distribute/python_api.html) page in on the python api for a worked example
