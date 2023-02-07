@@ -8,8 +8,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
       with:
         python-version: 3.9
         architecture: x64
@@ -26,11 +26,12 @@ jobs:
         cd pybind
         pip3 install .
         python3 src/validate_bindings.py
-    - name: Upload wheels
-      uses: actions/upload-artifact@v2
+    - name: Cache python wheels
+      uses: actions/cache@v3
       with:
-        name: wheels
-        path: pybind/target/wheels
+        key: python-wheels
+        path: |
+          pybind/target/wheels
 
   release:
     name: Release
@@ -38,10 +39,12 @@ jobs:
     needs: [ build ]
     if: "startsWith(github.ref, 'refs/heads/master')"
     steps:
-    - uses: actions/download-artifact@v2
+    - uses: actions/cache/restore@v3
+      #id: cache
       with:
-        name: wheels
-    - uses: actions/setup-python@v2
+        key: python-wheels
+        path: pybind/target/wheels
+    - uses: actions/setup-python@v4
       with:
         python-version: 3.9
     - name: Publish to PyPi

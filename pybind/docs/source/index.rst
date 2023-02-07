@@ -20,7 +20,7 @@ Install with ``pip``:
 Main Documentation
 ------------------
 
-This is the python api to the broader and more complex distributed computing system documented `here <https://fluid-dynamics-group.github.io/distribute-docs>`_.
+This is the python api to the broader and more complex distributed computing system documented `here <https://fluid-dynamics-group.github.io/distribute>`_.
 If you have any questions about how components fit together, reading through the user guide will likely clarify them.
 
 Contents

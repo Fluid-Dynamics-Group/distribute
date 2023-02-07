@@ -1,6 +1,6 @@
 # User Documentation
 
-User documentation is hosted [here](https://fluid-dynamics-group.github.io/distribute-docs).
+User documentation is hosted [here](https://fluid-dynamics-group.github.io/distribute).
 
 ## Building Locally
 

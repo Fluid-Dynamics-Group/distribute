@@ -12,11 +12,11 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
     steps:
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: 3.9
           architecture: x64
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: install maturin and sphinx
         run: |
           pip3 install maturin sphinx sphinx_rtd_theme
@@ -46,7 +46,6 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
-          external_repository: Fluid-Dynamics-Group/distribute-docs
-          personal_token: ${{ secrets.PERSONAL_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs/book
           publish_branch: gh-pages
