@@ -39,6 +39,8 @@ pub enum Error {
     PullErrorLocal(#[from] PullErrorLocal),
     #[error("{0}")]
     Timeout(#[from] TimeoutError),
+    #[error("{0}")]
+    Slurm(#[from] Slurm),
 }
 
 #[derive(thiserror::Error, Debug, From)]
@@ -169,11 +171,7 @@ pub struct OpenFile {
 }
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
-#[display(
-    fmt = "Failed to open create file {} - error: {}",
-    "path.display()",
-    error
-)]
+#[display(fmt = "Failed to create file {} - error: {}", "path.display()", error)]
 pub struct CreateFile {
     error: std::io::Error,
     path: PathBuf,
@@ -189,6 +187,18 @@ pub struct RenameFile {
     error: std::io::Error,
     src: PathBuf,
     dest: PathBuf,
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
+    fmt = "Failed to copy {} to {} // error: {error}",
+    "src.display()",
+    "destination.display()"
+)]
+pub struct CopyFile {
+    error: std::io::Error,
+    src: PathBuf,
+    destination: PathBuf,
 }
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
@@ -307,12 +317,12 @@ pub enum AddError {
     FailedSend,
     #[error("There were no actual jobs specified in the configuration file")]
     NoJobsToAdd,
-    #[error("Duplicate job name `{0}` appeared in config file. Job names must be unique")]
-    DuplicateJobName(String),
     #[error("{0}")]
-    MissingFilename(config::MissingFileNameError),
+    MissingFilename(config::MissingFilename),
     #[error("{0}")]
     ConfigError(config::ConfigErrorReason),
+    #[error("{0}")]
+    DuplicateJobName(DuplicateJobName),
 }
 
 #[derive(Debug, From, thiserror::Error)]
@@ -439,4 +449,43 @@ pub struct TimeoutError {
 pub struct ExecutableMissing {
     executable: String,
     err: std::io::Error,
+}
+
+#[derive(thiserror::Error, Debug, From)]
+/// an error that occurs in src/slurm.rs
+pub enum Slurm {
+    #[error(".yaml config file had no jobs to convert to SLURM configuration")]
+    NoJobs,
+    #[error("SLURM configuration does not support python build/run scripts (apptainer only)")]
+    PythonConfig,
+    #[error("{0}")]
+    DuplicateJobName(DuplicateJobName),
+    #[error("Error with configuration file: {0}")]
+    Config(config::ConfigurationError),
+    #[error("{0}")]
+    CreateDir(CreateDir),
+    #[error("{0}")]
+    MissingFilename(config::MissingFilename),
+    #[error("{0}")]
+    CopyFile(CopyFile),
+    #[error("{0}")]
+    CreateFile(CreateFile),
+    #[error("{0}")]
+    SlurmInformation(SlurmInformation),
+    #[error("{0}")]
+    WriteFile(WriteFile),
+}
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "There was a duplicate job name in the config file: {job_name}")]
+/// duplicate job name in the configuration file
+pub struct DuplicateJobName {
+    job_name: String,
+}
+
+#[derive(Debug, Display, thiserror::Error, Constructor)]
+#[display(fmt = "Missing SLURM information for job {job_name} at both job-level and root-level")]
+/// duplicate job name in the configuration file
+pub struct SlurmInformation {
+    job_name: String,
 }

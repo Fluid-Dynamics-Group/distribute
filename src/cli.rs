@@ -38,6 +38,7 @@ pub enum Arguments {
     Run(Run),
     ServerStatus(ServerStatus),
     NodeStatus(NodeStatus),
+    Slurm(Slurm),
 }
 
 impl Arguments {
@@ -151,6 +152,7 @@ pub struct Pause {
 /// add a job set to the queue
 pub struct Add {
     #[arg(default_value = "distribute-jobs.yaml")]
+    /// distribute-jobs.yaml configuration file
     pub jobs: PathBuf,
 
     #[arg(long, short, default_value = SERVER_PORT_STR)]
@@ -262,4 +264,32 @@ fn check_send<T: Send>() {}
 
 fn other_send() {
     check_send::<Server>();
+}
+
+#[derive(Parser, PartialEq, Debug, Constructor, Eq)]
+/// transpile a set of jobs in `distribute-jobs.yaml` to be run on a SLURM cluster
+pub struct Slurm {
+    /// path to the folder that will be created to store the assimilated data to be shipped
+    /// off to the cluster
+    pub(crate) output_folder: PathBuf,
+
+    #[arg(default_value = "distribute-jobs.yaml")]
+    /// distribute-jobs.yaml configuration file
+    pub(crate) jobs: PathBuf,
+
+    #[arg(long)]
+    /// the username that will be used to transfer the files to over ssh.
+    pub(crate) cluster_username: String,
+
+    #[arg(long)]
+    /// address of the cluster.
+    ///
+    /// Ex: pronghorn.rc.unr.edu
+    pub(crate) cluster_address: String,
+
+    #[arg(long)]
+    /// folder that the files will placed in.
+    ///
+    /// Ex: /home/your_username/another/
+    pub(crate) cluster_upload_destination: PathBuf
 }

@@ -593,9 +593,9 @@ mod tests {
             None,
         );
 
-        let jgpu = config::python::Job::new("jgpu".into(), File::new_relative("some_path"), vec![]);
-        let j1 = config::python::Job::new("j1".into(), File::new_relative("some_path"), vec![]);
-        let j2 = config::python::Job::new("j2".into(), File::new_relative("some_path"), vec![]);
+        let jgpu = config::python::Job::new("jgpu".into(), File::new_relative("some_path"), vec![], None);
+        let j1 = config::python::Job::new("j1".into(), File::new_relative("some_path"), vec![], None);
+        let j2 = config::python::Job::new("j2".into(), File::new_relative("some_path"), vec![], None);
 
         let build = config::python::Initialize::new(
             config::common::File::new_relative("build_file"),
@@ -611,12 +611,12 @@ mod tests {
         let cpu_description = config::python::Description::new(build.clone(), vec![j1, j2]);
         let gpu_description = config::python::Description::new(build.clone(), vec![jgpu]);
 
-        let cpu_config = config::Jobs::from(config::PythonConfig::new(cpu_meta, cpu_description))
+        let cpu_config = config::Jobs::from(config::PythonConfig::new(cpu_meta, cpu_description, None))
             .hashed()
             .unwrap()
             .into();
 
-        let gpu_config = config::Jobs::from(config::PythonConfig::new(gpu_meta, gpu_description))
+        let gpu_config = config::Jobs::from(config::PythonConfig::new(gpu_meta, gpu_description, None))
             .hashed()
             .unwrap()
             .into();

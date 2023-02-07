@@ -1,6 +1,6 @@
 use super::CanonicalizeError;
 use super::LoadJobsError;
-use super::MissingFileNameError;
+use super::MissingFilename;
 use super::ReadBytesError;
 
 use serde::{Deserialize, Serialize};
@@ -72,30 +72,31 @@ impl File {
     pub fn alias(&self) -> Option<&String> {
         self.alias.as_ref()
     }
-    pub(crate) fn filename(&self) -> Result<String, MissingFileNameError> {
+
+    pub(crate) fn filename(&self) -> Result<String, MissingFilename> {
         if let Some(alias) = &self.alias {
             Ok(alias.to_string())
         } else {
             let out = self
                 .path
                 .file_name()
-                .ok_or_else(|| MissingFileNameError::from(self.path.clone()))?
+                .ok_or_else(|| MissingFilename::new(self.path.clone()))?
                 .to_string_lossy()
                 .to_string();
             Ok(out)
         }
     }
 
-    pub(super) fn exists_or_err(&self) -> Result<(), super::MissingFileNameError> {
+    pub(super) fn exists_or_err(&self) -> Result<(), super::MissingFilename> {
         if !self.path().exists() {
-            return Err(super::MissingFileNameError::new(self.path().to_owned()));
+            return Err(super::MissingFilename::new(self.path().to_owned()));
         }
         Ok(())
     }
 
     #[cfg(test)]
     /// get a quick and dirty conversion to a hashed file
-    pub(super) fn hashed(&self) -> Result<HashedFile, super::MissingFileNameError> {
+    pub(super) fn hashed(&self) -> Result<HashedFile, super::MissingFilename> {
         let hashed_path = self.path().to_path_buf();
         let unhashed_path_user = self.path().to_path_buf();
         let original_filename = self.filename()?;
@@ -209,7 +210,7 @@ pub(super) fn delete_hashed_files(files: Vec<HashedFile>) -> Result<(), std::io:
     Ok(())
 }
 
-pub(super) fn check_files_exist(files: &[File]) -> Result<(), super::MissingFileNameError> {
+pub(super) fn check_files_exist(files: &[File]) -> Result<(), super::MissingFilename> {
     for file in files {
         file.exists_or_err()?;
     }

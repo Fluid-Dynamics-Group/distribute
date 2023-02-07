@@ -576,7 +576,7 @@ async fn cancel_run() {
 
     let exec_file = config::common::File::new("./tests/python_sleep/sleep30s.py").unwrap();
 
-    let job = config::python::Job::new("sleep_job".into(), exec_file.clone(), vec![]);
+    let job = config::python::Job::new("sleep_job".into(), exec_file.clone(), vec![], None);
 
     let work_dir = WorkingDir::from(folder_path.join("run"));
 

@@ -7,6 +7,7 @@ use pyo3::prelude::*;
 use std::path::PathBuf;
 
 use wrap::{ApptainerConfig, Description, File, Initialize, Job, Meta};
+use distribute::Slurm;
 
 #[pyfunction(matrix_username = "None")]
 /// construct the metadata ``Meta`` object for information about what this job batch will run
@@ -92,7 +93,7 @@ pub fn initialize(
     }
 }
 
-#[pyfunction]
+#[pyfunction(slurm = "None")]
 /// creates a job from its name and the required input files
 ///
 /// once you have a list of jobs that should be run in the batch, move on to creating a
@@ -102,6 +103,7 @@ pub fn initialize(
 ///
 /// :param name: the name of the job. It should be unique in combination with the ``batch_name`` of this job.
 /// :param required_files: a python list of files that should appear in the ``/input`` directory when this job is run, along with the ``required_files`` specified in :func:`initialize()`.
+/// :param slurm: job-level attribtues to pass to Slurm created in :func:`slurm`. These values will override global Slurm attributes specified in :func:`apptainer_config`. If you do not intend to run this job set on a slurm cluster, you may ignore this value.
 ///
 /// ``name`` should therefore be unique to this batch since ``batch_name`` remains constant.
 /// the ``name`` should be slightly descriptive of the content of what the job will be running.
@@ -123,10 +125,11 @@ pub fn initialize(
 ///     job_1_required_files = [job_1_config_file]
 ///
 ///     job_1 = distribute.job("job_1", job_1_required_files)
-pub fn job(name: String, required_files: Vec<File>) -> Job {
+pub fn job(name: String, required_files: Vec<File>, slurm: Option<Slurm>) -> Job {
     Job {
         name,
         required_files,
+        slurm
     }
 }
 
@@ -215,16 +218,17 @@ pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<Fi
     Ok(file)
 }
 
-#[pyfunction]
+#[pyfunction(slurm="None")]
 /// assemble the :func:`metadata` and :func:`description` into a config file that can be written
 /// to disk
 ///
 /// :param meta: output of :func:`metadata` function
 /// :param description: output of :func:`description` function
+/// :param slurm: global-level attribtues to pass to Slurm created from :func:`slurm`. These values will be overriden by job-level Slurm attributes specified in :func:`job`. If you do not intend to run this job set on a slurm cluster, you may ignore this value.
 ///
 /// You can write this description object to disk with :func:`write_config_to_file`
-pub fn apptainer_config(meta: Meta, description: Description) -> ApptainerConfig {
-    ApptainerConfig { meta, description }
+pub fn apptainer_config(meta: Meta, description: Description, slurm: Option<Slurm>) -> ApptainerConfig {
+    ApptainerConfig { meta, description, slurm }
 }
 
 #[pyfunction]
@@ -255,6 +259,84 @@ pub fn write_config_to_file(config: ApptainerConfig, path: PathBuf) -> PyResult<
     Ok(())
 }
 
+#[pyfunction]
+/// Configure the attributes that will be passed to Slurm if you intend to run the job set on a
+/// cluster.
+///
+/// :param job_name: the name of the job as it will appear in Slurm. defaults to the job name chosen in the ``distribute`` configuration file
+/// :param output: file name where where the stdout of the process will be dumped.
+/// :param nodes: the number of Slurm nodes to use. This essentially corresponds to the number of physical CPUs units you would like your job to run across. On pronghorn, with no multithreading, more than 32 ``ntasks`` will require more than 1 node.
+/// :param ntasks: the number of tasks to use in Slurm. This should correspond to the number of MPI processes you would like to use. If you would execute your job with ``mpirun -np 4``, then this value would be ``4``.
+/// :param cpus_per_task: The number of CPUs that each task will use. Most likely, this parameter should be set to ``1``. If you have 16 physical cores on a CPU, and ``ntasks=4``, and you want to fully utilize the CPU, this number would be set to ``4``
+/// :param mem_per_cpu: The amount of memory that each cpu should be allocated. To specify an amount in gigabytes (megabytes), use ``G`` (``M``) as the suffix. For example, requesting 100 megabytes of memory for each cpu would be ``100M``
+/// :param hint: Any hints you want to pass to Slurm. This can be blank, or possibly ``nomultithread`` as well as any other valid Slurm hint.
+/// :param time: The amount of time your job will require, in the format of ``HH:MM:SS``. For a 1 hour and 20 minute job, this would be ``01:20:00``
+/// :param partition: The slurm partition you wish to run on. This is probably ``cpu-core-0`` on pronghorn for CPU tasks.
+/// :param account: The billing account attached to this job.
+/// :param mail_user: An email address to send mail to after the job completes.
+/// :param mail_type: Email type. Possibly ``ALL``
+///
+/// When generating slurm routines, distribute will default all values to the root level ``slurm``
+/// value specified in :func:`apptainer_config`, and then override of these values with the values
+/// of :func:`job`. With this, you may set global attribtues (such as the number of tasks to use,
+/// the number of nodes to request, your email, etc), and then override them at the job-level with
+/// specifics that each job requires. 
+///
+/// If all jobs that you are submitting in this batch are
+/// homogeneous (for example, same grid size, time step, etc), then there is little need to specify
+/// job-level slurm attribtues.
+///
+/// Example:
+///
+/// .. code-block::
+///
+///     slurm = distribute.slurm(
+///         output = "output.txt", 
+///         nodes = 1, 
+///         ntasks = 4, 
+///         cpus_per_task = 1, 
+///         # 10 megabytes of memory allocated
+///         mem_per_cpu = "10M",
+///         hint = "nomultithread",
+///         # 30 minutes of runtime
+///         time = "00:30:00",
+///         partition = "cpu-core-0",
+///         account = "my_account"
+///     )
+///
+pub fn slurm(
+    job_name: Option<String>,
+    output: Option<String>,
+    nodes: Option<usize>,
+    ntasks: Option<usize>,
+    cpus_per_task: Option<usize>,
+    mem_per_cpu: Option<String>,
+    hint: Option<String>,
+    time: Option<String>,
+    partition: Option<String>,
+    account: Option<String>,
+    mail_user: Option<String>,
+    mail_type: Option<String>,
+) -> distribute::Slurm {
+
+    let slurm = distribute::Slurm::new(
+        job_name,
+        output,
+        nodes,
+        ntasks,
+        cpus_per_task,
+        mem_per_cpu,
+        hint,
+        time,
+        partition,
+        account,
+        mail_user,
+        mail_type
+    );
+
+    slurm
+}
+
 /// This python package provides compile-time checked functions to create ``distribute`` compute
 /// configuration files. The recommended way to read this documentation is to start with the final
 /// function :func:`write_config_to_file` and work backwards recursively until you have all the
@@ -267,6 +349,7 @@ fn distribute_compute_config(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(description, m)?)?;
     m.add_function(wrap_pyfunction!(file, m)?)?;
     m.add_function(wrap_pyfunction!(apptainer_config, m)?)?;
+    m.add_function(wrap_pyfunction!(slurm, m)?)?;
     m.add_function(wrap_pyfunction!(write_config_to_file, m)?)?;
 
     Ok(())

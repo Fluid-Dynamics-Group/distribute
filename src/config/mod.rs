@@ -14,6 +14,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::path::PathBuf;
+use std::io::Write;
 
 use getset::Getters;
 
@@ -48,7 +49,7 @@ pub enum ConfigErrorReason {
     #[display(fmt = "{}", _0)]
     Deserialization(DeserError),
     #[display(fmt = "missing file: {}", _0)]
-    MissingFile(MissingFileNameError),
+    MissingFile(MissingFilename),
     #[display(fmt = "General Io error when opening config file: {}", _0)]
     IoError(std::io::Error),
 }
@@ -68,9 +69,19 @@ pub enum LoadJobsError {
     #[error("{0}")]
     ReadBytes(ReadBytesError),
     #[error("{0}")]
-    MissingFileName(MissingFileNameError),
+    MissingFileName(MissingFilename),
     #[error("{0}")]
     Canonicalize(CanonicalizeError),
+}
+
+#[derive(Debug, Display, From, thiserror::Error, Constructor)]
+#[display(
+    fmt = "The filename for the path {} was missing, and no alias was supplied",
+    "path.display()"
+)]
+/// a path was supplied to the configuration that does not have filename associated with the path
+pub struct MissingFilename {
+    path: PathBuf,
 }
 
 #[derive(Debug, From, thiserror::Error, Constructor, Display)]
@@ -83,13 +94,6 @@ pub enum LoadJobsError {
 pub struct CanonicalizeError {
     path: PathBuf,
     err: std::io::Error,
-}
-
-#[derive(Debug, Display, From, thiserror::Error, Constructor)]
-#[display(fmt = "Error loading configuration for jobs {:?} ", path)]
-/// happens when a file path does not contain a filename
-pub struct MissingFileNameError {
-    path: PathBuf,
 }
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
@@ -201,6 +205,8 @@ pub struct ApptainerConfig<FILE> {
     #[serde(rename = "apptainer")]
     #[getset(get = "pub(crate)", get_mut = "pub(crate)")]
     description: apptainer::Description<FILE>,
+    #[getset(get = "pub(crate)")]
+    slurm: Option<Slurm>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
@@ -211,6 +217,7 @@ pub struct PythonConfig<FILE> {
     #[serde(rename = "python")]
     #[getset(get = "pub(crate)")]
     description: python::Description<FILE>,
+    slurm: Option<Slurm>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, From)]
@@ -293,14 +300,14 @@ impl Job {
 
     #[cfg(test)]
     pub(crate) fn placeholder_apptainer() -> Self {
-        let job = apptainer::Job::new("some_job".into(), vec![]);
+        let job = apptainer::Job::new("some_job".into(), vec![], None);
         Self::from(job)
     }
 
     #[cfg(test)]
     pub(crate) fn placeholder_python(file: common::File) -> Self {
         let file = file.hashed().unwrap();
-        let job = python::Job::new("python".into(), file, vec![]);
+        let job = python::Job::new("python".into(), file, vec![], None);
         Self::from(job)
     }
 }
@@ -335,7 +342,7 @@ impl Jobs<common::File> {
         Ok(())
     }
 
-    pub fn hashed(&self) -> Result<Jobs<common::HashedFile>, MissingFileNameError> {
+    pub fn hashed(&self) -> Result<Jobs<common::HashedFile>, MissingFilename> {
         match &self {
             Self::Python(pyconfig) => {
                 let description = pyconfig.description.hashed()?;
@@ -343,6 +350,7 @@ impl Jobs<common::File> {
                 Ok(Jobs::from(PythonConfig {
                     meta: pyconfig.meta.clone(),
                     description,
+                    slurm: pyconfig.slurm.clone()
                 }))
             }
             Self::Apptainer(apptainer_config) => {
@@ -351,6 +359,7 @@ impl Jobs<common::File> {
                 Ok(Jobs::from(ApptainerConfig {
                     meta: apptainer_config.meta.clone(),
                     description,
+                    slurm: apptainer_config.slurm.clone()
                 }))
             }
         }
@@ -498,6 +507,92 @@ pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     config.normalize_paths(path.parent().unwrap().to_owned());
 
     Ok(config)
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, getset::Getters, Constructor)]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
+pub struct Slurm {
+    #[getset(get = "pub(crate)")]
+    job_name: Option<String>,
+    output: Option<String>,
+    nodes: Option<usize>,
+    #[getset(get = "pub(crate)")]
+    ntasks: Option<usize>,
+    cpus_per_task: Option<usize>,
+    /// Ex: 10M
+    mem_per_cpu: Option<String>,
+    /// Ex: nomultithread
+    hint: Option<String>,
+    // TODO: could make this more robust
+    time: Option<String>,
+    /// Ex: cpu-core-0
+    partition: Option<String>,
+    account: Option<String>,
+    mail_user: Option<String>,
+    mail_type: Option<String>,
+}
+
+macro_rules! slurm_helper {
+    ($overrides:ident, $self:ident; $($field:ident),*) => {
+        Self {
+            $(
+                $field: $overrides.$field.as_ref().or($self.$field.as_ref()).cloned()
+            ),*
+        }
+    };
+    ($self:ident, $writer:ident; $($prefix:expr => $field:ident),*) => {
+        $(
+            if let Some(inner) = &$self.$field {
+                let prefix = $prefix;
+                writeln!(&mut $writer, "#SBATCH --{prefix}={inner}")?;
+            }
+        )*
+    };
+}
+
+impl Slurm {
+    /// Using `self` default values, override the values of `self` with `overrides` for each of the
+    /// fields in `overrides` that are not none
+    pub(crate) fn override_with(&self, overrides: &Self) -> Self {
+        slurm_helper!(overrides, self;
+            job_name,
+            output,
+            nodes,
+            ntasks,
+            cpus_per_task,
+            mem_per_cpu,
+            hint,
+            time,
+            partition,
+            account,
+            mail_user,
+            mail_type
+        )
+    }
+
+    pub(crate) fn set_default_job_name(&mut self, job_name: &str) {
+        let job_name = job_name.to_string();
+        self.job_name = self.job_name.as_ref().or(Some(&job_name)).cloned();
+    }
+
+    pub(crate) fn write_slurm_config<W: Write>(&self, mut writer: W) -> Result<(), std::io::Error> {
+        slurm_helper!(self, writer;
+            "job-name"=>job_name,
+            "output"=>output,
+            "nodes"=>nodes,
+            "ntasks"=>ntasks,
+            "cpus-per-task"=>cpus_per_task,
+            "mem-per-cpu"=>mem_per_cpu,
+            "hint"=>hint,
+            "time"=>time,
+            "partition"=>partition,
+            "account"=>account,
+            "mail-user"=>mail_user,
+            "mail-type"=>mail_type
+        );
+
+        Ok(())
+    }
 }
 
 #[test]

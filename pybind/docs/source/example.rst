@@ -47,35 +47,66 @@ Example
 
     description = distribute.description(initialize, jobs)
 
-    jobset = distribute.apptainer_config(meta, description)
+
+    # set up some parameters so that we can run this job with slurm
+    slurm = distribute.slurm(
+        output = "output.txt", 
+        nodes = 1, 
+        ntasks = 4, 
+        cpus_per_task = 1, 
+        # 10 megabytes of memory allocated
+        mem_per_cpu = "10M",
+        hint = "nomultithread",
+        # 30 minutes of runtime
+        time = "00:30:00",
+        partition = "cpu-core-0",
+        account = "my_account"
+    )
+
+    jobset = distribute.apptainer_config(meta, description, slurm = slurm)
     distribute.write_config_to_file(jobset,"./distribute-jobs.yaml")
+
 
 This generates:
 
 .. code-block::
 
-    ---
     meta:
       batch_name: test_batch
       namespace: test_namespace
-      matrix: "@matrix_id:matrix.org"
+      matrix: '@matrix_id:matrix.org'
       capabilities:
-        - apptainer
+      - apptainer
     apptainer:
       initialize:
-        sif: "./path/to/some/container.sif"
+        sif: ./path/to/some/container.sif
         required_files:
-          - path: "./path/to/some/file.h5"
-            alias: initial_condition.h5
+        - path: ./path/to/some/file.h5
+          alias: initial_condition.h5
         required_mounts:
-          - /solver/extra_mount
+        - /solver/extra_mount
       jobs:
-        - name: job_1
-          required_files:
-            - path: "./path/to/config1.json"
-              alias: config.json
-        - name: job_2
-          required_files:
-            - path: "./path/to/config2.json"
-              alias: config.json
+      - name: job_1
+        required_files:
+        - path: ./path/to/config1.json
+          alias: config.json
+        slurm: null
+      - name: job_2
+        required_files:
+        - path: ./path/to/config2.json
+          alias: config.json
+        slurm: null
+    slurm:
+      job_name: null
+      output: output.txt
+      nodes: 1
+      ntasks: 4
+      cpus_per_task: 1
+      mem_per_cpu: 10M
+      hint: nomultithread
+      time: 00:30:00
+      partition: cpu-core-0
+      account: my_account
+      mail_user: null
+      mail_type: null
 
