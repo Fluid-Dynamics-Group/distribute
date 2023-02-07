@@ -276,4 +276,20 @@ pub struct Slurm {
     #[arg(default_value = "distribute-jobs.yaml")]
     /// distribute-jobs.yaml configuration file
     pub(crate) jobs: PathBuf,
+
+    #[arg(long)]
+    /// the username that will be used to transfer the files to over ssh.
+    pub(crate) cluster_username: String,
+
+    #[arg(long)]
+    /// address of the cluster.
+    ///
+    /// Ex: pronghorn.rc.unr.edu
+    pub(crate) cluster_address: String,
+
+    #[arg(long)]
+    /// folder that the files will placed in.
+    ///
+    /// Ex: /home/your_username/another/
+    pub(crate) cluster_upload_destination: PathBuf
 }

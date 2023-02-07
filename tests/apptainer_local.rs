@@ -57,7 +57,14 @@ fn slurm_output_verify() {
 
     let output_dir = dir.join("slurm_output");
 
-    let slurm_command = Slurm::new(output_dir.clone(), dir.join("distribute-jobs.yaml"));
+    // clean out the previous output directory if it still exists
+    fs::remove_dir_all(&output_dir).ok();
+
+    let cluster_username = "bkarlik".into();
+    let cluster_address = "pronghorn.rc.unr.edu".into();
+    let cluser_destination = "/data/gpfs/home/bkarlik".into();
+
+    let slurm_command = Slurm::new(output_dir.clone(), dir.join("distribute-jobs.yaml"), cluster_username, cluster_address, cluser_destination);
 
     distribute::slurm(slurm_command).unwrap();
 
@@ -91,7 +98,8 @@ fn slurm_output_verify() {
     verify_basic_output(&task1_dir);
     verify_basic_output(&task2_dir);
 
-    fs::remove_dir_all(output_dir).unwrap();
+    //fs::remove_dir_all(output_dir).unwrap();
+    panic!()
 }
 
 fn verify_basic_output(task_dir: &std::path::Path) {

@@ -2,6 +2,7 @@ use crate::prelude::*;
 use crate::server::ok_if_exists;
 
 const SIF_FILE: &str = "apptainer.sif";
+const CURRENT_DUR_BASH: &[u8] = br#"DIR="$(cd "$(dirname "$0")" && pwd)""#;
 
 pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
     //
@@ -79,16 +80,20 @@ pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
     // Jobs
     //
 
+    let mut job_names = Vec::new();
+    
     for job in jobs {
         let slurm_config =
             determine_slurm_configuration(job.name(), global_slurm.clone(), job.slurm().clone())?;
 
         info!(distribtue_job_name = job.name(), slurm = ?slurm_config, "slurm job configuration output generated");
 
-        dbg!(&slurm_config);
+        //dbg!(&slurm_config);
+
         let job_name = slurm_config.job_name().as_ref().unwrap();
         let ntasks = slurm_config.ntasks().as_ref().unwrap();
 
+        job_names.push(job_name.to_string());
 
         let job_folder = args.output_folder.join(job_name);
         let job_input_folder = job_folder.join("input");
@@ -154,6 +159,9 @@ pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
         }
     }
 
+    rsync_upload_command(&args)?;
+    schedule_jobs_sciprt(&args, &job_names)?;
+
     Ok(())
 }
 
@@ -209,7 +217,7 @@ fn determine_slurm_configuration(
             // default the job_name slurm field to the name of the job that we have in the config
             // file
             job.set_default_job_name(job_name);
-            dbg!(&job);
+            //dbg!(&job);
             Ok(batch.override_with(&job))
         }
         (Some(mut batch), None) => {
@@ -236,15 +244,15 @@ fn slurm_header<W: Write>(mut writer: W) -> Result<(), std::io::Error> {
 
 fn slurm_footer<W: Write>(mut writer: W, mounts: &[Mount], tasks: usize) -> Result<(), std::io::Error> {
     writeln!(&mut writer, "\nmodule load singularity")?;
-    write!(&mut writer, "\napptainer run --nv --app distribute")?;
+    write!(&mut writer, "\nsingularity run --nv --app distribute")?;
 
     if !mounts.is_empty() {
         write!(&mut writer, " --bind ")?;
     }
     
     let input_arr = [
-        Mount::new(PathBuf::from("/input"), "./input/".to_string()),
-        Mount::new(PathBuf::from("/distribute_save"), "./output/".to_string())
+        Mount::new(PathBuf::from("/input"), "$PWD/input".to_string()),
+        Mount::new(PathBuf::from("/distribute_save"), "$PWD/output".to_string())
     ];
 
     let mut mounts_iter = input_arr
@@ -258,7 +266,7 @@ fn slurm_footer<W: Write>(mut writer: W, mounts: &[Mount], tasks: usize) -> Resu
         // TODO: may need to make this host_fs path relative to the root folder instead of just the
         // name, since purely the name of the folder may make this job unable to launch from
         // outside this directory...
-        write!(&mut writer, "{}:{}:rw", mount.host_fs_folder_name,mount.container_path.display())?;
+        write!(&mut writer, "{}:{}", mount.host_fs_folder_name,mount.container_path.display())?;
 
         // if we are not the last item in the iterator, then add a comma for the next item
         if mounts_iter.peek().is_some() {
@@ -267,6 +275,61 @@ fn slurm_footer<W: Write>(mut writer: W, mounts: &[Mount], tasks: usize) -> Resu
     }
 
     write!(&mut writer, " ../{SIF_FILE} {tasks}")?;
+
+    Ok(())
+}
+
+/// write a file that the user can use to upload the files to the cluster
+fn rsync_upload_command(args:&cli::Slurm) -> Result<(), error::Slurm> {
+    let filename = args.output_folder.join("rsync_upload.sh");
+
+    let cluster_username = &args.cluster_username;
+    let cluster_server_address = &args.cluster_address;
+    let upload_destination_directory = &args.cluster_upload_destination.display();
+
+    let mut file = std::fs::File::create(&filename)
+        .map_err(|e| error::CreateFile::new(e, filename.clone()))?;
+
+    let command = format!("rsync -rlt --safe-links $DIR {cluster_username}@{cluster_server_address}:{upload_destination_directory}");
+
+    file.write_all(b"# run this script to upload the files to the cluster for execution\n")
+        .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+    // ensure the current working directory is handled properly
+    file.write_all(CURRENT_DUR_BASH)
+        .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+    file.write_all(b"\n")
+        .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+    file.write_all(command.as_bytes())
+        .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+
+    Ok(())
+}
+
+/// write a script to schedule all the jobs sequentially
+fn schedule_jobs_sciprt(args:&cli::Slurm, jobs: &[String]) -> Result<(), error::Slurm> {
+    let filename = args.output_folder.join("schedule_jobs.sh");
+
+    let mut file = std::fs::File::create(&filename)
+        .map_err(|e| error::CreateFile::new(e, filename.clone()))?;
+
+    let srun_command = |job_name: &str| format!("cd $DIR/{job_name}\nsbatch slurm_input.sl");
+
+    writeln!(file, "# run this script on the SLURM cluster to schedule all the jobs")
+        .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+
+    // ensure the current working directory is handled properly
+    file.write_all(CURRENT_DUR_BASH)
+        .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+
+    writeln!(file, "")
+        .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+
+    for job_name in jobs {
+        let command = srun_command(&job_name);
+
+        writeln!(file, "{command}\n")
+            .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+    }
 
     Ok(())
 }

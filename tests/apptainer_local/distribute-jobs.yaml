@@ -33,5 +33,5 @@ slurm:
   mem_per_cpu: 10M
   hint: nomultithread
   time: 00:01:00
-  partition: somepart
-  account: accountname
+  partition: cpu-s6-test-0
+  account: cpu-s6-test-0
