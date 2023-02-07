@@ -12,3 +12,5 @@ tests/check_pull/server
 **/.venv
 pybind/distribute-jobs.yaml
 tests/apptainer_local/slurm_output
+paper/paper.jats
+paper/paper.pdf
