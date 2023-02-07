@@ -10,9 +10,10 @@ authors:
   - name: Brooks Karlik
     orcid: 0000-0000-0000-0000
     equal-contrib: true
-	corresponding: true
+    corresponding: true
     affiliation: 1
   - name: Aditya Nair
+    equal-contrib: false
     orcid: 0000-0000-0000-0000
     affiliation: 1
 affiliations:

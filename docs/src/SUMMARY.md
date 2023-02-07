@@ -2,10 +2,11 @@
 
 - [Introduction](./introduction.md)
 - [Installation](./install.md)
-- [Command Basics](./commands.md)
+- [Overview](./overview.md)
 - [Configuration](./configuration.md)
 	- [Apptainer Jobs](./apptainer.md)
 	- [Python Jobs](./python.md)
+- [Command Basics](./commands.md)
 - [Python Api](./python_api.md)
 - [Available Capabilities](capabilities.md)
 - [Admin Setup](./admin_setup.md)
