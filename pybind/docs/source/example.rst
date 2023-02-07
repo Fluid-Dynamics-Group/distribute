@@ -113,4 +113,3 @@ This generates:
       account: my_account
       mail_user: null
       mail_type: null
-

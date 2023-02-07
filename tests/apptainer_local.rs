@@ -97,9 +97,6 @@ fn slurm_output_verify() {
 
     verify_basic_output(&task1_dir);
     verify_basic_output(&task2_dir);
-
-    //fs::remove_dir_all(output_dir).unwrap();
-    panic!()
 }
 
 fn verify_basic_output(task_dir: &std::path::Path) {

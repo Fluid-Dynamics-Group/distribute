@@ -24,15 +24,13 @@ benefits for using apptainer from an implementation standpoint in `distribute`:
 
 ## Apptainer definition files
 
-This documentation is not the place to discuss the intricacies of apptainer. As a user, we have tried to make
-it as easy as possible to build an image that can run on `distribute`. 
-The [apptainer-common](https://github.com/Fluid-Dynamics-Group/apptainer-common) was purpose built to give you a good
-starting place with compilers and runtimes (including fortran, C++, openfoam, python3). Your definition file
-needs to look something like this:
+This documentation is not the place to discuss the intricacies of apptainer definition files. A better overview can be found in the
+official [apptainer documentation](https://apptainer.org/user-docs/master/definition_files.html). If you are familiar with 
+docker, you can get up and running pretty quickly. Below is a short example of what a definition file looks like:
 
 ```
-Bootstrap: library
-From: library://vanillabrooks/default/fluid-dynamics-common
+Bootstrap: docker
+From: ubuntu:22.04
 
 %files from build
     # in here you copy files / directories from your host machine into the 
@@ -115,7 +113,7 @@ From: library://vanillabrooks/default/fluid-dynamics-common
 	python3 /run.py $1
 ```
 
-I want to emphasize one specific thing from this file: the `%apprun distribute` section is very important. On a node 
+One *important* note from this file: the `%apprun distribute` section is critical. On a node 
 with 16 cores, your `distribute` section gets called like this:
 
 ```
@@ -143,9 +141,8 @@ allowed_processors_int = int(allowed_processors)
 assert(allowed_processors_int, 16)
 ```
 
-**You must ensure that you use all available cores on the machine**. If your code can only use a reduced number
-of cores, make sure you specify this in your `capabilities` section! **Do not run single threaded
-processes on the distributed computing network - they will not go faster**.
+**You must ensure that you use all (or as many) available cores on the machine as possible**! For the most part,
+you **do not want to run single threaded processes on the distributed computing network - they will not go faster**.
 
 Full documentation on apptainer definition files can be found on the [official site](https://apptainer.org/user-docs/master/definition_files.html). 
 If you are building an apptainer image based on nvidia HPC resources, your header would look something like this 
@@ -167,9 +164,9 @@ APPTAINER_TMPDIR="~/apptainer" sudo -E apptainer build your-output-file.sif buil
 
 where `your-output-file.sif` is the desired name of the `.sif` file that apptainer will spit out, and `build.apptainer` is the 
 definition file you have built. The `APPTAINER_TMPDIR="~/apptainer"` portion of the command sets the `APPTAINER_TMPDIR` environment
-variable to a location on disk (`~/apptainer`) because apptainer / apptainer can often require more memory to compile the `sif` file
+variable to a location on disk (`~/apptainer`) because apptainer can often require more memory to compile the `sif` file
 than what is available on your computer (yes, more than your 64 GB). Since `apptainer build` requires root privileges, it must be run with `sudo`. The additional
-`-E` passed to `sudo` copies the environment variables from the host shell (which is needed for `APPTAINER_TMPDIR`)
+`-E` passed to `sudo` copies the environment variables from the host shell (which is needed to read `APPTAINER_TMPDIR`)
 
 ## Binding Volumes (Mutable Filesystems)
 
