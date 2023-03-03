@@ -52,20 +52,20 @@ are useful for cluster computing but require specialized hardware not typically 
 standard workstations. Furthermore, these workload managers assume that nodes are solely 
 dedicated to computing, which may not always be the case.
 
-Our tool, distribute, eliminates the need for specialized hardware such as memory fabric 
+Our tool, *distribute*, eliminates the need for specialized hardware such as memory fabric 
 or shared filesystems, making almost no assumptions about the architecture of the computers. 
-It schedules multiple jobs concurrently across several computers, as shown in Figure 
+It schedules multiple jobs concurrently across several computers, as shown in
 \autoref{fig:computing-layout}, avoiding the simultaneous execution of a single job across 
-multiple computers. While using distribute, normal workstation usage may slow down 
+multiple computers. While using *distribute*, normal workstation usage may slow down 
 during simulations, but we offer a way to temporarily pause background jobs to allow for normal work to continue.
 
 Running a multidimensional parameter space sweep may result in hundreds of jobs, and our tool provides a 
-Python package to programmatically generate the configuration file. Furthermore, distribute can 
+Python package to programmatically generate the configuration file. Furthermore, *distribute* can 
 transpile its job execution configuration to the SLURM format, making it easy to run a batch of 
-jobs previously executed on a distribute cluster of in-house machines on a larger cluster with hundreds of cores.
+jobs previously executed on a *distribute* cluster of in-house machines on a larger cluster with hundreds of cores.
 
 ![
-Proposed framework
+Left: traditional horizontally scaling compute framework. Right: proposed compute framework.
 \label{fig:computing-layout}
 ](./node_layout.png)
 
