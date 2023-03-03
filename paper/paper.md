@@ -30,53 +30,48 @@ bibliography: paper.bib
 
 # Summary
 
-Distributed computing is foundational to the progress of computational sciences. Workload managers
-employed by computing clusters
-address the requirement for running simulations at scale as well as sharing a pool of computational
-resources between multiple users. We present a tool to efficiently allocate computational resources 
-for small clusters of computers found in many research groups without specialized hardware 
-(memory fabric, shared filesystems, etc). Compute nodes in the cluster may also function as standard
-workstations for researchers; any currently running job on a machine may be suspended temporarily 
-for normal research to be carried out.
+Distributed computing is an essential element for advancing computational sciences. Workload managers 
+used by computing clusters help to meet the need for running large-scale simulations and efficiently 
+sharing computational resources among multiple users [@reuther2016scheduler]. In this context, we 
+introduce a tool designed to allocate computational resources effectively for small clusters of 
+computers commonly found in research groups lacking specialized hardware such as computing fabric 
+or shared file-systems. Additionally, compute nodes within the cluster can also serve as standard 
+workstations for researchers, and any ongoing job on a machine can be temporarily suspended to 
+enable normal research activities to proceed.
 
 # Statement of need
 
-Computational resources of many research groups are either underutilized or over-scheduled. 
-While one computer may work several days to get through a queue of simulations, other computers
-that are available to the group sit unused. Manually dividing up simulations to run on different computers
-is time consuming, and with heterogeneous hardware configurations, usually inefficient. Moreover, 
-multiple individuals may run jobs on a given computer at the same time, slowing the progress of 
-both.
+Many research groups face challenges with inefficient utilization or over-scheduling of their 
+computational resources. While some computers work for days to complete a queue of simulations, 
+others remain unused. Dividing simulations manually among computers is time-consuming and often 
+ineffective due to varying hardware configurations. Additionally, multiple individuals running 
+jobs on a single computer can slow down progress for everyone involved.
 
-The use of existing workload managers ([@SLURM], [@TORQUE], etc) address cluster computing well, but require
-specialized hardware that standard workstations are not equipped with. Moreover, these workload managers
-assume that the nodes they run on are exclusively used for compute and allocate resources accordingly.
+Existing workload managers such as SLURM [@SLURM] and TORQUE [@TORQUE]
+are useful for cluster computing but require specialized hardware not typically available on 
+standard workstations. Furthermore, these workload managers assume that nodes are solely 
+dedicated to computing, which may not always be the case.
 
-distribute makes almost no assumptions about the architecture of your computers: no memory fabric or shared
-filesystems are required to operate it. distribute does not attempt to run a single job across many computers
-simultaneously. Instead, \autoref{fig:computing-layout} shows that distribute solves computing problems by scheduling 
-several jobs on several computers concurrently. 
-Since distribute is built to utilize existing hardware, the normal use of the workstations 
-may be slowed while the simulations are executed. To alleviate this burden, distribute provides a way to pause
-the execution of a background job on a system for normal work to continue.
+Our tool, distribute, eliminates the need for specialized hardware such as memory fabric 
+or shared filesystems, making almost no assumptions about the architecture of the computers. 
+It schedules multiple jobs concurrently across several computers, as shown in Figure 
+\autoref{fig:computing-layout}, avoiding the simultaneous execution of a single job across 
+multiple computers. While using distribute, normal workstation usage may slow down 
+during simulations, but we offer a way to temporarily pause background jobs to allow for normal work to continue.
 
-Sweeps over a multidimensional parameter space may lead to hundreds of jobs to run, so distribute
-provides a python package to generate its configuration file programmatically.
-distribute also provides a way to transpile its job execution configuration to a SLURM configuration format.
-Therefore, a batch of jobs that was previously run on a distrbute cluster of in-house machines may be easily
-translated to run on a much larger cluster and execute on hundreds of cores concurrently.
+Running a multidimensional parameter space sweep may result in hundreds of jobs, and our tool provides a 
+Python package to programmatically generate the configuration file. Furthermore, distribute can 
+transpile its job execution configuration to the SLURM format, making it easy to run a batch of 
+jobs previously executed on a distribute cluster of in-house machines on a larger cluster with hundreds of cores.
 
 ![
-Distributed computing in traditional systems such as [@SLURM] (left), 
-distributed computing system of distribute (right) over time as they process two jobs. 
-Colored boxes denote equal cpu-hours of compute time.
-Since distribute does not require or use shared memory or filesystems, each 
-job is run independently of other nodes in the cluster.
+Proposed framework
 \label{fig:computing-layout}
 ](./node_layout.png)
 
 # Acknowledgements
 
-TODO
+AGN acknowledges the support the National Science Foundation AI Institute in Dynamic systems 
+(Award no: 2112085, PM: Dr. Shahab Shojaei-Zadeh). 
 
 # References

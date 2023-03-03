@@ -1,5 +1,7 @@
 # Compute Node Setup
 
+First, ensure you have completed the common setup from the [admin setup](./admin_setup.md)
+
 ## As the `distribute` user created earlier
 
 create the following directories:

@@ -1,6 +1,8 @@
 # Head Node Setup
 
-the ip address of the compute node is important: it is the IP that all users will use to 
+First, ensure you have completed the common setup from the [admin setup](./admin_setup.md)
+
+The ip address of the head node is important: it is the IP that all users will use to 
 send jobs to the cluster. Ensure this is documented somewhere.
 
 ## As the `distribute` user created earlier
