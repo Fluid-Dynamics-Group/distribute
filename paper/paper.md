@@ -1,5 +1,5 @@
 ---
-title: 'distribute: Easy to use Distributed Computing without Assumptions'
+title: 'distribute: Easy to use Resource Manager for Distributed Computing without Assumptions'
 tags:
   - Rust
   - Python
@@ -8,24 +8,20 @@ tags:
   - linux
 authors:
   - name: Brooks Karlik
-    orcid: 0000-0000-0000-0000
+    orcid: 0000-0002-1431-5199
     equal-contrib: true
     corresponding: true
     affiliation: 1
   - name: Aditya Nair
     equal-contrib: false
-    orcid: 0000-0000-0000-0000
+    orcid: 0000-0002-8979-8420
     affiliation: 1
 affiliations:
  - name: University of Nevada, Reno
    index: 1
-date: 30 January 2023
+date: 3 March 2023
 bibliography: paper.bib
 
-# Optional fields if submitting to a AAS journal too, see this blog post:
-# https://blog.joss.theoj.org/2018/12/a-new-collaboration-with-aas-publishing
-# aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
-# aas-journal: Astrophysical Journal <- The name of the AAS journal.
 ---
 
 # Summary
