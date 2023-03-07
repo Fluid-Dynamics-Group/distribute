@@ -18,21 +18,26 @@ benefits for using apptainer from an implementation standpoint in `distribute`:
 2. Apptainer compiles down to a single `.sif` file that can easily be sent to the `distribute` server and passed to compute nodes
 3. Once your code has been packaged in apptainer, it is very easy to run it on paid HPC clusters
 
-## Overview of Apptainer configuration files
+## Packaging a Solver with Apptainer
+
+In order to package a given solver into apptainer there are three main tasks:
+
+1. Generate a apptainer definition file to compile code
+2. For large numbers of jobs:
+	* a python script to generate input files to the solver and generate `distribute` configuration files
+3. Determine what directories in your container should be mutable (often none), include those paths in your configuration file
 
 ![](./figs/apptainer_config_flowchart.png)
 
 ## Apptainer definition files
 
-This documentation is not the place to discuss the intricacies of apptainer. As a user, we have tried to make
-it as easy as possible to build an image that can run on `distribute`. 
-The [apptainer-common](https://github.com/Fluid-Dynamics-Group/apptainer-common) was purpose built to give you a good
-starting place with compilers and runtimes (including fortran, C++, openfoam, python3). Your definition file
-needs to look something like this:
+This documentation is not the place to discuss the intricacies of apptainer definition files. A better overview can be found in the
+official [apptainer documentation](https://apptainer.org/user-docs/master/definition_files.html). If you are familiar with 
+docker, you can get up and running pretty quickly. Below is a short example of what a definition file looks like:
 
 ```
-Bootstrap: library
-From: library://vanillabrooks/default/fluid-dynamics-common
+Bootstrap: docker
+From: ubuntu:22.04
 
 %files from build
     # in here you copy files / directories from your host machine into the 
@@ -49,73 +54,7 @@ From: library://vanillabrooks/default/fluid-dynamics-common
     # execute your solver here
 	# this section is called from a compute node
 ```
-
-A (simplified) example of a definition file I have used is this:
-
-```
-Bootstrap: library
-From: library://vanillabrooks/default/fluid-dynamics-common
-
-%files
-	# copy over my files
-	/home/brooks/github/hit3d/ /hit3d
-	/home/brooks/github/hit3d-utils/ /hit3d-utils
-	/home/brooks/github/vtk/ /vtk
-	/home/brooks/github/vtk-analysis/ /vtk-analysis
-	/home/brooks/github/fourier/ /fourier
-	/home/brooks/github/ndarray-gradient/ /ndarray-gradient
-	/home/brooks/github/matrix-notify/ /matrix-notify
-	/home/brooks/github/distribute/ /distribute
-
-%environment
-	CARGO_TARGET_DIR="/target"
-
-%post
-	# add cargo to the environment
-	export PATH="$PATH":"$HOME/.cargo/bin"
-
-	cd /hit3d-utils
-	cargo install --path .
-	ls -al /hit3d-utils
-
-	cd /hit3d/src
-	make
-
-	cd /vtk-analysis
-	cargo install --path .
-
-	# move the binaries we just installed to the root
-	mv $HOME/.cargo/bin/hit3d-utils /hit3d/src
-	mv $HOME/.cargo/bin/vtk-analysis /hit3d/src
-
-	#
-	# remove directories that just take up space
-	#
-	rm -rf /hit3d/.git
-	rm -rf /hit3d/target/
-	rm -rf /hit3d/src/output/
-	rm -rf /hit3d-utils/.git
-	rm -rf /hit3d-utils/target/
-
-	#
-	# simplify some directories
-	#
-	mv /hit3d/src/hit3d.x /hit3d.x
-
-	# copy the binaries to the root
-	mv /hit3d/src/vtk-analysis /vtk-analysis-exe
-	mv /hit3d/src/hit3d-utils /hit3d-utils-exe
-
-	mv /hit3d-utils/plots /plots
-
-	mv /hit3d-utils/generic_run.py /run.py
-
-%apprun distribute
-	cd /
-	python3 /run.py $1
-```
-
-I want to emphasize one specific thing from this file: the `%apprun distribute` section is very important. On a node 
+One *important* note from this file: the `%apprun distribute` section is critical. On a node 
 with 16 cores, your `distribute` section gets called like this:
 
 ```
@@ -123,7 +62,8 @@ apptainer run --app distribute 16
 ```
 
 In reality, this call is actually slightly more complex (see below), but this command is illustrative of the point.
-**You must ensure you pass the number of allowed cores down to whatever run script you are using**. In our example:
+**You must ensure you pass the number of allowed cores down to whatever run script / solver you are using, or start an MPI**. 
+For example, to pass the information to a python script:
 
 ```
 %apprun distribute
@@ -143,11 +83,9 @@ allowed_processors_int = int(allowed_processors)
 assert(allowed_processors_int, 16)
 ```
 
-**You must ensure that you use all available cores on the machine**. If your code can only use a reduced number
-of cores, make sure you specify this in your `capabilities` section! **Do not run single threaded
-processes on the distributed computing network - they will not go faster**.
+**You must ensure that you use all (or as many) available cores on the machine as possible**! For the most part,
+you **do not want to run single threaded processes on the distributed computing network - they will not go faster**.
 
-Full documentation on apptainer definition files can be found on the [official site](https://apptainer.org/user-docs/master/definition_files.html). 
 If you are building an apptainer image based on nvidia HPC resources, your header would look something like this 
 ([nvidia documentation](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/nvhpc)):
 
@@ -158,7 +96,8 @@ From: nvcr.io/nvidia/nvhpc:22.1-devel-cuda_multi-ubuntu20.05
 
 ## Building Apptainer Images
 
-Compiling an apptainer definition file to a `.sif` file to run on the `distribute` compute is relatively simple (on linux). Run something like this:
+Compiling an apptainer definition file to a `.sif` file to run on the `distribute` compute is 
+relatively simple (on linux). Run something like this:
 
 ```
 mkdir ~/apptainer
@@ -167,9 +106,9 @@ APPTAINER_TMPDIR="~/apptainer" sudo -E apptainer build your-output-file.sif buil
 
 where `your-output-file.sif` is the desired name of the `.sif` file that apptainer will spit out, and `build.apptainer` is the 
 definition file you have built. The `APPTAINER_TMPDIR="~/apptainer"` portion of the command sets the `APPTAINER_TMPDIR` environment
-variable to a location on disk (`~/apptainer`) because apptainer / apptainer can often require more memory to compile the `sif` file
+variable to a location on disk (`~/apptainer`) because apptainer can often require more memory to compile the `sif` file
 than what is available on your computer (yes, more than your 64 GB). Since `apptainer build` requires root privileges, it must be run with `sudo`. The additional
-`-E` passed to `sudo` copies the environment variables from the host shell (which is needed for `APPTAINER_TMPDIR`)
+`-E` passed to `sudo` copies the environment variables from the host shell (which is needed to read `APPTAINER_TMPDIR`)
 
 ## Binding Volumes (Mutable Filesystems)
 
