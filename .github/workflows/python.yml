@@ -27,9 +27,9 @@ jobs:
         pip3 install .
         python3 src/validate_bindings.py
     - name: Cache python wheels
-      uses: actions/cache@v3
+      uses: actions/cache/save@v3
       with:
-        key: python-wheels
+        key: ${{ runner.os }}-${{ hashFiles('**/*') }}
         path: |
           pybind/target/wheels
 
@@ -40,9 +40,8 @@ jobs:
     if: "startsWith(github.ref, 'refs/heads/master')"
     steps:
     - uses: actions/cache/restore@v3
-      #id: cache
       with:
-        key: python-wheels
+        key: ${{ runner.os }}-${{ hashFiles('**/*') }}
         path: pybind/target/wheels
     - uses: actions/setup-python@v4
       with:
