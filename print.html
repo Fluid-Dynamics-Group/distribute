@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">3.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.1.</strong> Python Jobs</a></li><li class="chapter-item expanded "><a href="apptainer.html"><strong aria-hidden="true">4.2.</strong> Apptainer Jobs</a></li></ol></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">5.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">6.</strong> Available Capabilities</a></li><li class="chapter-item expanded "><a href="machines.html"><strong aria-hidden="true">7.</strong> Machines</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">3.</strong> Overview</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="apptainer.html"><strong aria-hidden="true">4.1.</strong> Apptainer Jobs</a></li><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.2.</strong> Python Jobs</a></li></ol></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">6.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">7.</strong> Available Capabilities</a></li><li class="chapter-item expanded "><a href="admin_setup.html"><strong aria-hidden="true">8.</strong> Admin Setup</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="head_node_setup.html"><strong aria-hidden="true">8.1.</strong> Head Node Setup</a></li><li class="chapter-item expanded "><a href="compute_node_setup.html"><strong aria-hidden="true">8.2.</strong> Compute Node Setup</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -148,47 +148,45 @@
 <p><code>distribute</code> is a relatively simple command line utility for distributing compute jobs across the powerful
 lab computers. In essence, <code>distribute</code> provides a simple way to automatically schedule dozens of jobs 
 from different people across the small number of powerful computers in the lab. </p>
-<p>Besides having the configuration files begin easier to use, <code>distribute</code> also contains a mechanism for 
-only scheduling your jobs on nodes that meet your criteria. If you require OpenFoam to run your simulation,
-<code>distribute</code> automatically knows which of the three computers it can run the job on. This also allows you
-to robustly choose what your requirements are for your tasks. This allows us to prioritize
-use of the gpu machine to jobs requiring a gpu, increasing the overall throughput of jobs between all lab
-members.</p>
-<p>Another cool feature of <code>distribute</code> is that files that are not needed after each compute run are automatically
-wiped from the hard drive, preserving limited disk space on the compute machines. Files that are specified to be 
-saved (by you) are archived automatically on a 24 TB storage machine, and can be retrieved (and filtered) 
-to your personal computer with a single short command.</p>
-<p><code>distribute</code> competes in the same space as <a href="https://slurm.schedmd.com/overview.html">slurm</a>, which you would
-likely find on an actual compute cluster. The benefit of <code>distribute</code> is an all-in-one solution to running,
-archiving, and scheduling jobs with a single streamlined utility without messing around with the complexities
-of the (very detailed) slurm documentation. If you are still unconvinced, take a look at the overall architecture
-diagram that slurm provides:</p>
-<p><img src="https://slurm.schedmd.com/arch.gif" alt="" /></p>
-<p>Since the lab computers also function as day-to-day workstations for some lab members, some additional
+<h2 id="zero-downtime-computing"><a class="header" href="#zero-downtime-computing">Zero downtime computing</a></h2>
+<p><code>distribute</code> relies on some simple programming interfaces. From a batch of jobs (1-100s), <code>distribute</code>
+will automatically schedule each job in the batch to a compute node and archive the results on the 
+head node. After archival, the results of a batch are easy to pull down to a personal computer
+using a simple set of query rules and the original configuration file submitted to the cluster.
+Excess data can be deleted from a personal computer and re-downloaded later at will.</p>
+<p><code>distribute</code> is also partially fault tolerant: if a compute node goes down while executing a job,
+the job will be rescheduled to another compatible node. Once the original compute node is 
+restored, jobs will automatically resume execution on the node.</p>
+<h2 id="heterogeneous-compute-clusters"><a class="header" href="#heterogeneous-compute-clusters">Heterogeneous Compute Clusters</a></h2>
+<p><code>distribute</code> works on a simple &quot;capability&quot; based system to ensure that a batch of jobs 
+is only scheduled across a group of compute nodes that are compatible. For instance, specifying that
+a job requires large amounts of memory, a GPU, or a certain number of CPU cores.</p>
+<h2 id="slurm-compatibility"><a class="header" href="#slurm-compatibility">SLURM Compatibility</a></h2>
+<p>You can seamlessly transpile a configuration file for hundreds of <code>distribute</code> jobs to a SLURM-compatible format.
+Therefore, you can schedule several jobs on a local <code>distribute</code> cluster and then rerun the jobs 
+on a University cluster with a finer computational stencil or longer runtime seamlessly.</p>
+<h2 id="pausing-background-jobs"><a class="header" href="#pausing-background-jobs">Pausing Background Jobs</a></h2>
+<p>Since lab computers also function as day-to-day workstations for researchers, some additional
 features are required to ensure that they are functional outside of running jobs. <code>distribute</code> solves this issue 
 by allowing a user that is sitting at a computer to temporarily pause the currently executing job so that
-they may perform some simple work. This allows lab members to still quickly iterate on ideas without waiting
-hours for their jobs to reach the front of the queue. Since cluster computers are <em>never</em> used as 
-day-to-day workstations, popular compute schedulers like slurm don't provision for this.</p>
-<h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
-<p>Instead of complex scheduling algorithms and job queues, we can distill the overall architecture of the 
-system to a simple diagram:</p>
-<p><img src="https://i.imgur.com/e4YnOQG.png" alt="" /></p>
-<p>In summary, there is a very simple flow of information from the server to the nodes, and from the nodes to
-the server. The server is charged with sending the nodes any user-specified files (such as initial conditions,
-solver input files, or csv's of information) as well as instructions on how to compile and run the project.
-Once the job has finished, the user's script will move any and all files that they wish to archive to 
-a special directory. All files in the special directory will be transfered to the server and saved
-indefinitely. </p>
-<p>The archiving structure of <code>distribute</code> helps free up disk space on your laptop of workstation, and instead 
-keep large files (that will surely be useful at a later date) stored away on a purpose-build machine to 
-hold them. As long as your are connected to the university network - VPN or otherwise - you can access the 
-files dumped by your compute job at any time.</p>
-<h2 id="specifying-jobs"><a class="header" href="#specifying-jobs">Specifying Jobs</a></h2>
+they may perform some simple work. This allows users to still quickly iterate on ideas without waiting
+hours for their jobs to reach the front of the queue. 
+This behavior is incompatible with the philosophy of other workload managers such as SLURM.</p>
+<h2 id="matrix-notifications"><a class="header" href="#matrix-notifications">Matrix Notifications</a></h2>
+<p>If setup with <a href="https://matrix.org/">matrix</a> API keys, <code>distribute</code> can send you messages on the completion of your 
+jobs.</p>
+<h2 id="python-api"><a class="header" href="#python-api">Python API</a></h2>
 <p>We have thus far talked about all the cool things we can do with <code>distribute</code>, but none of this is free. As
-a famous Italian engineer once said, &quot;Theres no such thing as free lunch.&quot; The largest complexity with working
-with <code>distribute</code> is the configuration file that specifies how to compile run project. <code>distribute template python</code> 
-will generate the following file:</p>
+a famous Italian engineer once said, &quot;There is no such thing as free lunch.&quot; There are two complexities 
+from a user's point of view:</p>
+<ol>
+<li>Generating Configuration Files</li>
+<li>Packaging software in a compatible way for the cluster</li>
+</ol>
+<p>To alleviate the first point, <code>distribute</code> provides a short but well documented python package 
+to generate configuration files (short files can also be written by hand). 
+This makes it easy to perform sweeps with hundreds of jobs over a large parameter space.
+An example python configuration is below:</p>
 <pre><code class="language-yaml">meta:
   batch_name: your_jobset_name
   namespace: example_namespace
@@ -199,246 +197,45 @@ will generate the following file:</p>
     - apptainer
 python:
   initialize:
-    build_file: /path/to/build.py
+    build_file: 
+	  path: /path/to/build.py
   jobs:
     - name: job_1
       file: execute_job.py
     - name: job_2
       file: execute_job_2.py
 </code></pre>
-<p>We will explain all of these fields later, but surmise it to say that the configuration files come in 3 main sections. 
-The <code>meta</code> section will describe things that the head node must do, including what &quot;capabilities&quot; each node is required
-to have to run your server, a <code>batch_name</code> and <code>namespace</code> so that your compute results do not overwrite someone else's,
-and a <code>matrix</code> field so that you can specify an optional matrix username that will be pinged once all your 
-jobs have finished.</p>
-<p>The next section is the <code>initialize</code> section. This section specifies all the files and instructions that are required
-to compile your project before it is run. This step is kept separate from the running step so that we can ensure
-that your project is compiled only once before being run with different jobs in the third section.</p>
-<p>The third section tells <code>distribute</code> <em>how</em> to execute each job. If you are using a python configuration then your 
-<code>file</code> parameter will likely seek out the compiled binary from the second step and run the binary using whatever
-files you chose to be available.</p>
-<p>The specifics of the configuration file will be discussed in greater detail in a later section.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
 <p>In order to install <code>distribute</code> you must have a recent version of <code>rustc</code> and <code>cargo</code>. 
 Install instructions can be found <a href="https://www.rust-lang.org/tools/install">here</a>. </p>
 <p>Once you have it (and running <code>cargo</code> shows some output), you can install the project with </p>
 <pre><code>cargo install --git https://github.com/fluid-Dynamics-Group/distribute --force
 </code></pre>
-<p>and you are good to go! If you run into any trouble installing, let Brooks know.</p>
+<p>and you are good to go! If you run into any trouble installing file an issue on github.</p>
 <h2 id="python-api-install"><a class="header" href="#python-api-install">Python api install</a></h2>
+<p>After <code>rustc</code> and <code>cargo</code> are installed, the python package can be installed with</p>
 <pre><code>pip3 install distribute_compute_config
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="command-basics"><a class="header" href="#command-basics">Command Basics</a></h1>
-<p>There are a few commands that you will need to know to effectively work with <code>distribute</code>. Don't worry,
-they are not too complex. The full list of commands and their specific parameters can be found by running</p>
-<pre><code class="language-bash">$ distribute
-</code></pre>
-<p>at the time of writing, this yields:</p>
-<pre><code>distribute 0.9.4
-A utility for scheduling jobs on a cluster
-
-USAGE:
-    distribute [FLAGS] &lt;SUBCOMMAND&gt;
-
-FLAGS:
-    -h, --help         Prints help information
-        --save-log
-        --show-logs
-    -V, --version      Prints version information
-
-SUBCOMMANDS:
-    add              add a job set to the queue
-    client           start this workstation as a node and prepare it for a server connection
-    help             Prints this message or the help of the given subcommand(s)
-    kill             terminate any running jobs of a given batch name and remove the batch from the queue
-    node-status      check the status of all the nodes
-    pause            pause all currently running processes on this node for a specified amount of time
-    pull             Pull files from the server to your machine
-    run              run a apptainer configuration file locally (without sending it off to a server)
-    server           start serving jobs out to nodes using the provied configuration file
-    server-status    check the status of all the nodes
-    template         generate a template file to fill for executing with `distribute add`
-</code></pre>
-<h2 id="add"><a class="header" href="#add">add</a></h2>
-<p><code>distribute add</code> is how you can add jobs to the server queue. There are two main things needed to operate this command: 
-a configuration file and the IP of the main server node. If you do not specify the name of a configuration
-file, it will default to <code>distribute-jobs.yaml</code>. This command can be run (for most cases) as such:</p>
-<pre><code class="language-bash">distribute add --ip &lt;server ip address here&gt; my-distribute-jobs-file.yaml
-</code></pre>
-<p>or, using defaults:</p>
-<pre><code class="language-bash">distribute add --ip &lt;server ip address here&gt;
-</code></pre>
-<p>If there exists no node that matches all of your required capabilities, the job will not be run. There also exists a <code>--dry</code> flag
-if you want to check that your configuration file syntax is correct, and a <code>--show-caps</code> flag to print the capabilities 
-of each node.</p>
-<h2 id="template"><a class="header" href="#template">template</a></h2>
-<p><code>distribute template</code> is a simple way to create a <code>distribute-jobs.yaml</code> file that either runs with <code>python</code> or <code>apptainer</code>s. The specifics
-of each configuration file will be discussed later.</p>
-<pre><code class="language-bash">distribute template python
-</code></pre>
-<pre><code class="language-yaml">---
-meta:
-  batch_name: your_jobset_name
-  namespace: example_namespace
-  matrix: ~
-  capabilities:
-    - gfortran
-    - python3
-    - apptainer
-python:
-  initialize:
-    build_file: /path/to/build.py
-    required_files:
-      - path: /file/always/present/1.txt
-        alias: optional_alias.txt
-      - path: /another/file/2.json
-        alias: ~
-      - path: /maybe/python/utils_file.py
-        alias: ~
-  jobs:
-    - name: job_1
-      file: execute_job.py
-      required_files:
-        - path: job_configuration_file.json
-          alias: ~
-        - path: job_configuration_file_with_alias.json
-          alias: input.json
-</code></pre>
-<p>and</p>
-<pre><code class="language-bash">distribute template apptainer
-</code></pre>
-<pre><code class="language-yaml">---
-meta:
-  batch_name: your_jobset_name
-  namespace: example_namespace
-  matrix: ~
-  capabilities:
-    - gfortran
-    - python3
-    - apptainer
-apptainer:
-  initialize:
-    sif: execute_container.sif
-    required_files:
-      - path: /file/always/present/1.txt
-        alias: optional_alias.txt
-      - path: /another/file/2.json
-        alias: ~
-      - path: /maybe/python/utils_file.py
-        alias: ~
-    required_mounts:
-      - /path/inside/container/to/mount
-  jobs:
-    - name: job_1
-      required_files:
-        - path: job_configuration_file.json
-          alias: ~
-        - path: job_configuration_file_with_alias.json
-          alias: input.json
-</code></pre>
-<h2 id="pause"><a class="header" href="#pause">pause</a></h2>
-<p>If you use a compute node as a work station, <code>distribute pause</code> will pause all locally running jobs so that you 
-can use the workstation normally. It takes a simple argument as an upper bound on how long the tasks can be paused. The maximum amount of time that 
-a job can be paused is four hours (<code>4h</code>), but if this is not enough you can simply rerun the command. This 
-upper bound is just present to remove any chance of you accidentally leaving the jobs paused for an extended
-period of time.</p>
-<p>If you decide that you no longer need the tasks paused, you can simply <code>Ctrl-C</code> to quit the hanging command
-and all processes will be automatically resumed. <strong>Do not close your terminal</strong> before the pausing finishes or
-you have canceled it with <code>Ctrl-C</code> as the job on your machine will never resume.</p>
-<p>some examples of this command:</p>
-<pre><code class="language-bash">sudo distribute pause --duration 4h
-</code></pre>
-<pre><code class="language-bash">sudo distribute pause --duration 1h30m10s
-</code></pre>
-<pre><code class="language-bash">sudo distribute pause --duration 60s
-</code></pre>
-<h2 id="server-status"><a class="header" href="#server-status">server-status</a></h2>
-<p><code>distribute status</code> prints out all the running jobs at the head node. It will show you all the job batches
-that are currently running, as well as the number of jobs in that set currently running and the 
-names of the jobs that have not been run yet. You can use this command to fetch the required parameters
-to execute the <code>kill</code> command if needed.</p>
-<pre><code class="language-bash">distribute server-status --ip &lt;server ip here&gt;
-</code></pre>
-<p>If there is no output then there are no jobs currently in the queue or executing on nodes.</p>
-<p><strong>TODO</strong> An example output here</p>
-<pre><code>260sec
-        :jobs running now: 1
-10sec_positive
-        -unforced_viscous_decay
-        -unforced_inviscid_decay
-        -viscous_forcing_no_compensation_eh_first
-        -viscous_forcing_no_compensation_eh_second
-        -viscous_forcing_no_compensation_eh_both
-        :jobs running now: 0
-</code></pre>
-<h2 id="pull"><a class="header" href="#pull">pull</a></h2>
-<p><code>distribute pull</code> takes a <code>distribute-jobs.yaml</code> config file and pulls all the files associated with that batch
-to a specified <code>--save-dir</code> (default is the current directory). This is really convenient because the only thing
-you need to fetch your files is the original file you used to compute the results in the first place!</p>
-<p>Since you often dont want to pull <em>all the files</em> - which might include tens or hundreds of gigabytes of flowfield
-files - this command also accepts <code>include</code> or <code>exclude</code> filters, which consist of a list of regular expressions
-to apply to the file path.  If using a <code>include</code> query, any file matching one of the regexs will be pulled to 
-your machine. If using a <code>exclude</code> query, any file matching a regex will <em>not</em> be pulled to your computer. </p>
-<p>The full documentation on regular expressions is found <a href="https://docs.rs/regex/latest/regex/">here</a>, but luckily 
-most character strings are valid regular exprssions (barring characters like <code>+</code>, <code>-</code>, <code>(</code>, <code>)</code>). Lets say your
-<code>meta</code> section of the config file looks like this:</p>
-<pre><code class="language-yaml">---
-meta:
-  batch_name: incompressible_5second_cases
-  namespace: brooks_openfoam_cases
-  capabilities: []
-</code></pre>
-<p>and your directory tree looks something like this</p>
-<pre><code>├── incompressible_5second_cases
-    ├── case1
-    │   ├── flowfield.vtk
-    │   └── statistics.csv
-    ├── case2
-    │   ├── flowfield.vtk
-    │   └── statistics.csv
-    └── case3
-        ├── flowfield.vtk
-        └── statistics.csv
-</code></pre>
-<p>If you wanted to exclude any file with a <code>vtk</code> extension, you could</p>
-<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
-	exclude \
-		--exclude &quot;vtk&quot;
-</code></pre>
-<p>Or, if you wanted to exclude all of the case3 files and all vtk files:</p>
-<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
-	exclude \
-		--exclude &quot;vtk&quot; \
-		--exclude &quot;case3&quot;
-</code></pre>
-<p>Maybe you only want to pull case1 files:</p>
-<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
-	include \
-		--include &quot;case1&quot;
-</code></pre>
-<h2 id="run"><a class="header" href="#run">run</a></h2>
-<p><code>distribute run</code> will run an apptainer job locally. It is usefull for debugging apptainer jobs
-since the exact commands that are passed to the container are not always intuitive. </p>
-<pre><code>distribute run --help
-</code></pre>
-<pre><code>distribute-run 0.6.0
-run a apptainer configuration file locally (without sending it off to a server)
-
-USAGE:
-    distribute run [FLAGS] [OPTIONS] [job-file]
-
-FLAGS:
-        --clean-save    allow the save_dir to exist, but remove all the contents of it before executing the code
-    -h, --help          Prints help information
-    -V, --version       Prints version information
-
-OPTIONS:
-    -s, --save-dir &lt;save-dir&gt;    the directory where all the work will be performed [default: ./distribute-run]
-
-ARGS:
-    &lt;job-file&gt;    location of your configuration file [default: distribute-jobs.yaml]
-</code></pre>
-<p>An example is provided in the apptainer jobs section.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="overview"><a class="header" href="#overview">Overview</a></h1>
+<p><code>distribute</code> operates similar to a programming function. Using <code>apptainer</code> to precompile on a personal machine,
+or a python script to compile on a compute node,
+a solver is defined. After a solver is defined, <code>distribute</code> schedules jobs to each compute node with a compiled solver on it.
+Each job contains some input files that are downloaded from the head node to compute node and placed in a predefined directory
+for the solver code to access.</p>
+<p>After execution is finished, the output files from the solver (saved in a predefined directory) are uploaded to the head node
+to be downloaded by the user at a later point in time. </p>
+<p><img src="./figs/input_outputs.png" alt="" /></p>
+<p>In some sense, you can think of <code>distribute</code> as a function of purely the inputs: some input files are placed in a directory
+as the input to the function, and your solver code (&quot;function&quot;) places the outputs in another directory.</p>
+<h2 id="predefined-directories"><a class="header" href="#predefined-directories">Predefined Directories</a></h2>
+<p>There are some special directories that define where input files are placed and output files to be placed for proper archiving</p>
+<table><thead><tr><th></th><th>Apptainer</th><th>Python</th></tr></thead><tbody>
+<tr><td>input file directory</td><td>/input</td><td>/distribute_save</td></tr>
+<tr><td>output file directory</td><td>./input</td><td>./distribute_save</td></tr>
+</tbody></table>
+<p>In the case of python, you are responsible for tracking the correct paths to the input and output directories
+as they are only relative locations. </p>
+<p>For apptainer, the input and output directories are mounted into the container from the host filesystem.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
 <p>Configuration files are fundamental to how <code>distribute</code> works. Without a configuration file, the server would not 
 know what nodes that jobs could be run on, or even what the content of each job is. Configuration files 
@@ -634,6 +431,362 @@ is the python build script output for node-1), as well as the output for each jo
 the previous batch will be deleted or combined with the new job.</p>
 <h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
 <p>Examples creating each configuration file can be found in the current page's subchapters.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="apptainer"><a class="header" href="#apptainer">Apptainer</a></h1>
+<p>Apptainer (previously named Singularity) is a container system often used for packaging HPC applications. For us,
+apptainer is useful for distributing your compute jobs since you can specify the exact dependencies required
+for running. If your container runs on your machine, it will run on the <code>distribute</code>d cluster!</p>
+<p>As mentioned in the introduction, you <strong>must ensure that your container does not write to any directories that are not bound by the host
+system</strong>. This will be discussed further below, but suffice it to say that writing to apptainer's immutable filesystem
+will crash your compute job.</p>
+<h2 id="versus-docker"><a class="header" href="#versus-docker">Versus Docker</a></h2>
+<p>There is an official documentation page discussing the differences between docker
+and apptainer <a href="https://apptainer.org/user-docs/master/singularity_and_docker.html">here</a>. There a few primary
+benefits for using apptainer from an implementation standpoint in <code>distribute</code>:</p>
+<ol>
+<li>Its easy to use GPU compute from apptainer</li>
+<li>Apptainer compiles down to a single <code>.sif</code> file that can easily be sent to the <code>distribute</code> server and passed to compute nodes</li>
+<li>Once your code has been packaged in apptainer, it is very easy to run it on paid HPC clusters</li>
+</ol>
+<h2 id="packaging-a-solver-with-apptainer"><a class="header" href="#packaging-a-solver-with-apptainer">Packaging a Solver with Apptainer</a></h2>
+<p>In order to package a given solver into apptainer there are three main tasks:</p>
+<ol>
+<li>Generate a apptainer definition file to compile code</li>
+<li>For large numbers of jobs:
+<ul>
+<li>a python script to generate input files to the solver and generate <code>distribute</code> configuration files</li>
+</ul>
+</li>
+<li>Determine what directories in your container should be mutable (often none), include those paths in your configuration file</li>
+</ol>
+<p><img src="./figs/apptainer_config_flowchart.png" alt="" /></p>
+<h2 id="apptainer-definition-files"><a class="header" href="#apptainer-definition-files">Apptainer definition files</a></h2>
+<p>This documentation is not the place to discuss the intricacies of apptainer definition files. A better overview can be found in the
+official <a href="https://apptainer.org/user-docs/master/definition_files.html">apptainer documentation</a>. If you are familiar with 
+docker, you can get up and running pretty quickly. Below is a short example of what a definition file looks like:</p>
+<pre><code>Bootstrap: docker
+From: ubuntu:22.04
+
+%files from build
+    # in here you copy files / directories from your host machine into the 
+	# container so that they may be accessed and compiled. 
+	# the sintax is:
+
+	/path/to/host/file /path/to/container/file
+
+%post
+    # install any extra packages required here
+	# possibly with apt, or maybe pip3
+
+%apprun distribute
+    # execute your solver here
+	# this section is called from a compute node
+</code></pre>
+<p>One <em>important</em> note from this file: the <code>%apprun distribute</code> section is critical. On a node 
+with 16 cores, your <code>distribute</code> section gets called like this:</p>
+<pre><code>apptainer run --app distribute 16
+</code></pre>
+<p>In reality, this call is actually slightly more complex (see below), but this command is illustrative of the point.
+<strong>You must ensure you pass the number of allowed cores down to whatever run script / solver you are using, or start an MPI</strong>. 
+For example, to pass the information to a python script:</p>
+<pre><code>%apprun distribute
+	cd /
+	python3 /run.py $1
+</code></pre>
+<p>We make sure to pass down the <code>16</code> we received with <code>$1</code> which corresponds to &quot;the first argument that this bash script was 
+called with&quot;. Similar to the python configuration, your python file is also responsible for parsing this value and running 
+your solver with the appropriate number of cores. You can parse the <code>$1</code> value you pass to python using the <code>sys.argv</code> value 
+in your script:</p>
+<pre><code class="language-python">import sys
+allowed_processors = sys.argv[1]
+allowed_processors_int = int(allowed_processors)
+assert(allowed_processors_int, 16)
+</code></pre>
+<p><strong>You must ensure that you use all (or as many) available cores on the machine as possible</strong>! For the most part,
+you <strong>do not want to run single threaded processes on the distributed computing network - they will not go faster</strong>.</p>
+<p>If you are building an apptainer image based on nvidia HPC resources, your header would look something like this 
+(<a href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/nvhpc">nvidia documentation</a>):</p>
+<pre><code>Bootstrap: docker
+From: nvcr.io/nvidia/nvhpc:22.1-devel-cuda_multi-ubuntu20.05
+</code></pre>
+<h2 id="building-apptainer-images"><a class="header" href="#building-apptainer-images">Building Apptainer Images</a></h2>
+<p>Compiling an apptainer definition file to a <code>.sif</code> file to run on the <code>distribute</code> compute is 
+relatively simple (on linux). Run something like this:</p>
+<pre><code>mkdir ~/apptainer
+APPTAINER_TMPDIR=&quot;~/apptainer&quot; sudo -E apptainer build your-output-file.sif build.apptainer
+</code></pre>
+<p>where <code>your-output-file.sif</code> is the desired name of the <code>.sif</code> file that apptainer will spit out, and <code>build.apptainer</code> is the 
+definition file you have built. The <code>APPTAINER_TMPDIR=&quot;~/apptainer&quot;</code> portion of the command sets the <code>APPTAINER_TMPDIR</code> environment
+variable to a location on disk (<code>~/apptainer</code>) because apptainer can often require more memory to compile the <code>sif</code> file
+than what is available on your computer (yes, more than your 64 GB). Since <code>apptainer build</code> requires root privileges, it must be run with <code>sudo</code>. The additional
+<code>-E</code> passed to <code>sudo</code> copies the environment variables from the host shell (which is needed to read <code>APPTAINER_TMPDIR</code>)</p>
+<h2 id="binding-volumes-mutable-filesystems"><a class="header" href="#binding-volumes-mutable-filesystems">Binding Volumes (Mutable Filesystems)</a></h2>
+<p>In order for your compute job to do meaningful work, you will likely save some files. But we know that 
+apptainer image files are not mutable. The answer to this problem is binding volumes. A &quot;volume&quot; 
+is container-language for a folder inside the container that actually corresponds to a folder on the 
+host system. Since these special folders (&quot;volumes&quot;) are actually part of the host computer's 
+filesystem they can be written to without error. The process of mapping a folder in your container
+to a folder on the host system is called &quot;binding&quot;. </p>
+<p>With apptainer, the binding of volumes to a container happens at runtime. Since <code>distribute</code> wants you to have
+access to a folder to save things to (in python: <code>./distribute_save</code>), as well as a folder to read the <code>required_files</code>
+you specified (in python: <code>./distribute_save</code>). Apptainer makes these folders slightly easier to access by binding them
+to the root directory: <code>/distribute_save</code> and <code>/input</code>. When running your apptainer on the compute node with 16
+cores, the following command is used to ensure that these bindings happen:</p>
+<pre><code class="language-bash">apptainer run apptainer_file.sif --app distribute --bind \
+	path/to/a/folder:/distribute_save:rw,\
+	path/to/another/folder:/input:rw\
+	16
+</code></pre>
+<p>Note that the binding arguments are simply a comma separated list in the format <code>folder_on_host:folder_in_container:rw</code>
+where <code>rw</code> specifies that files in the folder are readable and writeable.
+If your configuration file for apptainer looks like this:</p>
+<pre><code class="language-yaml">meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  capabilities: []
+apptainer:
+  initialize:
+    sif: execute_container.sif
+    required_files:
+      - path: file1.txt
+      - path: file999.txt
+        alias: file2.txt
+    required_mounts: []
+  jobs:
+    - name: job_1
+      required_files:
+        - path: file3.txt
+    - name: job_2
+      required_files: []
+</code></pre>
+<p>When running <code>job_1</code>, the <code>/input</code> folder looks like this:</p>
+<pre><code>input
+├── file1.txt
+├── file2.txt
+└── file3.txt
+</code></pre>
+<p>And when running <code>job_2</code>, the <code>/input</code> folder looks like this:</p>
+<pre><code>input
+├── file1.txt
+├── file2.txt
+</code></pre>
+<p>For a more detailed explanation of this behavior read the python configuration documentation.</p>
+<p>Now a natural question you may have is this: If volume bindings are specified at runtime - and not
+within my apptainer definition file - how can I possibly get additional mutable folders? Am I stuck
+with writing to <code>/input</code> and <code>/distribute_save</code>? The answer is no! You can tell <code>distribute</code> what folders
+in your container you want to be mutable with the <code>required_mounts</code> key in the <code>initialize</code> section of 
+your configuration. For example, in the hit3d solver (whose definition file is used as the example
+above), the following folder structure at <code>/</code> would be present at runtime:</p>
+<pre><code>.
+├── distribute_save
+├── hit3d-utils-exe
+├── hit3d.x
+├── input
+├── plots
+│   ├── energy_helicity.py
+│   ├── proposal_plots.py
+│   └── viscous_dissapation.py
+└── vtk-analysis-exe
+</code></pre>
+<p>However, <code>hit3d</code> <em>requires</em> a folder called <code>output</code> relative to itself. Since this folder is required,
+we might be (naively) tempted to simply add a call to <code>mkdir /output</code> in  our <code>%post</code> section of the 
+definition file. However, we would then be creating an <em>immutable</em> directory within the image. Instead,
+we simply just need to add this path to our configuration file:</p>
+<pre><code class="language-yaml">meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  capabilities: []
+apptainer:
+  initialize:
+    sif: execute_container.sif
+    required_files:
+      - path: file1.txt
+      - path: file999.txt
+        alias: file2.txt
+    required_mounts:
+	  - /output				# &lt;---- here
+  jobs:
+    - name: job_1
+      required_files:
+        - path: file3.txt
+    - name: job_2
+      required_files: []
+</code></pre>
+<p>By adding this line, your container will be invoked like this (on a 16 core machine):</p>
+<pre><code>apptainer run apptainer_file.sif --app distribute --bind \
+	path/to/a/folder:/distribute_save:rw,\
+	path/to/another/folder:/input:rw,\
+	path/to/yet/another/folder/:/output:rw\
+	16
+</code></pre>
+<h2 id="configuration-file"><a class="header" href="#configuration-file">Configuration File</a></h2>
+<p>A default configuration file can be generated with :</p>
+<pre><code>distribute template apptainer
+</code></pre>
+<pre><code class="language-yaml">---
+meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  matrix: ~
+  capabilities:
+    - gfortran
+    - python3
+    - apptainer
+apptainer:
+  initialize:
+    sif: execute_container.sif
+    required_files:
+      - path: /file/always/present/1.txt
+        alias: optional_alias.txt
+      - path: /another/file/2.json
+        alias: ~
+      - path: /maybe/python/utils_file.py
+        alias: ~
+    required_mounts:
+      - /path/inside/container/to/mount
+  jobs:
+    - name: job_1
+      required_files:
+        - path: job_configuration_file.json
+          alias: ~
+        - path: job_configuration_file_with_alias.json
+          alias: input.json
+</code></pre>
+<p>The <code>meta</code> section is identical to the <code>meta</code> section of python. For apptainer configurations, the only 
+<code>capability</code> you need to specify is <code>apptainer</code> or <code>apptainer</code>. If you require your job to use a gpu,
+you can also specify a <code>gpu</code> capability.</p>
+<p>The <code>initialize</code> section takes in a single <code>.sif</code> file
+that is built using the <code>apptainer build</code> command on a definition file, as well as some files that you always want
+to be available in the <code>/input</code> directory. Then, the <code>required_mounts</code> provides a way to bind mutable directories 
+to the inside of the container. Make sure that the directory you are binding to does not actually exist in the container
+(but its parent directory <em>does</em> exist).</p>
+<p>The <code>job</code> section is also very similar to the python configuration, but instead of taking python scripts <em>and</em> some files
+that should be present on the system, it exclusively takes <code>required_files</code> that should be present. This is discussed
+more in the next section.</p>
+<h2 id="workflow-differences-from-python"><a class="header" href="#workflow-differences-from-python">Workflow Differences From Python</a></h2>
+<p>The largest difference you will encounter between the apptainer and python configurations is the way in
+which they are executed. While each python job has its own file that it may use for execution, the apptainer
+workflow simply relies on whatever occurs in <code>%apprun distribute</code> to read files from <code>/input</code> and execute the 
+binary directly. Therefore, each job in the configuration file only operates on some additional input files 
+and the <code>.sif</code> file never changes. This is slightly less flexible than the python configuration (which allows
+for individual python files to run each job), but by storing your input files in some intermediate structure
+(like json) this difficulty can be easily overcome.</p>
+<h2 id="debugging-apptainer-jobs--example"><a class="header" href="#debugging-apptainer-jobs--example">Debugging Apptainer Jobs / Example</a></h2>
+<p>Because there are a lot of ways that your job might go wrong, you can use the <code>distribute run</code> command 
+to run an apptainer configuration file in place. As an example, take <a href="https://github.com/Fluid-Dynamics-Group/distribute/tree/cancel-tasks/tests/apptainer_local">this test</a>
+that is required to compile and run in the project. The apptainer definition file is:</p>
+<pre><code>Bootstrap: library
+From: ubuntu:20.04
+
+%files
+	./run.py /run.py
+
+%post
+	apt-get update -y
+	apt install python3 -y
+
+%apprun distribute
+    cd /
+    python3 /run.py $1
+</code></pre>
+<p><code>run.py</code> is:</p>
+<pre><code class="language-python">import sys
+
+def main():
+    procs = int(sys.argv[1])
+    print(f&quot;running with {procs} processors&quot;)
+
+    print(&quot;writing to /dir1&quot;)
+    with open(&quot;/dir1/file1.txt&quot;, &quot;w&quot;) as f:
+        f.write(&quot;checking mutability of file system&quot;)
+
+    print(&quot;writing to /dir2&quot;)
+    with open(&quot;/dir2/file2.txt&quot;, &quot;w&quot;) as f:
+        f.write(&quot;checking mutability of file system&quot;)
+
+    # read some input files from /input
+
+    print(&quot;reading input files&quot;)
+    with open(&quot;/input/input.txt&quot;, &quot;r&quot;) as f:
+        text = f.read()
+        num = int(text)
+
+    with open(&quot;/distribute_save/simulated_output.txt&quot;, &quot;w&quot;) as f:
+        square = num * num
+        f.write(f&quot;the square of the input was {square}&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<p><code>input_1.txt</code> is:</p>
+<pre><code>10
+</code></pre>
+<p><code>input_2.txt</code> is:</p>
+<pre><code>15
+</code></pre>
+<p>and <code>distribute-jobs.yaml</code> is:</p>
+<pre><code class="language-yaml">---
+meta:
+  batch_name: some_batch
+  namespace: some_namespace
+  capabilities: []
+apptainer:
+  initialize:
+    sif: apptainer_local.sif
+    required_files: []
+    required_mounts:
+      - /dir1
+      - /dir2
+  jobs:
+    - name: job_1
+      required_files:
+        - path: input_1.txt
+          alias: input.txt
+    - name: job_2
+      required_files:
+        - path: input_2.txt
+          alias: input.txt
+</code></pre>
+<p>the apptainer definition file can be built with <a href="https://github.com/Fluid-Dynamics-Group/distribute/blob/cancel-tasks/tests/apptainer_local/build.sh">these instructions</a>.
+Then, execute the job locally:</p>
+<pre><code>distribute run distribute-jobs.yaml --save-dir output --clean-save
+</code></pre>
+<p>The output directory structure looks like this:</p>
+<pre><code>output
+├── archived_files
+│   ├── job_1
+│   │   ├── job_1_output.txt
+│   │   └── simulated_output.txt
+│   └── job_2
+│       ├── job_2_output.txt
+│       └── simulated_output.txt
+├── _bind_path_0
+│   └── file1.txt
+├── _bind_path_1
+│   └── file2.txt
+├── distribute_save
+├── initial_files
+├── input
+│   └── input.txt
+└── apptainer_file.sif
+</code></pre>
+<p>This shows that we were able to write to additional folders on the host system (<code>_bind_path_x</code>), as well as read and write output files. Its worth noting that 
+if this job was run on the distributed server, it would not be archived the same (<code>archive_files</code> directory is simply a way to save <code>distribute_save</code> without
+deleting data). The structure on the server would look like this:</p>
+<pre><code>some_namespace
+├── some_batch
+    ├── job_1
+    │   ├── job_1_output.txt
+    │   └── simulated_output.txt
+    └── job_2
+        ├── job_2_output.txt
+        └── simulated_output.txt
+</code></pre>
+<p>The outputs of the two <code>simulated_output.txt</code> files are:</p>
+<pre><code>the square of the input was 100
+</code></pre>
+<p>and</p>
+<pre><code>the square of the input was 225
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="python"><a class="header" href="#python">Python</a></h1>
 <p>Python configuration file templates can be generated as follows:</p>
 <pre><code>distribute template python
@@ -964,250 +1117,84 @@ if __name__ == &quot;__main__&quot;:
 <h2 id="full-example"><a class="header" href="#full-example">Full Example</a></h2>
 <p>A simpler example of a python job has been compiled and verified 
 <a href="https://github.com/Fluid-Dynamics-Group/distribute/tree/cancel-tasks/examples/python">here</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="apptainer"><a class="header" href="#apptainer">Apptainer</a></h1>
-<p>Apptainer (previously named Singularity) is a container system often used for packaging HPC applications. For us,
-apptainer is useful for distributing your compute jobs since you can specify the exact dependencies required
-for running. If your container runs on your machine, it will run on the <code>distribute</code>d cluster!</p>
-<p>As mentioned in the introduction, you <strong>must ensure that your container does not write to any directories that are not bound by the host
-system</strong>. This will be discussed further below, but suffice it to say that writing to apptainer's immutable filesystem
-will crash your compute job.</p>
-<h2 id="versus-docker"><a class="header" href="#versus-docker">Versus Docker</a></h2>
-<p>There is an official documentation page discussing the differences between docker
-and apptainer <a href="https://apptainer.org/user-docs/master/singularity_and_docker.html">here</a>. There a few primary
-benefits for using apptainer from an implementation standpoint in <code>distribute</code>:</p>
-<ol>
-<li>Its easy to use GPU compute from apptainer</li>
-<li>Apptainer compiles down to a single <code>.sif</code> file that can easily be sent to the <code>distribute</code> server and passed to compute nodes</li>
-<li>Once your code has been packaged in apptainer, it is very easy to run it on paid HPC clusters</li>
-</ol>
-<h2 id="overview-of-apptainer-configuration-files"><a class="header" href="#overview-of-apptainer-configuration-files">Overview of Apptainer configuration files</a></h2>
-<p><img src="./figs/apptainer_config_flowchart.png" alt="" /></p>
-<h2 id="apptainer-definition-files"><a class="header" href="#apptainer-definition-files">Apptainer definition files</a></h2>
-<p>This documentation is not the place to discuss the intricacies of apptainer. As a user, we have tried to make
-it as easy as possible to build an image that can run on <code>distribute</code>. 
-The <a href="https://github.com/Fluid-Dynamics-Group/apptainer-common">apptainer-common</a> was purpose built to give you a good
-starting place with compilers and runtimes (including fortran, C++, openfoam, python3). Your definition file
-needs to look something like this:</p>
-<pre><code>Bootstrap: library
-From: library://vanillabrooks/default/fluid-dynamics-common
-
-%files from build
-    # in here you copy files / directories from your host machine into the 
-	# container so that they may be accessed and compiled. 
-	# the sintax is:
-
-	/path/to/host/file /path/to/container/file
-
-%post
-    # install any extra packages required here
-	# possibly with apt, or maybe pip3
-
-%apprun distribute
-    # execute your solver here
-	# this section is called from a compute node
+<div style="break-before: page; page-break-before: always;"></div><h1 id="command-basics"><a class="header" href="#command-basics">Command Basics</a></h1>
+<p>There are a few commands that you will need to know to effectively work with <code>distribute</code>. Don't worry,
+they are not too complex. The full list of commands and their specific parameters can be found by running</p>
+<pre><code class="language-bash">$ distribute
 </code></pre>
-<p>A (simplified) example of a definition file I have used is this:</p>
-<pre><code>Bootstrap: library
-From: library://vanillabrooks/default/fluid-dynamics-common
+<p>at the time of writing, this yields:</p>
+<pre><code>distribute 0.9.4
+A utility for scheduling jobs on a cluster
 
-%files
-	# copy over my files
-	/home/brooks/github/hit3d/ /hit3d
-	/home/brooks/github/hit3d-utils/ /hit3d-utils
-	/home/brooks/github/vtk/ /vtk
-	/home/brooks/github/vtk-analysis/ /vtk-analysis
-	/home/brooks/github/fourier/ /fourier
-	/home/brooks/github/ndarray-gradient/ /ndarray-gradient
-	/home/brooks/github/matrix-notify/ /matrix-notify
-	/home/brooks/github/distribute/ /distribute
+USAGE:
+    distribute [FLAGS] &lt;SUBCOMMAND&gt;
 
-%environment
-	CARGO_TARGET_DIR=&quot;/target&quot;
+FLAGS:
+    -h, --help         Prints help information
+        --save-log
+        --show-logs
+    -V, --version      Prints version information
 
-%post
-	# add cargo to the environment
-	export PATH=&quot;$PATH&quot;:&quot;$HOME/.cargo/bin&quot;
-
-	cd /hit3d-utils
-	cargo install --path .
-	ls -al /hit3d-utils
-
-	cd /hit3d/src
-	make
-
-	cd /vtk-analysis
-	cargo install --path .
-
-	# move the binaries we just installed to the root
-	mv $HOME/.cargo/bin/hit3d-utils /hit3d/src
-	mv $HOME/.cargo/bin/vtk-analysis /hit3d/src
-
-	#
-	# remove directories that just take up space
-	#
-	rm -rf /hit3d/.git
-	rm -rf /hit3d/target/
-	rm -rf /hit3d/src/output/
-	rm -rf /hit3d-utils/.git
-	rm -rf /hit3d-utils/target/
-
-	#
-	# simplify some directories
-	#
-	mv /hit3d/src/hit3d.x /hit3d.x
-
-	# copy the binaries to the root
-	mv /hit3d/src/vtk-analysis /vtk-analysis-exe
-	mv /hit3d/src/hit3d-utils /hit3d-utils-exe
-
-	mv /hit3d-utils/plots /plots
-
-	mv /hit3d-utils/generic_run.py /run.py
-
-%apprun distribute
-	cd /
-	python3 /run.py $1
+SUBCOMMANDS:
+    add              add a job set to the queue
+    client           start this workstation as a node and prepare it for a server connection
+    help             Prints this message or the help of the given subcommand(s)
+    kill             terminate any running jobs of a given batch name and remove the batch from the queue
+    node-status      check the status of all the nodes
+    pause            pause all currently running processes on this node for a specified amount of time
+    pull             Pull files from the server to your machine
+    run              run a apptainer configuration file locally (without sending it off to a server)
+    server           start serving jobs out to nodes using the provied configuration file
+    server-status    check the status of all the nodes
+    template         generate a template file to fill for executing with `distribute add`
 </code></pre>
-<p>I want to emphasize one specific thing from this file: the <code>%apprun distribute</code> section is very important. On a node 
-with 16 cores, your <code>distribute</code> section gets called like this:</p>
-<pre><code>apptainer run --app distribute 16
+<h2 id="add"><a class="header" href="#add">add</a></h2>
+<p><code>distribute add</code> is how you can add jobs to the server queue. There are two main things needed to operate this command: 
+a configuration file and the IP of the main server node. If you do not specify the name of a configuration
+file, it will default to <code>distribute-jobs.yaml</code>. This command can be run (for most cases) as such:</p>
+<pre><code class="language-bash">distribute add --ip &lt;server ip address here&gt; my-distribute-jobs-file.yaml
 </code></pre>
-<p>In reality, this call is actually slightly more complex (see below), but this command is illustrative of the point.
-<strong>You must ensure you pass the number of allowed cores down to whatever run script you are using</strong>. In our example:</p>
-<pre><code>%apprun distribute
-	cd /
-	python3 /run.py $1
+<p>or, using defaults:</p>
+<pre><code class="language-bash">distribute add --ip &lt;server ip address here&gt;
 </code></pre>
-<p>We make sure to pass down the <code>16</code> we received with <code>$1</code> which corresponds to &quot;the first argument that this bash script was 
-called with&quot;. Similar to the python configuration, your python file is also responsible for parsing this value and running 
-your solver with the appropriate number of cores. You can parse the <code>$1</code> value you pass to python using the <code>sys.argv</code> value 
-in your script:</p>
-<pre><code class="language-python">import sys
-allowed_processors = sys.argv[1]
-allowed_processors_int = int(allowed_processors)
-assert(allowed_processors_int, 16)
+<p>If there exists no node that matches all of your required capabilities, the job will not be run. There also exists a <code>--dry</code> flag
+if you want to check that your configuration file syntax is correct, and a <code>--show-caps</code> flag to print the capabilities 
+of each node.</p>
+<h2 id="template"><a class="header" href="#template">template</a></h2>
+<p><code>distribute template</code> is a simple way to create a <code>distribute-jobs.yaml</code> file that either runs with <code>python</code> or <code>apptainer</code>s. The specifics
+of each configuration file will be discussed later.</p>
+<pre><code class="language-bash">distribute template python
 </code></pre>
-<p><strong>You must ensure that you use all available cores on the machine</strong>. If your code can only use a reduced number
-of cores, make sure you specify this in your <code>capabilities</code> section! <strong>Do not run single threaded
-processes on the distributed computing network - they will not go faster</strong>.</p>
-<p>Full documentation on apptainer definition files can be found on the <a href="https://apptainer.org/user-docs/master/definition_files.html">official site</a>. 
-If you are building an apptainer image based on nvidia HPC resources, your header would look something like this 
-(<a href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/nvhpc">nvidia documentation</a>):</p>
-<pre><code>Bootstrap: docker
-From: nvcr.io/nvidia/nvhpc:22.1-devel-cuda_multi-ubuntu20.05
-</code></pre>
-<h2 id="building-apptainer-images"><a class="header" href="#building-apptainer-images">Building Apptainer Images</a></h2>
-<p>Compiling an apptainer definition file to a <code>.sif</code> file to run on the <code>distribute</code> compute is relatively simple (on linux). Run something like this:</p>
-<pre><code>mkdir ~/apptainer
-APPTAINER_TMPDIR=&quot;~/apptainer&quot; sudo -E apptainer build your-output-file.sif build.apptainer
-</code></pre>
-<p>where <code>your-output-file.sif</code> is the desired name of the <code>.sif</code> file that apptainer will spit out, and <code>build.apptainer</code> is the 
-definition file you have built. The <code>APPTAINER_TMPDIR=&quot;~/apptainer&quot;</code> portion of the command sets the <code>APPTAINER_TMPDIR</code> environment
-variable to a location on disk (<code>~/apptainer</code>) because apptainer / apptainer can often require more memory to compile the <code>sif</code> file
-than what is available on your computer (yes, more than your 64 GB). Since <code>apptainer build</code> requires root privileges, it must be run with <code>sudo</code>. The additional
-<code>-E</code> passed to <code>sudo</code> copies the environment variables from the host shell (which is needed for <code>APPTAINER_TMPDIR</code>)</p>
-<h2 id="binding-volumes-mutable-filesystems"><a class="header" href="#binding-volumes-mutable-filesystems">Binding Volumes (Mutable Filesystems)</a></h2>
-<p>In order for your compute job to do meaningful work, you will likely save some files. But we know that 
-apptainer image files are not mutable. The answer to this problem is binding volumes. A &quot;volume&quot; 
-is container-language for a folder inside the container that actually corresponds to a folder on the 
-host system. Since these special folders (&quot;volumes&quot;) are actually part of the host computer's 
-filesystem they can be written to without error. The process of mapping a folder in your container
-to a folder on the host system is called &quot;binding&quot;. </p>
-<p>With apptainer, the binding of volumes to a container happens at runtime. Since <code>distribute</code> wants you to have
-access to a folder to save things to (in python: <code>./distribute_save</code>), as well as a folder to read the <code>required_files</code>
-you specified (in python: <code>./distribute_save</code>). Apptainer makes these folders slightly easier to access by binding them
-to the root directory: <code>/distribute_save</code> and <code>/input</code>. When running your apptainer on the compute node with 16
-cores, the following command is used to ensure that these bindings happen:</p>
-<pre><code class="language-bash">apptainer run apptainer_file.sif --app distribute --bind \
-	path/to/a/folder:/distribute_save:rw,\
-	path/to/another/folder:/input:rw\
-	16
-</code></pre>
-<p>Note that the binding arguments are simply a comma separated list in the format <code>folder_on_host:folder_in_container:rw</code>
-where <code>rw</code> specifies that files in the folder are readable and writeable.
-If your configuration file for apptainer looks like this:</p>
-<pre><code class="language-yaml">meta:
+<pre><code class="language-yaml">---
+meta:
   batch_name: your_jobset_name
   namespace: example_namespace
-  capabilities: []
-apptainer:
+  matrix: ~
+  capabilities:
+    - gfortran
+    - python3
+    - apptainer
+python:
   initialize:
-    sif: execute_container.sif
+    build_file: /path/to/build.py
     required_files:
-      - path: file1.txt
-      - path: file999.txt
-        alias: file2.txt
-    required_mounts: []
+      - path: /file/always/present/1.txt
+        alias: optional_alias.txt
+      - path: /another/file/2.json
+        alias: ~
+      - path: /maybe/python/utils_file.py
+        alias: ~
   jobs:
     - name: job_1
+      file: execute_job.py
       required_files:
-        - path: file3.txt
-    - name: job_2
-      required_files: []
+        - path: job_configuration_file.json
+          alias: ~
+        - path: job_configuration_file_with_alias.json
+          alias: input.json
 </code></pre>
-<p>When running <code>job_1</code>, the <code>/input</code> folder looks like this:</p>
-<pre><code>input
-├── file1.txt
-├── file2.txt
-└── file3.txt
-</code></pre>
-<p>And when running <code>job_2</code>, the <code>/input</code> folder looks like this:</p>
-<pre><code>input
-├── file1.txt
-├── file2.txt
-</code></pre>
-<p>For a more detailed explanation of this behavior read the python configuration documentation.</p>
-<p>Now a natural question you may have is this: If volume bindings are specified at runtime - and not
-within my apptainer definition file - how can I possibly get additional mutable folders? Am I stuck
-with writing to <code>/input</code> and <code>/distribute_save</code>? The answer is no! You can tell <code>distribute</code> what folders
-in your container you want to be mutable with the <code>required_mounts</code> key in the <code>initialize</code> section of 
-your configuration. For example, in the hit3d solver (whose definition file is used as the example
-above), the following folder structure at <code>/</code> would be present at runtime:</p>
-<pre><code>.
-├── distribute_save
-├── hit3d-utils-exe
-├── hit3d.x
-├── input
-├── plots
-│   ├── energy_helicity.py
-│   ├── proposal_plots.py
-│   └── viscous_dissapation.py
-└── vtk-analysis-exe
-</code></pre>
-<p>However, <code>hit3d</code> <em>requires</em> a folder called <code>output</code> relative to itself. Since this folder is required,
-we might be (naively) tempted to simply add a call to <code>mkdir /output</code> in  our <code>%post</code> section of the 
-definition file. However, we would then be creating an <em>immutable</em> directory within the image. Instead,
-we simply just need to add this path to our configuration file:</p>
-<pre><code class="language-yaml">meta:
-  batch_name: your_jobset_name
-  namespace: example_namespace
-  capabilities: []
-apptainer:
-  initialize:
-    sif: execute_container.sif
-    required_files:
-      - path: file1.txt
-      - path: file999.txt
-        alias: file2.txt
-    required_mounts:
-	  - /output				# &lt;---- here
-  jobs:
-    - name: job_1
-      required_files:
-        - path: file3.txt
-    - name: job_2
-      required_files: []
-</code></pre>
-<p>By adding this line, your container will be invoked like this (on a 16 core machine):</p>
-<pre><code>apptainer run apptainer_file.sif --app distribute --bind \
-	path/to/a/folder:/distribute_save:rw,\
-	path/to/another/folder:/input:rw,\
-	path/to/yet/another/folder/:/output:rw\
-	16
-</code></pre>
-<h2 id="configuration-file"><a class="header" href="#configuration-file">Configuration File</a></h2>
-<p>A default configuration file can be generated with :</p>
-<pre><code>distribute template apptainer
+<p>and</p>
+<pre><code class="language-bash">distribute template apptainer
 </code></pre>
 <pre><code class="language-yaml">---
 meta:
@@ -1238,143 +1225,110 @@ apptainer:
         - path: job_configuration_file_with_alias.json
           alias: input.json
 </code></pre>
-<p>The <code>meta</code> section is identical to the <code>meta</code> section of python. For apptainer configurations, the only 
-<code>capability</code> you need to specify is <code>apptainer</code> or <code>apptainer</code>. If you require your job to use a gpu,
-you can also specify a <code>gpu</code> capability.</p>
-<p>The <code>initialize</code> section takes in a single <code>.sif</code> file
-that is built using the <code>apptainer build</code> command on a definition file, as well as some files that you always want
-to be available in the <code>/input</code> directory. Then, the <code>required_mounts</code> provides a way to bind mutable directories 
-to the inside of the container. Make sure that the directory you are binding to does not actually exist in the container
-(but its parent directory <em>does</em> exist).</p>
-<p>The <code>job</code> section is also very similar to the python configuration, but instead of taking python scripts <em>and</em> some files
-that should be present on the system, it exclusively takes <code>required_files</code> that should be present. This is discussed
-more in the next section.</p>
-<h2 id="workflow-differences-from-python"><a class="header" href="#workflow-differences-from-python">Workflow Differences From Python</a></h2>
-<p>The largest difference you will encounter between the apptainer and python configurations is the way in
-which they are executed. While each python job has its own file that it may use for execution, the apptainer
-workflow simply relies on whatever occurs in <code>%apprun distribute</code> to read files from <code>/input</code> and execute the 
-binary directly. Therefore, each job in the configuration file only operates on some additional input files 
-and the <code>.sif</code> file never changes. This is slightly less flexible than the python configuration (which allows
-for individual python files to run each job), but by storing your input files in some intermediate structure
-(like json) this difficulty can be easily overcome.</p>
-<h2 id="debugging-apptainer-jobs--example"><a class="header" href="#debugging-apptainer-jobs--example">Debugging Apptainer Jobs / Example</a></h2>
-<p>Because there are a lot of ways that your job might go wrong, you can use the <code>distribute run</code> command 
-to run an apptainer configuration file in place. As an example, take <a href="https://github.com/Fluid-Dynamics-Group/distribute/tree/cancel-tasks/tests/apptainer_local">this test</a>
-that is required to compile and run in the project. The apptainer definition file is:</p>
-<pre><code>Bootstrap: library
-From: ubuntu:20.04
-
-%files
-	./run.py /run.py
-
-%post
-	apt-get update -y
-	apt install python3 -y
-
-%apprun distribute
-    cd /
-    python3 /run.py $1
+<h2 id="pause"><a class="header" href="#pause">pause</a></h2>
+<p>If you use a compute node as a work station, <code>distribute pause</code> will pause all locally running jobs so that you 
+can use the workstation normally. It takes a simple argument as an upper bound on how long the tasks can be paused. The maximum amount of time that 
+a job can be paused is four hours (<code>4h</code>), but if this is not enough you can simply rerun the command. This 
+upper bound is just present to remove any chance of you accidentally leaving the jobs paused for an extended
+period of time.</p>
+<p>If you decide that you no longer need the tasks paused, you can simply <code>Ctrl-C</code> to quit the hanging command
+and all processes will be automatically resumed. <strong>Do not close your terminal</strong> before the pausing finishes or
+you have canceled it with <code>Ctrl-C</code> as the job on your machine will never resume.</p>
+<p>some examples of this command:</p>
+<pre><code class="language-bash">sudo distribute pause --duration 4h
 </code></pre>
-<p><code>run.py</code> is:</p>
-<pre><code class="language-python">import sys
-
-def main():
-    procs = int(sys.argv[1])
-    print(f&quot;running with {procs} processors&quot;)
-
-    print(&quot;writing to /dir1&quot;)
-    with open(&quot;/dir1/file1.txt&quot;, &quot;w&quot;) as f:
-        f.write(&quot;checking mutability of file system&quot;)
-
-    print(&quot;writing to /dir2&quot;)
-    with open(&quot;/dir2/file2.txt&quot;, &quot;w&quot;) as f:
-        f.write(&quot;checking mutability of file system&quot;)
-
-    # read some input files from /input
-
-    print(&quot;reading input files&quot;)
-    with open(&quot;/input/input.txt&quot;, &quot;r&quot;) as f:
-        text = f.read()
-        num = int(text)
-
-    with open(&quot;/distribute_save/simulated_output.txt&quot;, &quot;w&quot;) as f:
-        square = num * num
-        f.write(f&quot;the square of the input was {square}&quot;)
-
-if __name__ == &quot;__main__&quot;:
-    main()
+<pre><code class="language-bash">sudo distribute pause --duration 1h30m10s
 </code></pre>
-<p><code>input_1.txt</code> is:</p>
-<pre><code>10
+<pre><code class="language-bash">sudo distribute pause --duration 60s
 </code></pre>
-<p><code>input_2.txt</code> is:</p>
-<pre><code>15
+<h2 id="server-status"><a class="header" href="#server-status">server-status</a></h2>
+<p><code>distribute status</code> prints out all the running jobs at the head node. It will show you all the job batches
+that are currently running, as well as the number of jobs in that set currently running and the 
+names of the jobs that have not been run yet. You can use this command to fetch the required parameters
+to execute the <code>kill</code> command if needed.</p>
+<pre><code class="language-bash">distribute server-status --ip &lt;server ip here&gt;
 </code></pre>
-<p>and <code>distribute-jobs.yaml</code> is:</p>
+<p>If there is no output then there are no jobs currently in the queue or executing on nodes.</p>
+<p><strong>TODO</strong> An example output here</p>
+<pre><code>260sec
+        :jobs running now: 1
+10sec_positive
+        -unforced_viscous_decay
+        -unforced_inviscid_decay
+        -viscous_forcing_no_compensation_eh_first
+        -viscous_forcing_no_compensation_eh_second
+        -viscous_forcing_no_compensation_eh_both
+        :jobs running now: 0
+</code></pre>
+<h2 id="pull"><a class="header" href="#pull">pull</a></h2>
+<p><code>distribute pull</code> takes a <code>distribute-jobs.yaml</code> config file and pulls all the files associated with that batch
+to a specified <code>--save-dir</code> (default is the current directory). This is really convenient because the only thing
+you need to fetch your files is the original file you used to compute the results in the first place!</p>
+<p>Since you often dont want to pull <em>all the files</em> - which might include tens or hundreds of gigabytes of flowfield
+files - this command also accepts <code>include</code> or <code>exclude</code> filters, which consist of a list of regular expressions
+to apply to the file path.  If using a <code>include</code> query, any file matching one of the regexs will be pulled to 
+your machine. If using a <code>exclude</code> query, any file matching a regex will <em>not</em> be pulled to your computer. </p>
+<p>The full documentation on regular expressions is found <a href="https://docs.rs/regex/latest/regex/">here</a>, but luckily 
+most character strings are valid regular exprssions (barring characters like <code>+</code>, <code>-</code>, <code>(</code>, <code>)</code>). Lets say your
+<code>meta</code> section of the config file looks like this:</p>
 <pre><code class="language-yaml">---
 meta:
-  batch_name: some_batch
-  namespace: some_namespace
+  batch_name: incompressible_5second_cases
+  namespace: brooks_openfoam_cases
   capabilities: []
-apptainer:
-  initialize:
-    sif: apptainer_local.sif
-    required_files: []
-    required_mounts:
-      - /dir1
-      - /dir2
-  jobs:
-    - name: job_1
-      required_files:
-        - path: input_1.txt
-          alias: input.txt
-    - name: job_2
-      required_files:
-        - path: input_2.txt
-          alias: input.txt
 </code></pre>
-<p>the apptainer definition file can be built with <a href="https://github.com/Fluid-Dynamics-Group/distribute/blob/cancel-tasks/tests/apptainer_local/build.sh">these instructions</a>.
-Then, execute the job locally:</p>
-<pre><code>distribute run distribute-jobs.yaml --save-dir output --clean-save
+<p>and your directory tree looks something like this</p>
+<pre><code>├── incompressible_5second_cases
+    ├── case1
+    │   ├── flowfield.vtk
+    │   └── statistics.csv
+    ├── case2
+    │   ├── flowfield.vtk
+    │   └── statistics.csv
+    └── case3
+        ├── flowfield.vtk
+        └── statistics.csv
 </code></pre>
-<p>The output directory structure looks like this:</p>
-<pre><code>output
-├── archived_files
-│   ├── job_1
-│   │   ├── job_1_output.txt
-│   │   └── simulated_output.txt
-│   └── job_2
-│       ├── job_2_output.txt
-│       └── simulated_output.txt
-├── _bind_path_0
-│   └── file1.txt
-├── _bind_path_1
-│   └── file2.txt
-├── distribute_save
-├── initial_files
-├── input
-│   └── input.txt
-└── apptainer_file.sif
+<p>If you wanted to exclude any file with a <code>vtk</code> extension, you could</p>
+<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
+	exclude \
+		--exclude &quot;vtk&quot;
 </code></pre>
-<p>This shows that we were able to write to additional folders on the host system (<code>_bind_path_x</code>), as well as read and write output files. Its worth noting that 
-if this job was run on the distributed server, it would not be archived the same (<code>archive_files</code> directory is simply a way to save <code>distribute_save</code> without
-deleting data). The structure on the server would look like this:</p>
-<pre><code>some_namespace
-├── some_batch
-    ├── job_1
-    │   ├── job_1_output.txt
-    │   └── simulated_output.txt
-    └── job_2
-        ├── job_2_output.txt
-        └── simulated_output.txt
+<p>Or, if you wanted to exclude all of the case3 files and all vtk files:</p>
+<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
+	exclude \
+		--exclude &quot;vtk&quot; \
+		--exclude &quot;case3&quot;
 </code></pre>
-<p>The outputs of the two <code>simulated_output.txt</code> files are:</p>
-<pre><code>the square of the input was 100
+<p>Maybe you only want to pull case1 files:</p>
+<pre><code class="language-bash">distribute pull distribute-jobs.yaml --ip &lt;server ip here&gt; \
+	include \
+		--include &quot;case1&quot;
 </code></pre>
-<p>and</p>
-<pre><code>the square of the input was 225
+<h2 id="run"><a class="header" href="#run">run</a></h2>
+<p><code>distribute run</code> will run an apptainer job locally. It is usefull for debugging apptainer jobs
+since the exact commands that are passed to the container are not always intuitive. </p>
+<pre><code>distribute run --help
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="python-api"><a class="header" href="#python-api">Python Api</a></h1>
+<pre><code>distribute-run 0.6.0
+run a apptainer configuration file locally (without sending it off to a server)
+
+USAGE:
+    distribute run [FLAGS] [OPTIONS] [job-file]
+
+FLAGS:
+        --clean-save    allow the save_dir to exist, but remove all the contents of it before executing the code
+    -h, --help          Prints help information
+    -V, --version       Prints version information
+
+OPTIONS:
+    -s, --save-dir &lt;save-dir&gt;    the directory where all the work will be performed [default: ./distribute-run]
+
+ARGS:
+    &lt;job-file&gt;    location of your configuration file [default: distribute-jobs.yaml]
+</code></pre>
+<p>An example is provided in the apptainer jobs section.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="python-api-1"><a class="header" href="#python-api-1">Python Api</a></h1>
 <p>Since solver configuration files are sometimes machine generated, it can be arduous to manually create 
 <code>distribute-jobs.yaml</code> files with methods like <code>distribute template</code>. To aid in this difficulty, a python
 package is available to generate configurations with minimal effort.</p>
@@ -1394,23 +1348,109 @@ if you know that someone will be running cases locally (not through the distribu
 To account for this possibility, you can add a capability <code>lab1</code> to only run the job on the <code>lab1</code> machine, <code>lab2</code> to only
 run on <code>lab2</code>, etc. If you simply dont want to run on <code>lab3</code>, then you can specify <code>lab1-2</code>. Likewise, you can skip <code>lab1</code> with
 <code>lab2-3</code>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="machines"><a class="header" href="#machines">Machines</a></h1>
-<table><thead><tr><th>name</th><th>physical core count</th><th>address</th><th>role</th></tr></thead><tbody>
-<tr><td>lab1</td><td>16</td><td>134.197.94.134</td><td>compute</td></tr>
-<tr><td>lab2</td><td>16</td><td>134.197.27.105</td><td>compute</td></tr>
-<tr><td>lab3</td><td>32</td><td>134.197.95.113</td><td>compute</td></tr>
-<tr><td>lab4</td><td>12</td><td>134.197.94.155</td><td>storage</td></tr>
-<tr><td>lab5</td><td>32</td><td>134.197.27.69</td><td>compute</td></tr>
-<tr><td>distserver</td><td>12</td><td>134.197.95.21</td><td>head node</td></tr>
-</tbody></table>
-<ul>
-<li>If you are adding a job with <code>distribute add</code>, you should use <code>distserver</code> ip address.</li>
-<li>If you are updating the <code>distribute</code> source code on all machines, you should use <code>lab1</code>, <code>lab2</code>, <code>lab3</code> and <code>distserver</code>
-<ul>
-<li><code>lab4</code> server must be accessed through a FreeBSD jail</li>
-</ul>
-</li>
-</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="admin-setup"><a class="header" href="#admin-setup">Admin Setup</a></h1>
+<p>This is a guide for the cluster administrator to setup <code>distribute</code> on each computer. Computers
+with <code>distribute</code> are required to be linux-based.</p>
+<p>systemd init files are provided so that <code>distribute</code> runs at startup and can be restarted 
+in the background easily.</p>
+<h2 id="initial-setup"><a class="header" href="#initial-setup">Initial Setup</a></h2>
+<h3 id="creating-a-new-linux-user"><a class="header" href="#creating-a-new-linux-user">Creating a New Linux User</a></h3>
+<pre><code>set USERNAME distribute
+
+# create the user `distribute
+sudo useradd $USERNAME -m
+
+# set the password for this user
+sudo passwd $USERNAME
+
+# login to the user using sudo privileges
+sudo su $USERNAME
+
+# change the shell to fish (could also use bash)
+chsh
+/usr/bin/bash
+</code></pre>
+<h3 id="fetching-ip-address"><a class="header" href="#fetching-ip-address">Fetching IP Address</a></h3>
+<pre><code>ip --brief addr
+</code></pre>
+<p>an example output here is</p>
+<pre><code>lo               UNKNOWN        127.0.0.1/8 ::1/128
+enp0s31f6        UP             192.168.1.136/24 fe80::938:b383:b4d1:6dc/64
+wlp4s0           DOWN
+br-29d4537f30a4  DOWN           172.18.0.1/16
+docker0          DOWN           172.17.0.1/16 fe80::42:7fff:fe80:d0cc/64
+</code></pre>
+<p>in which case, <code>192.168.1.136</code> would be the IP of the machine you use</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="head-node-setup"><a class="header" href="#head-node-setup">Head Node Setup</a></h1>
+<p>First, ensure you have completed the common setup from the <a href="./admin_setup.html">admin setup</a></p>
+<p>The ip address of the head node is important: it is the IP that all users will use to 
+send jobs to the cluster. Ensure this is documented somewhere.</p>
+<h2 id="as-the-distribute-user-created-earlier"><a class="header" href="#as-the-distribute-user-created-earlier">As the <code>distribute</code> user created earlier</a></h2>
+<p>when logged into the user <code>distribute</code>, run</p>
+<pre><code>mkdir $HOME/server
+mkdir $HOME/server/results
+mkdir $HOME/server/tmp
+</code></pre>
+<p>You will need a <code>distribute-nodes.yaml</code> file to specify to distribute what the IP addresses 
+of each compute node is in the cluster, and what software / hardware is available (<code>capabilities</code>).
+<a href="https://github.com/Fluid-Dynamics-Group/distribute/blob/master/static/example-nodes.yaml">here</a>
+is a currently compiling example from the master branch. Ensure that you use descriptive names for each
+node as they will appear in the logs. Place this file at <code>/home/distribute/server/distribute-nodes.yaml</code>.</p>
+<p>Ensure that <code>distrbute</code> is installed for this user (running <code>distribute</code> should 
+result in some output with no errors)</p>
+<h2 id="while-root"><a class="header" href="#while-root">While Root</a></h2>
+<p>Clone the repo with the correct version of <code>distribute</code> you are using</p>
+<pre><code>git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
+cd distribute
+</code></pre>
+<p>copy the server service to the system directory:</p>
+<pre><code>sudo cp install/distribute-server.service /etc/systemd/system/
+</code></pre>
+<p>start the service and enable it at startup:</p>
+<pre><code>sudo systemctl daemon-reload
+sudo systemctl enable distribute-server
+sudo systemctl start distribute-server
+</code></pre>
+<p>Note that if you have deviated from username or folder structure above, <code>distribute-server.service</code> will
+have to be updated with those paths since it relies on hard-coded paths.</p>
+<h2 id="updating"><a class="header" href="#updating">Updating</a></h2>
+<p>To update, simply reinstall <code>distribute</code> and restart the systemd service. On the compute node:</p>
+<pre><code>systemctl restart distribute-compute
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="compute-node-setup"><a class="header" href="#compute-node-setup">Compute Node Setup</a></h1>
+<p>First, ensure you have completed the common setup from the <a href="./admin_setup.html">admin setup</a></p>
+<h2 id="as-the-distribute-user-created-earlier-1"><a class="header" href="#as-the-distribute-user-created-earlier-1">As the <code>distribute</code> user created earlier</a></h2>
+<p>create the following directories:</p>
+<pre><code>mkdir $HOME/data
+mkdir $HOME/logs
+</code></pre>
+<p>Ensure that <code>distrbute</code> is installed for this user (running <code>distribute</code> should 
+result in some output with no errors)</p>
+<h2 id="while-root-1"><a class="header" href="#while-root-1">While Root</a></h2>
+<p>Clone the repo with the correct version of <code>distribute</code> you are using</p>
+<pre><code>git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
+cd distribute
+</code></pre>
+<p>copy the compute service to the system directory:</p>
+<pre><code>sudo cp install/distribute-compute.service /etc/systemd/system/
+</code></pre>
+<p>start the service and enable it at startup:</p>
+<pre><code>sudo systemctl daemon-reload
+sudo systemctl enable distribute-compute
+sudo systemctl start distribute-compute
+</code></pre>
+<p>Note that if you have deviated from username or folder structure above, <code>distribute-compute.service</code> will
+have to be updated with those paths since it relies on hard-coded paths.</p>
+<h2 id="updating-1"><a class="header" href="#updating-1">Updating</a></h2>
+<p>To update, simply reinstall <code>distribute</code> and restart the systemd service. On the head node:</p>
+<pre><code>systemctl restart distribute-server
+</code></pre>
+<p><code>distribute</code> requires that all compute nodes and head node have the same version of <code>distribute</code> installed.
+You can verify that all nodes are correctly setup or updated correctly with </p>
+<pre><code>sudo su distribute
+cd ~/server
+distribute node-status
+</code></pre>
 
                     </main>
 

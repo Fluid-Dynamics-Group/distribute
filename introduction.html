@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">3.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.1.</strong> Python Jobs</a></li><li class="chapter-item expanded "><a href="apptainer.html"><strong aria-hidden="true">4.2.</strong> Apptainer Jobs</a></li></ol></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">5.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">6.</strong> Available Capabilities</a></li><li class="chapter-item expanded "><a href="machines.html"><strong aria-hidden="true">7.</strong> Machines</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">3.</strong> Overview</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="apptainer.html"><strong aria-hidden="true">4.1.</strong> Apptainer Jobs</a></li><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.2.</strong> Python Jobs</a></li></ol></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">6.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">7.</strong> Available Capabilities</a></li><li class="chapter-item expanded "><a href="admin_setup.html"><strong aria-hidden="true">8.</strong> Admin Setup</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="head_node_setup.html"><strong aria-hidden="true">8.1.</strong> Head Node Setup</a></li><li class="chapter-item expanded "><a href="compute_node_setup.html"><strong aria-hidden="true">8.2.</strong> Compute Node Setup</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -147,47 +147,45 @@
 <p><code>distribute</code> is a relatively simple command line utility for distributing compute jobs across the powerful
 lab computers. In essence, <code>distribute</code> provides a simple way to automatically schedule dozens of jobs 
 from different people across the small number of powerful computers in the lab. </p>
-<p>Besides having the configuration files begin easier to use, <code>distribute</code> also contains a mechanism for 
-only scheduling your jobs on nodes that meet your criteria. If you require OpenFoam to run your simulation,
-<code>distribute</code> automatically knows which of the three computers it can run the job on. This also allows you
-to robustly choose what your requirements are for your tasks. This allows us to prioritize
-use of the gpu machine to jobs requiring a gpu, increasing the overall throughput of jobs between all lab
-members.</p>
-<p>Another cool feature of <code>distribute</code> is that files that are not needed after each compute run are automatically
-wiped from the hard drive, preserving limited disk space on the compute machines. Files that are specified to be 
-saved (by you) are archived automatically on a 24 TB storage machine, and can be retrieved (and filtered) 
-to your personal computer with a single short command.</p>
-<p><code>distribute</code> competes in the same space as <a href="https://slurm.schedmd.com/overview.html">slurm</a>, which you would
-likely find on an actual compute cluster. The benefit of <code>distribute</code> is an all-in-one solution to running,
-archiving, and scheduling jobs with a single streamlined utility without messing around with the complexities
-of the (very detailed) slurm documentation. If you are still unconvinced, take a look at the overall architecture
-diagram that slurm provides:</p>
-<p><img src="https://slurm.schedmd.com/arch.gif" alt="" /></p>
-<p>Since the lab computers also function as day-to-day workstations for some lab members, some additional
+<h2 id="zero-downtime-computing"><a class="header" href="#zero-downtime-computing">Zero downtime computing</a></h2>
+<p><code>distribute</code> relies on some simple programming interfaces. From a batch of jobs (1-100s), <code>distribute</code>
+will automatically schedule each job in the batch to a compute node and archive the results on the 
+head node. After archival, the results of a batch are easy to pull down to a personal computer
+using a simple set of query rules and the original configuration file submitted to the cluster.
+Excess data can be deleted from a personal computer and re-downloaded later at will.</p>
+<p><code>distribute</code> is also partially fault tolerant: if a compute node goes down while executing a job,
+the job will be rescheduled to another compatible node. Once the original compute node is 
+restored, jobs will automatically resume execution on the node.</p>
+<h2 id="heterogeneous-compute-clusters"><a class="header" href="#heterogeneous-compute-clusters">Heterogeneous Compute Clusters</a></h2>
+<p><code>distribute</code> works on a simple &quot;capability&quot; based system to ensure that a batch of jobs 
+is only scheduled across a group of compute nodes that are compatible. For instance, specifying that
+a job requires large amounts of memory, a GPU, or a certain number of CPU cores.</p>
+<h2 id="slurm-compatibility"><a class="header" href="#slurm-compatibility">SLURM Compatibility</a></h2>
+<p>You can seamlessly transpile a configuration file for hundreds of <code>distribute</code> jobs to a SLURM-compatible format.
+Therefore, you can schedule several jobs on a local <code>distribute</code> cluster and then rerun the jobs 
+on a University cluster with a finer computational stencil or longer runtime seamlessly.</p>
+<h2 id="pausing-background-jobs"><a class="header" href="#pausing-background-jobs">Pausing Background Jobs</a></h2>
+<p>Since lab computers also function as day-to-day workstations for researchers, some additional
 features are required to ensure that they are functional outside of running jobs. <code>distribute</code> solves this issue 
 by allowing a user that is sitting at a computer to temporarily pause the currently executing job so that
-they may perform some simple work. This allows lab members to still quickly iterate on ideas without waiting
-hours for their jobs to reach the front of the queue. Since cluster computers are <em>never</em> used as 
-day-to-day workstations, popular compute schedulers like slurm don't provision for this.</p>
-<h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
-<p>Instead of complex scheduling algorithms and job queues, we can distill the overall architecture of the 
-system to a simple diagram:</p>
-<p><img src="https://i.imgur.com/e4YnOQG.png" alt="" /></p>
-<p>In summary, there is a very simple flow of information from the server to the nodes, and from the nodes to
-the server. The server is charged with sending the nodes any user-specified files (such as initial conditions,
-solver input files, or csv's of information) as well as instructions on how to compile and run the project.
-Once the job has finished, the user's script will move any and all files that they wish to archive to 
-a special directory. All files in the special directory will be transfered to the server and saved
-indefinitely. </p>
-<p>The archiving structure of <code>distribute</code> helps free up disk space on your laptop of workstation, and instead 
-keep large files (that will surely be useful at a later date) stored away on a purpose-build machine to 
-hold them. As long as your are connected to the university network - VPN or otherwise - you can access the 
-files dumped by your compute job at any time.</p>
-<h2 id="specifying-jobs"><a class="header" href="#specifying-jobs">Specifying Jobs</a></h2>
+they may perform some simple work. This allows users to still quickly iterate on ideas without waiting
+hours for their jobs to reach the front of the queue. 
+This behavior is incompatible with the philosophy of other workload managers such as SLURM.</p>
+<h2 id="matrix-notifications"><a class="header" href="#matrix-notifications">Matrix Notifications</a></h2>
+<p>If setup with <a href="https://matrix.org/">matrix</a> API keys, <code>distribute</code> can send you messages on the completion of your 
+jobs.</p>
+<h2 id="python-api"><a class="header" href="#python-api">Python API</a></h2>
 <p>We have thus far talked about all the cool things we can do with <code>distribute</code>, but none of this is free. As
-a famous Italian engineer once said, &quot;Theres no such thing as free lunch.&quot; The largest complexity with working
-with <code>distribute</code> is the configuration file that specifies how to compile run project. <code>distribute template python</code> 
-will generate the following file:</p>
+a famous Italian engineer once said, &quot;There is no such thing as free lunch.&quot; There are two complexities 
+from a user's point of view:</p>
+<ol>
+<li>Generating Configuration Files</li>
+<li>Packaging software in a compatible way for the cluster</li>
+</ol>
+<p>To alleviate the first point, <code>distribute</code> provides a short but well documented python package 
+to generate configuration files (short files can also be written by hand). 
+This makes it easy to perform sweeps with hundreds of jobs over a large parameter space.
+An example python configuration is below:</p>
 <pre><code class="language-yaml">meta:
   batch_name: your_jobset_name
   namespace: example_namespace
@@ -198,25 +196,14 @@ will generate the following file:</p>
     - apptainer
 python:
   initialize:
-    build_file: /path/to/build.py
+    build_file: 
+	  path: /path/to/build.py
   jobs:
     - name: job_1
       file: execute_job.py
     - name: job_2
       file: execute_job_2.py
 </code></pre>
-<p>We will explain all of these fields later, but surmise it to say that the configuration files come in 3 main sections. 
-The <code>meta</code> section will describe things that the head node must do, including what &quot;capabilities&quot; each node is required
-to have to run your server, a <code>batch_name</code> and <code>namespace</code> so that your compute results do not overwrite someone else's,
-and a <code>matrix</code> field so that you can specify an optional matrix username that will be pinged once all your 
-jobs have finished.</p>
-<p>The next section is the <code>initialize</code> section. This section specifies all the files and instructions that are required
-to compile your project before it is run. This step is kept separate from the running step so that we can ensure
-that your project is compiled only once before being run with different jobs in the third section.</p>
-<p>The third section tells <code>distribute</code> <em>how</em> to execute each job. If you are using a python configuration then your 
-<code>file</code> parameter will likely seek out the compiled binary from the second step and run the binary using whatever
-files you chose to be available.</p>
-<p>The specifics of the configuration file will be discussed in greater detail in a later section.</p>
 
                     </main>
 

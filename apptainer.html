@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">3.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.1.</strong> Python Jobs</a></li><li class="chapter-item expanded "><a href="apptainer.html" class="active"><strong aria-hidden="true">4.2.</strong> Apptainer Jobs</a></li></ol></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">5.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">6.</strong> Available Capabilities</a></li><li class="chapter-item expanded "><a href="machines.html"><strong aria-hidden="true">7.</strong> Machines</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">3.</strong> Overview</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="apptainer.html" class="active"><strong aria-hidden="true">4.1.</strong> Apptainer Jobs</a></li><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.2.</strong> Python Jobs</a></li></ol></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">6.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">7.</strong> Available Capabilities</a></li><li class="chapter-item expanded "><a href="admin_setup.html"><strong aria-hidden="true">8.</strong> Admin Setup</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="head_node_setup.html"><strong aria-hidden="true">8.1.</strong> Head Node Setup</a></li><li class="chapter-item expanded "><a href="compute_node_setup.html"><strong aria-hidden="true">8.2.</strong> Compute Node Setup</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -159,16 +159,24 @@ benefits for using apptainer from an implementation standpoint in <code>distribu
 <li>Apptainer compiles down to a single <code>.sif</code> file that can easily be sent to the <code>distribute</code> server and passed to compute nodes</li>
 <li>Once your code has been packaged in apptainer, it is very easy to run it on paid HPC clusters</li>
 </ol>
-<h2 id="overview-of-apptainer-configuration-files"><a class="header" href="#overview-of-apptainer-configuration-files">Overview of Apptainer configuration files</a></h2>
+<h2 id="packaging-a-solver-with-apptainer"><a class="header" href="#packaging-a-solver-with-apptainer">Packaging a Solver with Apptainer</a></h2>
+<p>In order to package a given solver into apptainer there are three main tasks:</p>
+<ol>
+<li>Generate a apptainer definition file to compile code</li>
+<li>For large numbers of jobs:
+<ul>
+<li>a python script to generate input files to the solver and generate <code>distribute</code> configuration files</li>
+</ul>
+</li>
+<li>Determine what directories in your container should be mutable (often none), include those paths in your configuration file</li>
+</ol>
 <p><img src="./figs/apptainer_config_flowchart.png" alt="" /></p>
 <h2 id="apptainer-definition-files"><a class="header" href="#apptainer-definition-files">Apptainer definition files</a></h2>
-<p>This documentation is not the place to discuss the intricacies of apptainer. As a user, we have tried to make
-it as easy as possible to build an image that can run on <code>distribute</code>. 
-The <a href="https://github.com/Fluid-Dynamics-Group/apptainer-common">apptainer-common</a> was purpose built to give you a good
-starting place with compilers and runtimes (including fortran, C++, openfoam, python3). Your definition file
-needs to look something like this:</p>
-<pre><code>Bootstrap: library
-From: library://vanillabrooks/default/fluid-dynamics-common
+<p>This documentation is not the place to discuss the intricacies of apptainer definition files. A better overview can be found in the
+official <a href="https://apptainer.org/user-docs/master/definition_files.html">apptainer documentation</a>. If you are familiar with 
+docker, you can get up and running pretty quickly. Below is a short example of what a definition file looks like:</p>
+<pre><code>Bootstrap: docker
+From: ubuntu:22.04
 
 %files from build
     # in here you copy files / directories from your host machine into the 
@@ -185,74 +193,13 @@ From: library://vanillabrooks/default/fluid-dynamics-common
     # execute your solver here
 	# this section is called from a compute node
 </code></pre>
-<p>A (simplified) example of a definition file I have used is this:</p>
-<pre><code>Bootstrap: library
-From: library://vanillabrooks/default/fluid-dynamics-common
-
-%files
-	# copy over my files
-	/home/brooks/github/hit3d/ /hit3d
-	/home/brooks/github/hit3d-utils/ /hit3d-utils
-	/home/brooks/github/vtk/ /vtk
-	/home/brooks/github/vtk-analysis/ /vtk-analysis
-	/home/brooks/github/fourier/ /fourier
-	/home/brooks/github/ndarray-gradient/ /ndarray-gradient
-	/home/brooks/github/matrix-notify/ /matrix-notify
-	/home/brooks/github/distribute/ /distribute
-
-%environment
-	CARGO_TARGET_DIR=&quot;/target&quot;
-
-%post
-	# add cargo to the environment
-	export PATH=&quot;$PATH&quot;:&quot;$HOME/.cargo/bin&quot;
-
-	cd /hit3d-utils
-	cargo install --path .
-	ls -al /hit3d-utils
-
-	cd /hit3d/src
-	make
-
-	cd /vtk-analysis
-	cargo install --path .
-
-	# move the binaries we just installed to the root
-	mv $HOME/.cargo/bin/hit3d-utils /hit3d/src
-	mv $HOME/.cargo/bin/vtk-analysis /hit3d/src
-
-	#
-	# remove directories that just take up space
-	#
-	rm -rf /hit3d/.git
-	rm -rf /hit3d/target/
-	rm -rf /hit3d/src/output/
-	rm -rf /hit3d-utils/.git
-	rm -rf /hit3d-utils/target/
-
-	#
-	# simplify some directories
-	#
-	mv /hit3d/src/hit3d.x /hit3d.x
-
-	# copy the binaries to the root
-	mv /hit3d/src/vtk-analysis /vtk-analysis-exe
-	mv /hit3d/src/hit3d-utils /hit3d-utils-exe
-
-	mv /hit3d-utils/plots /plots
-
-	mv /hit3d-utils/generic_run.py /run.py
-
-%apprun distribute
-	cd /
-	python3 /run.py $1
-</code></pre>
-<p>I want to emphasize one specific thing from this file: the <code>%apprun distribute</code> section is very important. On a node 
+<p>One <em>important</em> note from this file: the <code>%apprun distribute</code> section is critical. On a node 
 with 16 cores, your <code>distribute</code> section gets called like this:</p>
 <pre><code>apptainer run --app distribute 16
 </code></pre>
 <p>In reality, this call is actually slightly more complex (see below), but this command is illustrative of the point.
-<strong>You must ensure you pass the number of allowed cores down to whatever run script you are using</strong>. In our example:</p>
+<strong>You must ensure you pass the number of allowed cores down to whatever run script / solver you are using, or start an MPI</strong>. 
+For example, to pass the information to a python script:</p>
 <pre><code>%apprun distribute
 	cd /
 	python3 /run.py $1
@@ -266,25 +213,24 @@ allowed_processors = sys.argv[1]
 allowed_processors_int = int(allowed_processors)
 assert(allowed_processors_int, 16)
 </code></pre>
-<p><strong>You must ensure that you use all available cores on the machine</strong>. If your code can only use a reduced number
-of cores, make sure you specify this in your <code>capabilities</code> section! <strong>Do not run single threaded
-processes on the distributed computing network - they will not go faster</strong>.</p>
-<p>Full documentation on apptainer definition files can be found on the <a href="https://apptainer.org/user-docs/master/definition_files.html">official site</a>. 
-If you are building an apptainer image based on nvidia HPC resources, your header would look something like this 
+<p><strong>You must ensure that you use all (or as many) available cores on the machine as possible</strong>! For the most part,
+you <strong>do not want to run single threaded processes on the distributed computing network - they will not go faster</strong>.</p>
+<p>If you are building an apptainer image based on nvidia HPC resources, your header would look something like this 
 (<a href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/nvhpc">nvidia documentation</a>):</p>
 <pre><code>Bootstrap: docker
 From: nvcr.io/nvidia/nvhpc:22.1-devel-cuda_multi-ubuntu20.05
 </code></pre>
 <h2 id="building-apptainer-images"><a class="header" href="#building-apptainer-images">Building Apptainer Images</a></h2>
-<p>Compiling an apptainer definition file to a <code>.sif</code> file to run on the <code>distribute</code> compute is relatively simple (on linux). Run something like this:</p>
+<p>Compiling an apptainer definition file to a <code>.sif</code> file to run on the <code>distribute</code> compute is 
+relatively simple (on linux). Run something like this:</p>
 <pre><code>mkdir ~/apptainer
 APPTAINER_TMPDIR=&quot;~/apptainer&quot; sudo -E apptainer build your-output-file.sif build.apptainer
 </code></pre>
 <p>where <code>your-output-file.sif</code> is the desired name of the <code>.sif</code> file that apptainer will spit out, and <code>build.apptainer</code> is the 
 definition file you have built. The <code>APPTAINER_TMPDIR=&quot;~/apptainer&quot;</code> portion of the command sets the <code>APPTAINER_TMPDIR</code> environment
-variable to a location on disk (<code>~/apptainer</code>) because apptainer / apptainer can often require more memory to compile the <code>sif</code> file
+variable to a location on disk (<code>~/apptainer</code>) because apptainer can often require more memory to compile the <code>sif</code> file
 than what is available on your computer (yes, more than your 64 GB). Since <code>apptainer build</code> requires root privileges, it must be run with <code>sudo</code>. The additional
-<code>-E</code> passed to <code>sudo</code> copies the environment variables from the host shell (which is needed for <code>APPTAINER_TMPDIR</code>)</p>
+<code>-E</code> passed to <code>sudo</code> copies the environment variables from the host shell (which is needed to read <code>APPTAINER_TMPDIR</code>)</p>
 <h2 id="binding-volumes-mutable-filesystems"><a class="header" href="#binding-volumes-mutable-filesystems">Binding Volumes (Mutable Filesystems)</a></h2>
 <p>In order for your compute job to do meaningful work, you will likely save some files. But we know that 
 apptainer image files are not mutable. The answer to this problem is binding volumes. A &quot;volume&quot; 
@@ -558,11 +504,11 @@ deleting data). The structure on the server would look like this:</p>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                                                    <a rel="prev" href="python.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                                    <a rel="prev" href="configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
-                                                    <a rel="next" href="python_api.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                                    <a rel="next" href="python.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -572,11 +518,11 @@ deleting data). The structure on the server would look like this:</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                                    <a rel="prev" href="python.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                    <a rel="prev" href="configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
-                                    <a rel="next" href="python_api.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                    <a rel="next" href="python.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                             </nav>
