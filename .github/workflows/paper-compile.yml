@@ -1,3 +1,5 @@
+name: Paper Compile
+
 on: [push]
 
 jobs:
