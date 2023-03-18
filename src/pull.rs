@@ -10,6 +10,7 @@ use std::io::Write;
 use std::net::SocketAddr;
 use std::path::Path;
 
+/// execute a query to pull files from a head node / server
 pub async fn pull(args: cli::Pull) -> Result<(), Error> {
     let config: config::Jobs<config::common::File> =
         config::load_config(&args.job_file).map_err(error::PullErrorLocal::from)?;

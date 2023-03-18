@@ -498,17 +498,24 @@ impl JobSet {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+/// information on jobs that are executing and queued for a given job batch
 pub struct RemainingJobs {
+    /// the name of the job batch (batch_name in distribute-jobs.yaml config file)
     pub batch_name: String,
+    /// the names of the jobs that are remaining
     pub jobs_left: Vec<String>,
+    /// jobs that are currently being executed on compute nodes
     pub running_jobs: Vec<RunningJobDuration>,
 }
 
 #[derive(Clone, Debug)]
+/// handler for a job that is being executed on the server
 pub struct RunningJob {
+    /// name of the job being executed
     job_name: String,
     /// information on the node we are running on
     node_meta: NodeMetadata,
+    /// time when the job was allocatead to a compute node
     start_time: std::time::Instant,
 }
 

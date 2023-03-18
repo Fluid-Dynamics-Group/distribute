@@ -17,6 +17,7 @@ use super::NormalizePaths;
 #[derive(Debug, Clone, Deserialize, Serialize, getset::Getters)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
+/// a file type specifying a path on disk and an (optional) alias filename
 pub struct File {
     // the path to the file locally
     #[getset(get = "pub(crate)")]
@@ -27,6 +28,8 @@ pub struct File {
 }
 
 impl File {
+    /// create a `File` with a given alias. The path provided should resolve to a
+    /// file that currently exists on disk.
     pub fn with_alias<T: Into<PathBuf>, U: Into<String>>(
         path: T,
         alias: U,
@@ -52,7 +55,8 @@ impl File {
         }
     }
 
-    /// create a new `File` and ensure that the path is an absolute path
+    /// create a new `File` and ensure that the path is an absolute path. Do not include
+    /// filename aliases
     pub fn new<T: Into<PathBuf>>(path: T) -> Result<Self, LoadJobsError> {
         let path = path.into();
         let path = path
@@ -69,6 +73,7 @@ impl File {
         Self { path, alias: None }
     }
 
+    /// get the optional underlying alias for this file
     pub fn alias(&self) -> Option<&String> {
         self.alias.as_ref()
     }
@@ -144,6 +149,12 @@ pub(crate) fn normalize_pathbuf(pathbuf: PathBuf, base_path: PathBuf) -> PathBuf
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, getset::Getters, Constructor)]
+/// a hashed file, mostly used on the compute node to remove the possibility of
+/// multiple files from different users / job batches colliding in filenames. 
+///
+/// Normally,
+/// you do not want to use this type and instead are looking for the more general [`File`] type
+/// present in configuration files.
 pub struct HashedFile {
     // on the server, this is the absolute path to the file on disk
     //

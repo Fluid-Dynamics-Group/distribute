@@ -5,6 +5,18 @@ use std::fmt;
 
 #[derive(From, Debug, Clone, Deserialize, Serialize)]
 #[serde(transparent)]
+/// store information on required capabilities of either a job batch
+/// or capabilities that a compute node relies on.
+///
+///
+/// ## Example
+///
+/// ```
+/// use distribute::requirements::Requirements;
+/// let job_capabilities = vec!["gpu", "apptainer"];
+///
+/// let requirements : Requirements = Requirements::from(job_capabilities);
+/// ```
 pub struct Requirements<T> {
     pub(crate) reqs: BTreeSet<Requirement>,
     #[serde(skip)]
@@ -29,6 +41,15 @@ impl<T> FromIterator<Requirement> for Requirements<T> {
     }
 }
 
+impl <INTO, T> From<Vec<INTO>> for Requirements<T> 
+where INTO: Into<String>
+{
+    fn from(reqs: Vec<INTO>) -> Self {
+        reqs.into_iter()
+            .map(|x| Requirement(x.into())).collect()
+    }
+}
+
 impl Requirements<JobRequiredCaps> {
     pub(crate) fn requires_gpu(&self) -> bool {
         // TODO: can probably make Requirement<T> and work with
@@ -49,12 +70,16 @@ impl<T> fmt::Display for Requirements<T> {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+/// marker type denoting that capabilities / requirements are for a compute node
 pub struct NodeProvidedCaps;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+/// marker type denoting that capabilities / requirements are for a job batch
 pub struct JobRequiredCaps;
 
 #[derive(From, Ord, Eq, PartialEq, PartialOrd, Debug, Clone, Deserialize, Serialize, Display)]
+/// specifies a required capability that a node should possess in 
+/// order to a job to be scheduled to it.
 pub struct Requirement(String);
 
 impl From<&str> for Requirement {

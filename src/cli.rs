@@ -15,33 +15,53 @@ use crate::config::{
     about = "A utility for scheduling jobs on a cluster", 
     version=env!("CARGO_PKG_VERSION")
 )]
+/// General CLI handler for all user inputs
 pub struct ArgsWrapper {
     #[arg(long)]
+    /// save the logs to a file
     pub save_log: bool,
 
     #[arg(long)]
+    /// print logs to stdout
     pub show_logs: bool,
 
     #[clap(subcommand)]
+    /// general
     pub command: Arguments,
 }
 
 #[derive(Subcommand, PartialEq, Debug, Eq)]
+/// top-level subcommand handler
 pub enum Arguments {
+    /// start a client / compute node
     Client(Client),
+    /// start a server / head node
     Server(Server),
+    /// kill a jobset on the server
     Kill(Kill),
+    /// pause jobs running locally
     Pause(Pause),
+    /// add a job set to a head node
     Add(Add),
+    /// generate a distribute-nodes.yaml template
     Template(Template),
+    /// pull archived results from the server
     Pull(Pull),
+    /// run an apptainer job locally
     Run(Run),
+    /// check the status of the server, including
+    /// currently executing jobs and jobs
+    /// remaining in each job batch
     ServerStatus(ServerStatus),
+    /// (server command) to check that all nodes
+    /// are up and they have the correct versions of distribute
     NodeStatus(NodeStatus),
+    /// transpile a distribute compute config to run on slurm
     Slurm(Slurm),
 }
 
 impl Arguments {
+    /// helper function to determine the path to place a log file
     pub fn log_path(&self) -> PathBuf {
         match &self {
             Self::Client(c) => c.log_file.clone(),
@@ -224,6 +244,10 @@ pub struct Pull {
 }
 
 #[derive(Parser, PartialEq, Debug, Eq)]
+/// A filter applied to pull queries to the server. 
+///
+/// Queries can either be "include" based (only include files specified), or
+/// exclude based (pull all files except those matching exclude query)
 pub enum RegexFilter {
     /// files to include in the pulling operation. all --include flags are included with an OR
     /// basis.
@@ -231,6 +255,7 @@ pub enum RegexFilter {
     /// --include "file_1" --include "file_2" will include matches for both file_1 or file_2
     Include {
         #[structopt(long, short)]
+        /// include fields
         include: Vec<String>,
     },
     /// files to exlclude in the pulling operation. all --exclude flags are included with an OR
@@ -239,6 +264,7 @@ pub enum RegexFilter {
     /// --exclude "file_1" --exclude "file_2" will exclude matches for both file_1 or file_2
     Exclude {
         #[structopt(long, short)]
+        /// exclude fields
         exclude: Vec<String>,
     },
 }

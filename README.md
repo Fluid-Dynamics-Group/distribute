@@ -7,7 +7,7 @@ easy to use distributed computing
 You will need a recent version of `cargo` and the rust compiler `rustc`. Install instructions are [here](https://www.rust-lang.org/tools/install)
 
 ```
-cargo install --git https://github.com/fluid-Dynamics-Group/distribute --force
+cargo install --git "https://github.com/fluid-Dynamics-Group/distribute" --force
 ```
 
 ## Documentation:

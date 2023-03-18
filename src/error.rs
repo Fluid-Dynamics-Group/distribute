@@ -4,46 +4,66 @@ use std::io;
 use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
+/// general erorr enum encapsulating most (but not all) error states of all functions
 pub enum Error {
     #[error("Could not load configuration file. {0}")]
+    /// the configuration has an error in it
     InvalidConfiguration(#[from] config::ConfigurationError),
     #[error("{0}")]
+    /// there was a failure in a TCP connection, and it could not be 
+    /// generalized to a more specific call site than this enum
     TcpConnection(#[from] TcpConnection),
     #[error("{0}")]
+    /// failed to serialize bytes to transport. The presence of 
+    /// this variant is usually a bug
     TransportSerialization(#[from] Serialization),
     #[error("{0}")]
+    /// failed to deserialize bytes from transport. The presence of 
+    /// this variant is usually a bug
     TransportDeserialization(#[from] Deserialization),
     #[error("{0}")]
+    /// failed to run a job on a compute node
     RunJob(#[from] RunJobError),
     #[error("{0}")]
+    /// failed to initialize a job on a compute node, likely 
+    /// caused when executing a compiler script from python
     InitJob(#[from] InitJobError),
     #[error("{0}")]
+    /// failure to start of execute a server / head node
     Server(#[from] ServerError),
     #[error("Failed to setup logging: {0}")]
+    /// failure to setup logging interfaces, usually
+    /// before any other code is called
     Log(#[from] LogError),
     #[error("{0}")]
+    /// failed to initialize a client on a compute node 
     ClientInit(#[from] ClientInitError),
     #[error("{0}")]
+    /// failed to pause a job that is being executed
     Pause(#[from] PauseError),
     #[error("{0}")]
+    /// failed to add a new batch of jobs from a configuration file
     Add(#[from] AddError),
     #[error("{0}")]
+    /// failed to get server / head node status information
     Status(#[from] StatusError),
-    #[error("Error when building a job: {0}")]
-    BuildJob(#[from] BuildJobError),
-    #[error("Error when executing a job on a node: {0}")]
-    RunningJob(#[from] RunningNodeError),
     #[error("{0}")]
+    /// failed to setup template. Generally this does not happen
+    /// unless the filename specified could not be created.
     Template(#[from] TemplateError),
     #[error("{0}")]
+    /// failed to generate a pull query for the server from user input
     PullErrorLocal(#[from] PullErrorLocal),
     #[error("{0}")]
+    /// a timeout from a node failing a keepalive check
     Timeout(#[from] TimeoutError),
     #[error("{0}")]
+    /// failure to convert a job batch to slurm format
     Slurm(#[from] Slurm),
 }
 
 #[derive(thiserror::Error, Debug, From)]
+/// an error associated with the transport of data over the wire
 pub enum TcpConnection {
     #[error("A general io error occured when reading from a TCP connection: `{0}`")]
     General(std::io::Error),
@@ -62,6 +82,9 @@ pub enum TcpConnection {
     fmt = "error serializing data to bytes (this is probably a bug): {}",
     error
 )]
+/// failure to serialize bytes to bincode format. 
+///
+/// This should not happen
 pub struct Serialization {
     error: bincode::Error,
 }
@@ -172,6 +195,8 @@ pub struct OpenFile {
 
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
 #[display(fmt = "Failed to create file {} - error: {}", "path.display()", error)]
+/// failure to create a file, with additional information on the
+/// path to the file
 pub struct CreateFile {
     error: std::io::Error,
     path: PathBuf,
@@ -263,10 +288,13 @@ pub struct RemoveDirError {
 }
 
 #[derive(Debug, From, thiserror::Error)]
+/// failure to setup logging environment
 pub enum LogError {
     #[error("`{0}`")]
+    /// failure to send log output to the io sink
     Io(std::io::Error),
     #[error("`{0}`")]
+    /// failure to create a file for the log output to dump to
     CreateFile(CreateFile),
 }
 
@@ -344,26 +372,6 @@ pub struct StoreSet {
 }
 
 #[derive(Debug, From, thiserror::Error)]
-pub enum BuildJobError {
-    #[error("{0}")]
-    CreateDirector(CreateDir),
-    #[error("{0}")]
-    Other(Box<Error>),
-    #[error("The scheduler returned a runnable job instead of an initialization job when we first requested a task.")]
-    SentExecutable,
-}
-
-#[derive(Debug, From, thiserror::Error)]
-pub enum RunningNodeError {
-    #[error("{0}")]
-    CreateDirector(CreateDir),
-    #[error("{0}")]
-    Other(Box<Error>),
-    #[error("The job returned to us has not been built before")]
-    MissingBuildStep,
-}
-
-#[derive(Debug, From, thiserror::Error)]
 pub enum UnixError {
     #[error("Io error reading a file: `{0}`")]
     Io(std::io::Error),
@@ -405,30 +413,44 @@ pub enum PullErrorLocal {
 
 #[derive(Debug, Display, thiserror::Error, Constructor)]
 #[display(fmt = "regular expression: `{}` error reason: `{}`", "expr", "error")]
+/// failed to compile regular expression
 pub struct RegexError {
     expr: String,
     error: regex::Error,
 }
 
 #[derive(Debug, From, thiserror::Error)]
+/// failed executing an apptainer job configuration locally
 pub enum RunErrorLocal {
     #[error("Error with configuration file: {0}")]
+    /// could not deserialize configuration file
     Config(config::ConfigurationError),
     #[error("Unexpected resposne from the server")]
+    /// server sent an unexpected or out-of-order response when queried
+    ///
+    /// usually this is indicative of a version mismatch.
     UnexpectedResponse,
     #[error("{0}")]
+    /// failed to create a local directory to store teh data
     CreateDir(CreateDir),
     #[error("{0}")]
+    /// failed to write a file pulled from the server
     WriteFile(WriteFile),
     #[error("the specified --save_dir folder exists and --clean-save was not specifed")]
+    /// a folder with the given path already exists
     FolderExists,
     #[error("A general io error occured: {0}")]
+    /// an unhandled io error occured
     GeneralIo(std::io::Error),
     #[error("A python configuration was specified, but run-local only supports apptainer configurations")]
+    /// only apptainer job formats can be executed locally, python environments cannot
     OnlyApptainer,
     #[error("{0}")]
+    /// failed to load jobs from the provided config file, usually this
+    /// implies that some paths specified were missing
     LoadJobs(config::LoadJobsError),
     #[error("{0}")]
+    /// a catch-all for errors that can occur elsewhere in the pipeline
     GeneralError(Error),
 }
 
@@ -438,6 +460,7 @@ pub enum RunErrorLocal {
     "name",
     "addr"
 )]
+/// A node has failed a keepalive check
 pub struct TimeoutError {
     addr: std::net::SocketAddr,
     name: String,

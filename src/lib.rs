@@ -1,11 +1,17 @@
+#![doc = include_str!("../README.md")]
+
 #![allow(dead_code)]
+#![deny(missing_docs)]
 
 mod config;
 
 #[cfg(feature = "cli")]
 mod add;
+
 #[cfg(feature = "cli")]
+/// command line interface helpers and data types
 pub mod cli;
+
 #[cfg(feature = "cli")]
 mod client;
 #[cfg(feature = "cli")]
@@ -77,11 +83,13 @@ mod reexports {
     use super::pull;
     use super::server;
 
+    /// helper command to start a server with a boxed error output
     pub async fn start_server(args: cli::Server) -> Result<(), Box<dyn std::error::Error>> {
         server::server_command(args).await?;
         Ok(())
     }
 
+    /// helper command to start pull command with a boxed error output
     pub async fn start_pull(args: cli::Pull) -> Result<(), Box<dyn std::error::Error>> {
         pull::pull(args).await?;
         Ok(())
@@ -90,20 +98,27 @@ mod reexports {
 
 // helper function to setup logging in some integration tests
 #[cfg(feature = "cli")]
+/// create a logger instance sending output only to stdout
 pub fn logger() {
     logger_cfg(LoggingOutput::Stdout, true);
 }
 
 #[cfg(feature = "cli")]
+/// set locations for log outputs (stdout, file, both, or none)
 pub enum LoggingOutput {
+    /// log to stdout only
     Stdout,
+    /// log to stdout *and* a file
     StdoutAndFile(fs::File),
+    /// log exclusively a file
     File(fs::File),
+    /// do not log
     None,
 }
 
 #[cfg(feature = "cli")]
 impl LoggingOutput {
+    /// generate a [`LevelFilter`] from [`LoggingOutput`]
     fn level(&self) -> LevelFilter {
         match self {
             Self::None => LevelFilter::OFF,
@@ -129,6 +144,11 @@ macro_rules! subscriber_helper {
 }
 
 #[cfg(feature = "cli")]
+/// setup logging with a specific [`LoggingOutput`] configuration
+///
+/// ## Parameters
+///
+/// `with_filename`: enable filename in logs
 pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
     let stdout = std::io::stdout;
     let logging_level = logging_output.level();
@@ -153,6 +173,7 @@ pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
 }
 
 #[cfg(test)]
+/// get a local address at a given port. Used exclusively for testing
 fn add_port(port: u16) -> SocketAddr {
     SocketAddr::from(([0, 0, 0, 0], port))
 }

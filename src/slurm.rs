@@ -4,6 +4,7 @@ use crate::server::ok_if_exists;
 const SIF_FILE: &str = "apptainer.sif";
 const CURRENT_DUR_BASH: &[u8] = br#"DIR="$(cd "$(dirname "$0")" && pwd)""#;
 
+/// convert a distribute job to a slurm job
 pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
     //
     // load the config files

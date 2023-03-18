@@ -5,6 +5,10 @@ use crate::error::RunErrorLocal;
 
 use crate::prelude::*;
 
+/// execute an apptainer job locally instead of executing it on a server
+///
+/// Internally, this does not use the same machinery as the normal execution of apptainer jobs, so
+/// this needs to be tested separately.
 pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
     let working_dir = WorkingDir::from(args.save_dir.clone());
 
