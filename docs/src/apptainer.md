@@ -16,7 +16,7 @@ benefits for using apptainer from an implementation standpoint in `distribute`:
 
 1. Its easy to use GPU compute from apptainer
 2. Apptainer compiles down to a single `.sif` file that can easily be sent to the `distribute` server and passed to compute nodes
-3. Once your code has been packaged in apptainer, it is very easy to run it on paid HPC clusters
+3. Once your code has been packaged in apptainer, it is very easy to run it on HPC clusters
 
 ## Packaging a Solver with Apptainer
 
@@ -40,18 +40,18 @@ Bootstrap: docker
 From: ubuntu:22.04
 
 %files from build
-    # in here you copy files / directories from your host machine into the 
+	# in here you copy files / directories from your host machine into the 
 	# container so that they may be accessed and compiled. 
 	# the sintax is:
 
 	/path/to/host/file /path/to/container/file
 
 %post
-    # install any extra packages required here
+	# install any extra packages required here
 	# possibly with apt, or maybe pip3
 
 %apprun distribute
-    # execute your solver here
+	# execute your solver here
 	# this section is called from a compute node
 ```
 One *important* note from this file: the `%apprun distribute` section is critical. On a node 
@@ -110,7 +110,7 @@ variable to a location on disk (`~/apptainer`) because apptainer can often requi
 than what is available on your computer (yes, more than your 64 GB). Since `apptainer build` requires root privileges, it must be run with `sudo`. The additional
 `-E` passed to `sudo` copies the environment variables from the host shell (which is needed to read `APPTAINER_TMPDIR`)
 
-## Binding Volumes (Mutable Filesystems)
+## Input Files
 
 In order for your compute job to do meaningful work, you will likely save some files. But we know that 
 apptainer image files are not mutable. The answer to this problem is binding volumes. A "volume" 
@@ -175,6 +175,8 @@ input
 ```
 
 For a more detailed explanation of this behavior read the python configuration documentation.
+
+## Binding Volumes (Mutable Filesystems)
 
 Now a natural question you may have is this: If volume bindings are specified at runtime - and not
 within my apptainer definition file - how can I possibly get additional mutable folders? Am I stuck
