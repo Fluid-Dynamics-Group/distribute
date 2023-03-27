@@ -367,7 +367,6 @@ if __name__ == "__main__":
         sys.exit(1)
 ```
 
-
 ## Full Example
 
 A simpler example of a python job has been compiled and verified 
