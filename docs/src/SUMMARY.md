@@ -19,7 +19,7 @@
 		- [Full Example](./python-full-example.md)
 - [Command Basics](./commands.md)
 - [Python Api](./python_api.md)
-- [Available Capabilities](capabilities.md)
+- [Capabilities](capabilities.md)
 - [Admin Setup](./admin_setup.md)
 	- [Head Node Setup](./head_node_setup.md)
 	- [Compute Node Setup](./compute_node_setup.md)
