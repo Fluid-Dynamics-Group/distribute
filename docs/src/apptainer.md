@@ -155,4 +155,3 @@ binary directly. Therefore, each job in the configuration file only operates on 
 and the `.sif` file never changes. This is slightly less flexible than the python configuration (which allows
 for individual python files to run each job), but by storing your input files in some intermediate structure
 (like json) this difficulty can be easily overcome.
-
