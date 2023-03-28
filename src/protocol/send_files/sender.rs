@@ -22,7 +22,7 @@ pub(crate) trait FileSender {
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send>;
 }
 
-/// additional state used when performing file transfer
+/// additional state for transporting final data from a job run to the server
 pub(crate) struct SenderFinalStore {
     pub(crate) job_name: String,
     pub(crate) folder_state: client::BindingFolderState,
@@ -74,7 +74,7 @@ impl NextState for SenderState<SenderFinalStore> {
     }
 }
 
-/// additional state used when performing file transfer
+/// state for a simple list of files to transfer
 pub(crate) struct FlatFileList {
     pub(crate) files: Vec<FileMetadata>,
 }
@@ -352,14 +352,18 @@ impl Machine<SendFiles, SenderState<BuildingSender>> {
 }
 
 impl Machine<SendFiles, SenderState<ExecutingSender>> {
-    pub(crate) fn into_uninit(self) -> UninitServer {
+    pub(crate) fn into_uninit(self) -> (UninitServer, server::pool_data::RunTaskInfo) {
         let SenderState { conn, extra, .. } = self.state;
 
-        let ExecutingSender { common, .. } = extra;
+        let ExecutingSender {
+            common, run_info, ..
+        } = extra;
 
         let conn = conn.update_state();
         info!("moving client send files -> uninit");
         let state = ServerUninitState { conn, common };
-        Machine::from_state(state)
+        let uninit = Machine::from_state(state);
+
+        (uninit, run_info)
     }
 }

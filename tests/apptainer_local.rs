@@ -64,7 +64,13 @@ fn slurm_output_verify() {
     let cluster_address = "pronghorn.rc.unr.edu".into();
     let cluser_destination = "/data/gpfs/home/bkarlik".into();
 
-    let slurm_command = Slurm::new(output_dir.clone(), dir.join("distribute-jobs.yaml"), cluster_username, cluster_address, cluser_destination);
+    let slurm_command = Slurm::new(
+        output_dir.clone(),
+        dir.join("distribute-jobs.yaml"),
+        cluster_username,
+        cluster_address,
+        cluser_destination,
+    );
 
     distribute::slurm(slurm_command).unwrap();
 
@@ -114,5 +120,4 @@ fn verify_basic_output(task_dir: &std::path::Path) {
     for file in ["hello.txt", "input.txt"] {
         assert!(input.join(file).exists());
     }
-
 }

@@ -48,9 +48,7 @@ impl Description<common::File> {
         self.jobs.len()
     }
 
-    pub(super) fn hashed(
-        &self,
-    ) -> Result<Description<common::HashedFile>, super::MissingFilename> {
+    pub(super) fn hashed(&self) -> Result<Description<common::HashedFile>, super::MissingFilename> {
         let initialize = self.initialize.hashed()?;
 
         let mut jobs = Vec::new();
@@ -120,9 +118,7 @@ pub struct Initialize<FILE> {
 
 #[cfg(feature = "cli")]
 impl Initialize<common::File> {
-    pub(crate) fn hashed(
-        &self,
-    ) -> Result<Initialize<common::HashedFile>, super::MissingFilename> {
+    pub(crate) fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFilename> {
         let init_hash = hashing::filename_hash(self);
 
         let hashed_path = format!("setup_python_{init_hash}.dist").into();
@@ -178,9 +174,9 @@ pub struct Job<FILE> {
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
     pub(super) required_files: Vec<FILE>,
-    /// slurm configuration. This level of information will override the defeaults at the outer 
+    /// slurm configuration. This level of information will override the defeaults at the outer
     /// most level of the configuration
-    slurm: Option<super::Slurm>
+    slurm: Option<super::Slurm>,
 }
 
 #[cfg(feature = "cli")]
@@ -221,7 +217,7 @@ impl Job<common::File> {
             name: self.name().to_string(),
             python_job_file,
             required_files,
-            slurm: self.slurm.clone()
+            slurm: self.slurm.clone(),
         };
 
         Ok(job)

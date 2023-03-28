@@ -7,7 +7,7 @@
    viewBox="0 0 297 210"
    version="1.1"
    id="svg5"
-   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
    sodipodi:docname="state_machine.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -23,15 +23,17 @@
      inkscape:pagecheckerboard="0"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="0.77593294"
-     inkscape:cx="469.75709"
-     inkscape:cy="442.6929"
-     inkscape:window-width="1904"
-     inkscape:window-height="1020"
-     inkscape:window-x="8"
-     inkscape:window-y="52"
+     inkscape:zoom="1.0973349"
+     inkscape:cx="366.34213"
+     inkscape:cy="252.88543"
+     inkscape:window-width="2544"
+     inkscape:window-height="1340"
+     inkscape:window-x="2568"
+     inkscape:window-y="92"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer1" />
+     inkscape:current-layer="layer1"
+     inkscape:showpageshadow="2"
+     inkscape:deskcolor="#d1d1d1" />
   <defs
      id="defs2">
     <marker
@@ -361,7 +363,7 @@
        sodipodi:nodetypes="cc" />
     <path
        style="fill:none;stroke:#000000;stroke-width:0.241677;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker41550-3)"
-       d="m 232.20608,49.602807 c -28.40916,-0.15625 -62.70295,-6.556445 -67.88107,-23.82486"
+       d="M 210.02381,87.92393 C 208.78155,65.415186 174.78753,38.698441 164.32501,25.777947"
        id="path41558-1"
        sodipodi:nodetypes="cc" />
     <path

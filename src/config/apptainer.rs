@@ -46,9 +46,7 @@ impl Description<common::File> {
         self.jobs.len()
     }
 
-    pub(super) fn hashed(
-        &self,
-    ) -> Result<Description<common::HashedFile>, super::MissingFilename> {
+    pub(super) fn hashed(&self) -> Result<Description<common::HashedFile>, super::MissingFilename> {
         let initialize = self.initialize.hashed()?;
 
         let jobs = self
@@ -172,7 +170,7 @@ pub struct Job<FILE> {
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
     pub required_files: Vec<FILE>,
-    /// slurm configuration. This level of information will override the defeaults at the outer 
+    /// slurm configuration. This level of information will override the defeaults at the outer
     /// most level of the configuration
     #[getset(get = "pub(crate)")]
     slurm: Option<super::Slurm>,
@@ -212,7 +210,7 @@ impl Job<common::File> {
         let job = Job {
             name: self.name().to_string(),
             required_files,
-            slurm: self.slurm.clone()
+            slurm: self.slurm.clone(),
         };
 
         Ok(job)

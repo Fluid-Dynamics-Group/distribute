@@ -291,5 +291,5 @@ pub struct Slurm {
     /// folder that the files will placed in.
     ///
     /// Ex: /home/your_username/another/
-    pub(crate) cluster_upload_destination: PathBuf
+    pub(crate) cluster_upload_destination: PathBuf,
 }

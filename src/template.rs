@@ -38,7 +38,7 @@ fn python_template() -> Result<String, TemplateError> {
                 "input.json",
             ),
         ],
-        None
+        None,
     );
 
     let python = python::Description::new(initialize, vec![job_1]);
@@ -82,7 +82,8 @@ fn apptainer_template() -> Result<String, TemplateError> {
 
     // TODO: better slurm defaults
     let slurm = None;
-    let desc: config::Jobs<common::File> = config::ApptainerConfig::new(meta, apptainer, slurm).into();
+    let desc: config::Jobs<common::File> =
+        config::ApptainerConfig::new(meta, apptainer, slurm).into();
     let serialized = serde_yaml::to_string(&desc)?;
 
     Ok(serialized)

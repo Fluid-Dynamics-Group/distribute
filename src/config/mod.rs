@@ -12,9 +12,9 @@ use crate::client::execute::FileMetadata;
 use derive_more::{Constructor, Display, From};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use std::io::Write;
 
 use getset::Getters;
 
@@ -206,7 +206,7 @@ pub struct ApptainerConfig<FILE> {
     #[getset(get = "pub(crate)", get_mut = "pub(crate)")]
     description: apptainer::Description<FILE>,
     #[getset(get = "pub(crate)")]
-    slurm: Option<Slurm>
+    slurm: Option<Slurm>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
@@ -217,7 +217,7 @@ pub struct PythonConfig<FILE> {
     #[serde(rename = "python")]
     #[getset(get = "pub(crate)")]
     description: python::Description<FILE>,
-    slurm: Option<Slurm>
+    slurm: Option<Slurm>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, From)]
@@ -350,7 +350,7 @@ impl Jobs<common::File> {
                 Ok(Jobs::from(PythonConfig {
                     meta: pyconfig.meta.clone(),
                     description,
-                    slurm: pyconfig.slurm.clone()
+                    slurm: pyconfig.slurm.clone(),
                 }))
             }
             Self::Apptainer(apptainer_config) => {
@@ -359,7 +359,7 @@ impl Jobs<common::File> {
                 Ok(Jobs::from(ApptainerConfig {
                     meta: apptainer_config.meta.clone(),
                     description,
-                    slurm: apptainer_config.slurm.clone()
+                    slurm: apptainer_config.slurm.clone(),
                 }))
             }
         }

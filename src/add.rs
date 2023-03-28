@@ -12,8 +12,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     }
 
     // ensure that there are no duplicate job names
-    check_has_duplicates(&config.job_names())
-        .map_err(error::AddError::from)?;
+    check_has_duplicates(&config.job_names()).map_err(error::AddError::from)?;
 
     debug!("ensuring all files exist on disk in the locations described");
 

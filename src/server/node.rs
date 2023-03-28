@@ -76,7 +76,19 @@ async fn run_all_jobs(
 
         let execute = match send_execute_files.send_files().await {
             Ok(execute) => execute,
-            Err((prepare_build, err)) => return Err((prepare_build.into_uninit(), err.into())),
+            Err((send_files_err_state, err)) => {
+                let (uninit, run_task_info) = send_files_err_state.into_uninit();
+
+                // return the task to the scheduler
+                let return_msg = server::JobRequest::DeadNode(run_task_info);
+                scheduler_tx
+                    .send(return_msg)
+                    .await
+                    .ok()
+                    .expect("scheduler is offine - irrecoverable error");
+
+                return Err((uninit, err.into()));
+            }
         };
 
         // fully execute the job and return back to the built state

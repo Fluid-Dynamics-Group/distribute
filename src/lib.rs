@@ -56,19 +56,10 @@ pub use matrix_notify::{OwnedUserId, UserId};
 
 #[cfg(feature = "cli")]
 pub use {
-    add::add,
-    client::client_command,
-    kill::kill,
-    node_status::node_status,
-    pause::pause,
-    pull::pull,
-    run_local::run_local,
-    server::server_command,
-    server::RemainingJobs,
-    server_status::get_current_jobs,
-    server_status::server_status,
+    add::add, client::client_command, kill::kill, node_status::node_status, pause::pause,
+    pull::pull, run_local::run_local, server::server_command, server::RemainingJobs,
+    server_status::get_current_jobs, server_status::server_status, slurm::slurm,
     template::template,
-    slurm::slurm
 };
 
 #[cfg(test)]
