@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Compute Node Setup - distribute-docs</title>
+        <title>Input Files - distribute-docs</title>
                 
 
         <!-- Custom HTML head -->
@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">3.</strong> Overview</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="apptainer.html"><strong aria-hidden="true">4.1.</strong> Apptainer Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="apptainer-introduction.html"><strong aria-hidden="true">4.1.1.</strong> Apptainer Overview</a></li><li class="chapter-item expanded "><a href="apptainer-mutable-filesystem.html"><strong aria-hidden="true">4.1.2.</strong> Mutable Filesystem</a></li><li class="chapter-item expanded "><a href="apptainer-input-files.html"><strong aria-hidden="true">4.1.3.</strong> Input Files</a></li><li class="chapter-item expanded "><a href="apptainer-storing-results.html"><strong aria-hidden="true">4.1.4.</strong> Storing Results</a></li><li class="chapter-item expanded "><a href="apptainer-packaging-solvers.html"><strong aria-hidden="true">4.1.5.</strong> Packaging Solvers</a></li><li class="chapter-item expanded "><a href="apptainer-running-locally.html"><strong aria-hidden="true">4.1.6.</strong> Running Locally</a></li></ol></li><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.2.</strong> Python Jobs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="python-build-scripts.html"><strong aria-hidden="true">4.2.1.</strong> Build Scripts</a></li><li class="chapter-item expanded "><a href="python-input-files.html"><strong aria-hidden="true">4.2.2.</strong> Input Files</a></li><li class="chapter-item expanded "><a href="python-storing-results.html"><strong aria-hidden="true">4.2.3.</strong> Storing Results</a></li><li class="chapter-item expanded "><a href="python-execution-scripts.html"><strong aria-hidden="true">4.2.4.</strong> Execution Scripts</a></li><li class="chapter-item expanded "><a href="python-full-example.html"><strong aria-hidden="true">4.2.5.</strong> Full Example</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">6.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">7.</strong> Capabilities</a></li><li class="chapter-item expanded "><a href="admin_setup.html"><strong aria-hidden="true">8.</strong> Admin Setup</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="head_node_setup.html"><strong aria-hidden="true">8.1.</strong> Head Node Setup</a></li><li class="chapter-item expanded "><a href="compute_node_setup.html" class="active"><strong aria-hidden="true">8.2.</strong> Compute Node Setup</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="overview.html"><strong aria-hidden="true">3.</strong> Overview</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="apptainer.html"><strong aria-hidden="true">4.1.</strong> Apptainer Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="apptainer-introduction.html"><strong aria-hidden="true">4.1.1.</strong> Apptainer Overview</a></li><li class="chapter-item expanded "><a href="apptainer-mutable-filesystem.html"><strong aria-hidden="true">4.1.2.</strong> Mutable Filesystem</a></li><li class="chapter-item expanded "><a href="apptainer-input-files.html" class="active"><strong aria-hidden="true">4.1.3.</strong> Input Files</a></li><li class="chapter-item expanded "><a href="apptainer-storing-results.html"><strong aria-hidden="true">4.1.4.</strong> Storing Results</a></li><li class="chapter-item expanded "><a href="apptainer-packaging-solvers.html"><strong aria-hidden="true">4.1.5.</strong> Packaging Solvers</a></li><li class="chapter-item expanded "><a href="apptainer-running-locally.html"><strong aria-hidden="true">4.1.6.</strong> Running Locally</a></li></ol></li><li class="chapter-item expanded "><a href="python.html"><strong aria-hidden="true">4.2.</strong> Python Jobs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="python-build-scripts.html"><strong aria-hidden="true">4.2.1.</strong> Build Scripts</a></li><li class="chapter-item expanded "><a href="python-input-files.html"><strong aria-hidden="true">4.2.2.</strong> Input Files</a></li><li class="chapter-item expanded "><a href="python-storing-results.html"><strong aria-hidden="true">4.2.3.</strong> Storing Results</a></li><li class="chapter-item expanded "><a href="python-execution-scripts.html"><strong aria-hidden="true">4.2.4.</strong> Execution Scripts</a></li><li class="chapter-item expanded "><a href="python-full-example.html"><strong aria-hidden="true">4.2.5.</strong> Full Example</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Command Basics</a></li><li class="chapter-item expanded "><a href="python_api.html"><strong aria-hidden="true">6.</strong> Python Api</a></li><li class="chapter-item expanded "><a href="capabilities.html"><strong aria-hidden="true">7.</strong> Capabilities</a></li><li class="chapter-item expanded "><a href="admin_setup.html"><strong aria-hidden="true">8.</strong> Admin Setup</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="head_node_setup.html"><strong aria-hidden="true">8.1.</strong> Head Node Setup</a></li><li class="chapter-item expanded "><a href="compute_node_setup.html"><strong aria-hidden="true">8.2.</strong> Compute Node Setup</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -143,49 +143,68 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="compute-node-setup"><a class="header" href="#compute-node-setup">Compute Node Setup</a></h1>
-<p>First, ensure you have completed the common setup from the <a href="./admin_setup.html">admin setup</a></p>
-<h2 id="as-the-distribute-user-created-earlier"><a class="header" href="#as-the-distribute-user-created-earlier">As the <code>distribute</code> user created earlier</a></h2>
-<p>create the following directories:</p>
-<pre><code>mkdir $HOME/data
-mkdir $HOME/logs
+                        <h1 id="input-files"><a class="header" href="#input-files">Input Files</a></h1>
+<p>In order for your compute job to do meaningful work, you will likely save some files. But we know that 
+apptainer image files are not mutable. The answer to this problem is binding volumes. A &quot;volume&quot; 
+is container-language for a folder inside the container that actually corresponds to a folder on the 
+host system. Since these special folders (&quot;volumes&quot;) are actually part of the host computer's 
+filesystem they can be written to without error. The process of mapping a folder in your container
+to a folder on the host system is called &quot;binding&quot;. </p>
+<p>With apptainer, the binding of volumes to a container happens at runtime. Since <code>distribute</code> wants you to have
+access to a folder to save things to (in python: <code>./distribute_save</code>), as well as a folder to read the <code>required_files</code>
+you specified (in python: <code>./distribute_save</code>). Apptainer makes these folders slightly easier to access by binding them
+to the root directory: <code>/distribute_save</code> and <code>/input</code>. When running your apptainer on the compute node with 16
+cores, the following command is used to ensure that these bindings happen:</p>
+<pre><code class="language-bash">apptainer run apptainer_file.sif --app distribute --bind \
+	path/to/a/folder:/distribute_save:rw,\
+	path/to/another/folder:/input:rw\
+	16
 </code></pre>
-<p>Ensure that <code>distrbute</code> is installed for this user (running <code>distribute</code> should 
-result in some output with no errors)</p>
-<h2 id="while-root"><a class="header" href="#while-root">While Root</a></h2>
-<p>Clone the repo with the correct version of <code>distribute</code> you are using</p>
-<pre><code>git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
-cd distribute
+<p>Note that the binding arguments are simply a comma separated list in the format <code>folder_on_host:folder_in_container:rw</code>
+where <code>rw</code> specifies that files in the folder are readable and writeable.
+If your configuration file for apptainer looks like this:</p>
+<pre><code class="language-yaml">meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  capabilities: []
+apptainer:
+  initialize:
+    sif: execute_container.sif
+    required_files:
+      - path: file1.txt
+      - path: file999.txt
+        alias: file2.txt
+    required_mounts: []
+  jobs:
+    - name: job_1
+      required_files:
+        - path: file3.txt
+    - name: job_2
+      required_files: []
 </code></pre>
-<p>copy the compute service to the system directory:</p>
-<pre><code>sudo cp install/distribute-compute.service /etc/systemd/system/
+<p>When running <code>job_1</code>, the <code>/input</code> folder looks like this:</p>
+<pre><code>input
+├── file1.txt
+├── file2.txt
+└── file3.txt
 </code></pre>
-<p>start the service and enable it at startup:</p>
-<pre><code>sudo systemctl daemon-reload
-sudo systemctl enable distribute-compute
-sudo systemctl start distribute-compute
-</code></pre>
-<p>Note that if you have deviated from username or folder structure above, <code>distribute-compute.service</code> will
-have to be updated with those paths since it relies on hard-coded paths.</p>
-<h2 id="updating"><a class="header" href="#updating">Updating</a></h2>
-<p>To update, simply reinstall <code>distribute</code> and restart the systemd service. On the head node:</p>
-<pre><code>systemctl restart distribute-server
-</code></pre>
-<p><code>distribute</code> requires that all compute nodes and head node have the same version of <code>distribute</code> installed.
-You can verify that all nodes are correctly setup or updated correctly with </p>
-<pre><code>sudo su distribute
-cd ~/server
-distribute node-status
+<p>And when running <code>job_2</code>, the <code>/input</code> folder looks like this:</p>
+<pre><code>input
+├── file1.txt
+├── file2.txt
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                                                    <a rel="prev" href="head_node_setup.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                                    <a rel="prev" href="apptainer-mutable-filesystem.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
+                                                    <a rel="next" href="apptainer-storing-results.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
                         <div style="clear: both"></div>
                     </nav>
@@ -193,10 +212,13 @@ distribute node-status
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                                    <a rel="prev" href="head_node_setup.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                    <a rel="prev" href="apptainer-mutable-filesystem.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
+                                    <a rel="next" href="apptainer-storing-results.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                             </nav>
 
         </div>
