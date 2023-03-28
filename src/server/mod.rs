@@ -22,6 +22,7 @@ use crate::{cli, config, error, error::Error};
 use tokio::sync::{broadcast, mpsc};
 
 #[cfg(feature = "cli")]
+/// start a server (head node) for the execution of `distribute`
 pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     debug!("starting server");
 
@@ -150,6 +151,12 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
 }
 
 #[cfg(feature = "cli")]
+/// map a `Result<(), std::io::Error>` to `Ok(())` if the error is `ErrorKind::AlreadyExists`
+///
+/// if we attempted to create a file and it already exists, sometimes we wish to simply open 
+/// the file instead of creating a fresh file. 
+///
+/// Usually this is applicable to directories that we want to ensure exist but dont care if they already exist.
 pub(crate) fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io::Error> {
     match x {
         Ok(_) => Ok(()),
@@ -160,18 +167,8 @@ pub(crate) fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io:
     Ok(())
 }
 
-pub(crate) fn create_dir_helper<T>(path: &Path) -> Result<(), T>
-where
-    T: From<(PathBuf, std::io::Error)>,
-{
-    debug!("creating directory at {}", path.display());
-
-    match ok_if_exists(std::fs::create_dir(path)) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(T::from((path.to_owned(), e))),
-    }
-}
-
+/// recursively create directories and store the path of the directory in the output in the Error
+/// type if it fails.
 pub(crate) fn create_dir_all_helper<T>(path: &Path) -> Result<(), T>
 where
     T: From<(PathBuf, std::io::Error)>,

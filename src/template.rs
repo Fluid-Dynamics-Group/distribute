@@ -3,6 +3,7 @@ use super::cli::Template;
 use crate::config::{self, apptainer, common, python};
 use crate::error::{Error, TemplateError};
 
+/// create a `distribute-jobs.yaml` with some default fields
 pub fn template(args: Template) -> Result<(), Error> {
     let out = to_template(args.mode)?;
 

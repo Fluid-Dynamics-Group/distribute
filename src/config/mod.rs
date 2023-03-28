@@ -1,6 +1,10 @@
+/// apptainer configuration types
 pub mod apptainer;
-pub mod common;
+/// python configuration types
 pub mod python;
+/// helper types common between python and apptainer
+pub mod common;
+/// helper types for job or compute node capabilities
 pub mod requirements;
 
 #[cfg(feature = "cli")]
@@ -19,8 +23,10 @@ use std::path::PathBuf;
 use getset::Getters;
 
 macro_rules! const_port {
-    ($NUMERIC:ident, $STR:ident, $value:expr) => {
+    ($NUMERIC:ident, $STR:ident, $value:expr, $docstring:expr) => {
+        #[doc=$docstring]
         pub const $NUMERIC: u16 = $value;
+        #[doc=$docstring]
         pub const $STR: &'static str = stringify!($value);
     };
 }
@@ -28,10 +34,10 @@ macro_rules! const_port {
 //
 // ports for different communication channels
 //
-const_port!(SERVER_PORT, SERVER_PORT_STR, 8952);
-const_port!(CLIENT_PORT, CLIENT_PORT_STR, 8953);
-const_port!(CLIENT_KEEPALIVE_PORT, CLIENT_KEEPALIVE_PORT_STR, 8954);
-const_port!(CLIENT_CANCEL_PORT, CLIENT_CANCEL_PORT_STR, 8955);
+const_port!(SERVER_PORT, SERVER_PORT_STR, 8952, "default port that the server listens on for user connections");
+const_port!(CLIENT_PORT, CLIENT_PORT_STR, 8953, "default port that the client listens on for server compute connections");
+const_port!(CLIENT_KEEPALIVE_PORT, CLIENT_KEEPALIVE_PORT_STR, 8954, "default port that the client listens on for server keepalive checks");
+const_port!(CLIENT_CANCEL_PORT, CLIENT_CANCEL_PORT_STR, 8955, "default port that the client listens on for server cancellation notices");
 
 #[derive(Debug, Display, thiserror::Error, Constructor)]
 #[display(
@@ -39,18 +45,23 @@ const_port!(CLIENT_CANCEL_PORT, CLIENT_CANCEL_PORT_STR, 8955);
     "configuration_file",
     "error"
 )]
+/// helper to hold config error and the path at which the file was located
 pub struct ConfigurationError {
     configuration_file: String,
     error: ConfigErrorReason,
 }
 
 #[derive(Debug, Display, From)]
+/// failure / incorrect data in config file
 pub enum ConfigErrorReason {
     #[display(fmt = "{}", _0)]
+    /// config file could not be deserialized
     Deserialization(DeserError),
     #[display(fmt = "missing file: {}", _0)]
+    /// filename could not be parsed from the path, and no alias was provided
     MissingFile(MissingFilename),
     #[display(fmt = "General Io error when opening config file: {}", _0)]
+    /// general io error
     IoError(std::io::Error),
 }
 
@@ -58,6 +69,7 @@ pub enum ConfigErrorReason {
 #[display(
     fmt = "general deserialization: {general}\npython deserialization err: {python_err}\nappatainer deserialization error: {apptainer_err}"
 )]
+/// failure to deserialize job configuration from file (python or apptainer)
 pub struct DeserError {
     general: serde_yaml::Error,
     python_err: serde_yaml::Error,
@@ -65,12 +77,16 @@ pub struct DeserError {
 }
 
 #[derive(Debug, From, thiserror::Error)]
+/// error type for conditions in which jobs can not be loaded and read from disk
 pub enum LoadJobsError {
     #[error("{0}")]
+    /// failed to read bytes from a file
     ReadBytes(ReadBytesError),
     #[error("{0}")]
+    /// filename could not be parsed from the path, and no alias was provided
     MissingFileName(MissingFilename),
     #[error("{0}")]
+    /// failed to canonicalize paths
     Canonicalize(CanonicalizeError),
 }
 
@@ -112,12 +128,14 @@ pub struct ReadBytesError {
 #[serde(deny_unknown_fields)]
 /// main entry point for server configuration file
 pub struct Nodes {
+    /// list of nodes that the server can connect to
     pub nodes: Vec<Node>,
 }
 
 #[derive(Debug, Clone, Deserialize, Display)]
 #[serde(deny_unknown_fields)]
 #[display(fmt = "ip address: {}", ip)]
+/// configuration information for a node that the server will connect to
 pub struct Node {
     pub(crate) ip: std::net::IpAddr,
     #[serde(rename = "name")]
@@ -163,8 +181,13 @@ impl Node {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 /// special type that can be sent over TCP with bincode
+///
+/// this is because [`Jobs`] is required to serialize an untagged enum
+/// which is impossible to do with binary parsing
 pub enum TransportJobs<FILE> {
+    /// python transportable configuration
     Python(PythonConfig<FILE>),
+    /// apptainer transportable configuration
     Apptainer(ApptainerConfig<FILE>),
 }
 
@@ -181,8 +204,11 @@ impl<F> From<Jobs<F>> for TransportJobs<F> {
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[serde(untagged)]
 #[serde(deny_unknown_fields)]
+/// full configuration for either a python or apptainer job batch
 pub enum Jobs<FILE> {
+    /// full configuration for a python job batch
     Python(PythonConfig<FILE>),
+    /// full configuration for an apptainer job batch
     Apptainer(ApptainerConfig<FILE>),
 }
 
@@ -199,6 +225,7 @@ impl<F> From<TransportJobs<F>> for Jobs<F> {
     Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters, getset::MutGetters,
 )]
 #[serde(deny_unknown_fields)]
+/// apptainer configuration file
 pub struct ApptainerConfig<FILE> {
     #[getset(get = "pub(crate)")]
     meta: Meta,
@@ -211,6 +238,7 @@ pub struct ApptainerConfig<FILE> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
+/// python configuration file
 pub struct PythonConfig<FILE> {
     #[getset(get = "pub(crate)")]
     meta: Meta,
@@ -221,8 +249,11 @@ pub struct PythonConfig<FILE> {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, From)]
+/// initialization section for either an apptainer or python job batch
 pub enum Init {
+    /// initialization for python job batch
     Python(python::Initialize<common::HashedFile>),
+    /// initialization for apptainer job batch
     Apptainer(apptainer::Initialize<common::HashedFile>),
 }
 
@@ -263,8 +294,11 @@ impl Init {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, From)]
+/// Container for either a python job or an apptainer job
 pub enum Job {
+    /// initialization and job specification for a single python job
     Python(python::Job<common::HashedFile>),
+    /// initialization and job specification for a single apptainer job
     Apptainer(apptainer::Job<common::HashedFile>),
 }
 
@@ -314,17 +348,23 @@ impl Job {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
+/// A container for the `meta:` section of a distribute-jobs.yaml file
 pub struct Meta {
     #[getset(get = "pub(crate)")]
+    /// the batch name for the job set
     pub batch_name: String,
     #[getset(get = "pub(crate)")]
+    /// the namespace for the job set
     pub namespace: String,
+    /// the matrix user to message on completion
     pub matrix: Option<matrix_notify::OwnedUserId>,
+    /// the capabilities required to execute the job
     pub capabilities: requirements::Requirements<requirements::JobRequiredCaps>,
 }
 
 #[cfg(feature = "cli")]
 impl Jobs<common::File> {
+    /// return the number of jobs in the job set
     pub fn len_jobs(&self) -> usize {
         match &self {
             Self::Python(pyconfig) => pyconfig.description.len_jobs(),
@@ -342,6 +382,7 @@ impl Jobs<common::File> {
         Ok(())
     }
 
+    /// hash all constitutent files of this job set in preparation to move them to the server
     pub fn hashed(&self) -> Result<Jobs<common::HashedFile>, MissingFilename> {
         match &self {
             Self::Python(pyconfig) => {
@@ -377,6 +418,7 @@ impl Jobs<common::HashedFile> {
 }
 
 impl<FILE> Jobs<FILE> {
+    /// required capabilities to execute this job batch
     pub(crate) fn capabilities(
         &self,
     ) -> &requirements::Requirements<requirements::JobRequiredCaps> {
@@ -386,6 +428,7 @@ impl<FILE> Jobs<FILE> {
         }
     }
 
+    /// batch name of this job batch
     pub fn batch_name(&self) -> String {
         match self {
             Self::Python(py) => py.meta.batch_name.clone(),
@@ -393,6 +436,7 @@ impl<FILE> Jobs<FILE> {
         }
     }
 
+    /// the matrix username to message on job completion
     pub fn matrix_user(&self) -> Option<matrix_notify::OwnedUserId> {
         match self {
             Self::Python(py) => py.meta.matrix.clone(),
@@ -400,6 +444,7 @@ impl<FILE> Jobs<FILE> {
         }
     }
 
+    /// namespace of the job batch
     pub fn namespace(&self) -> String {
         match self {
             Self::Python(py) => py.meta.namespace.clone(),
@@ -407,6 +452,7 @@ impl<FILE> Jobs<FILE> {
         }
     }
 
+    /// return all names of jobes in the job batch specified by the config file
     pub fn job_names(&self) -> Vec<&str> {
         match self {
             Self::Python(py) => py
@@ -446,7 +492,9 @@ impl ApptainerConfig<common::File> {
     }
 }
 
+/// normalize a path to a base path
 pub trait NormalizePaths {
+    /// normalize a path to a base path
     fn normalize_paths(&mut self, base: PathBuf);
 }
 
@@ -468,6 +516,7 @@ impl NormalizePaths for Nodes {
     }
 }
 
+/// read in a config file from disk
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     path: &Path,
 ) -> Result<T, ConfigurationError> {
@@ -511,6 +560,7 @@ pub fn load_config<T: DeserializeOwned + NormalizePaths>(
 
 #[derive(Deserialize, Serialize, Clone, Debug, getset::Getters, Constructor)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
+/// fields that can be serialized to slurm parameters
 pub struct Slurm {
     #[getset(get = "pub(crate)")]
     job_name: Option<String>,

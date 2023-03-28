@@ -15,6 +15,7 @@ use protocol::UninitClient;
 
 use crate::{cli, error, transport};
 
+/// start a client / compute node on this machine
 pub async fn client_command(client: cli::Client) -> Result<(), Error> {
     let base_path = client.base_folder;
     let working_dir = WorkingDir::from(base_path.clone());

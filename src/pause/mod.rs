@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+/// pause all currently running processes on this compute node
 pub async fn pause(args: cli::Pause) -> Result<(), Error> {
     let duration = parse_time_input(&args.duration)?;
 

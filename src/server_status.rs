@@ -68,6 +68,7 @@ impl From<Duration> for HourMinuteSecond {
     }
 }
 
+/// connect to server and fetch the remaining batches of jobs in the queue
 pub async fn get_current_jobs(
     args: &cli::ServerStatus,
 ) -> Result<Vec<crate::server::RemainingJobs>, Error> {

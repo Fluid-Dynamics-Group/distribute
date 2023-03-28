@@ -16,10 +16,13 @@ use getset::Getters;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
+/// initialization and job specification for apptainer job batches
 pub struct Description<FILE> {
     #[getset(get = "pub(crate)")]
+    /// initialization information on apptainer job
     pub initialize: Initialize<FILE>,
     #[getset(get = "pub(crate)")]
+    /// list of jobs to execute in the job batch
     pub jobs: Vec<Job<FILE>>,
 }
 
@@ -100,11 +103,15 @@ where
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
+/// initialization information for python jobs
 pub struct Initialize<FILE> {
     #[getset(get = "pub(crate)")]
+    /// path to .sif file generated from apptainer
     pub sif: FILE,
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
+    /// list of required files used in apptainer initialization. Generally, for apptainer jobs,
+    /// these are simply files that will always be present
     pub required_files: Vec<FILE>,
     /// paths in the folder that need to have mount points to
     /// the host file system
@@ -164,11 +171,13 @@ impl Initialize<common::HashedFile> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
+/// specification for an apptainer job
 pub struct Job<FILE> {
     #[getset(get = "pub(crate)")]
     name: String,
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
+    /// files required for the execution of this job
     pub required_files: Vec<FILE>,
     /// slurm configuration. This level of information will override the defeaults at the outer
     /// most level of the configuration

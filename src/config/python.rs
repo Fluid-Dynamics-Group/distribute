@@ -18,10 +18,13 @@ use getset::Getters;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
+/// initialization and job specification for python job batches
 pub struct Description<FILE> {
     #[getset(get = "pub(crate)")]
+    /// initialization information on how to compile the job batch
     pub initialize: Initialize<FILE>,
     #[getset(get = "pub(crate)")]
+    /// list of jobs to execute with the given initialization
     pub jobs: Vec<Job<FILE>>,
 }
 
@@ -107,12 +110,15 @@ where
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
+/// initialization information for python jobs
 pub struct Initialize<FILE> {
     #[serde(rename = "build_file")]
     #[getset(get = "pub(crate)")]
+    /// path to build file for python job batch
     pub python_build_file_path: FILE,
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
+    /// list of required files used in compilation script
     pub(super) required_files: Vec<FILE>,
 }
 
@@ -165,6 +171,7 @@ impl Initialize<common::HashedFile> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
+/// specification for a python job
 pub struct Job<FILE> {
     #[getset(get = "pub(crate)")]
     pub(super) name: String,

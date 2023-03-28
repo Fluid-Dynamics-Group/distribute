@@ -2,6 +2,7 @@ use crate::{cli, error::Error, transport};
 
 use std::net::SocketAddr;
 
+/// stop the execution of a job batch
 pub async fn kill(args: cli::Kill) -> Result<(), Error> {
     let addr = SocketAddr::from((args.ip, args.port));
 
