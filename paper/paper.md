@@ -111,7 +111,7 @@ hundreds of cores.
 The input-output model for *distribute* jobs. A stateless solver executes a computational
 workload and produces output.
 \label{fig:stateless-solver-formula}
-](./media/input_outputs.png)
+](./input_outputs.png)
 
 # Acknowledgements
 
