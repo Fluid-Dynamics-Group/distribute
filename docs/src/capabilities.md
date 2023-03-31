@@ -1,7 +1,7 @@
 # Capabilities
 
-Since capabilities are decided by the administrator for your `distribtue` cluster, the capabilities 
-for your cluster are cluster-specific.
+Since capabilities are decided by the administrator for your `distribute` cluster, 
+capabilities are cluster-specific.
 
 One recommendation made to administrators, though, is that the capabilities `apptainer` and `gpu` are 
 included to denote access to an `apptainer` binary on the system and the system containing a NVIDIA gpu, respectively.
