@@ -10,22 +10,22 @@ pub enum Error {
     /// the configuration has an error in it
     InvalidConfiguration(#[from] config::ConfigurationError),
     #[error("{0}")]
-    /// there was a failure in a TCP connection, and it could not be 
+    /// there was a failure in a TCP connection, and it could not be
     /// generalized to a more specific call site than this enum
     TcpConnection(#[from] TcpConnection),
     #[error("{0}")]
-    /// failed to serialize bytes to transport. The presence of 
+    /// failed to serialize bytes to transport. The presence of
     /// this variant is usually a bug
     TransportSerialization(#[from] Serialization),
     #[error("{0}")]
-    /// failed to deserialize bytes from transport. The presence of 
+    /// failed to deserialize bytes from transport. The presence of
     /// this variant is usually a bug
     TransportDeserialization(#[from] Deserialization),
     #[error("{0}")]
     /// failed to run a job on a compute node
     RunJob(#[from] RunJobError),
     #[error("{0}")]
-    /// failed to initialize a job on a compute node, likely 
+    /// failed to initialize a job on a compute node, likely
     /// caused when executing a compiler script from python
     InitJob(#[from] InitJobError),
     #[error("{0}")]
@@ -36,7 +36,7 @@ pub enum Error {
     /// before any other code is called
     Log(#[from] LogError),
     #[error("{0}")]
-    /// failed to initialize a client on a compute node 
+    /// failed to initialize a client on a compute node
     ClientInit(#[from] ClientInitError),
     #[error("{0}")]
     /// failed to pause a job that is being executed
@@ -82,7 +82,7 @@ pub enum TcpConnection {
     fmt = "error serializing data to bytes (this is probably a bug): {}",
     error
 )]
-/// failure to serialize bytes to bincode format. 
+/// failure to serialize bytes to bincode format.
 ///
 /// This should not happen
 pub struct Serialization {

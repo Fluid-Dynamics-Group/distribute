@@ -150,7 +150,7 @@ pub(crate) fn normalize_pathbuf(pathbuf: PathBuf, base_path: PathBuf) -> PathBuf
 
 #[derive(Debug, Clone, Deserialize, Serialize, getset::Getters, Constructor)]
 /// a hashed file, mostly used on the compute node to remove the possibility of
-/// multiple files from different users / job batches colliding in filenames. 
+/// multiple files from different users / job batches colliding in filenames.
 ///
 /// Normally,
 /// you do not want to use this type and instead are looking for the more general [`File`] type

@@ -153,8 +153,8 @@ pub async fn server_command(server: cli::Server) -> Result<(), Error> {
 #[cfg(feature = "cli")]
 /// map a `Result<(), std::io::Error>` to `Ok(())` if the error is `ErrorKind::AlreadyExists`
 ///
-/// if we attempted to create a file and it already exists, sometimes we wish to simply open 
-/// the file instead of creating a fresh file. 
+/// if we attempted to create a file and it already exists, sometimes we wish to simply open
+/// the file instead of creating a fresh file.
 ///
 /// Usually this is applicable to directories that we want to ensure exist but dont care if they already exist.
 pub(crate) fn ok_if_exists(x: Result<(), std::io::Error>) -> Result<(), std::io::Error> {

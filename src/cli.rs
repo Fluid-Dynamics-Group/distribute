@@ -244,7 +244,7 @@ pub struct Pull {
 }
 
 #[derive(Parser, PartialEq, Debug, Eq)]
-/// A filter applied to pull queries to the server. 
+/// A filter applied to pull queries to the server.
 ///
 /// Queries can either be "include" based (only include files specified), or
 /// exclude based (pull all files except those matching exclude query)

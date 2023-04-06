@@ -51,13 +51,16 @@ impl Description<common::File> {
         self.jobs.len()
     }
 
-    pub(super) fn hashed(&self) -> Result<Description<common::HashedFile>, super::MissingFilename> {
-        let initialize = self.initialize.hashed()?;
+    pub(super) fn hashed(
+        &self,
+        meta: &super::Meta,
+    ) -> Result<Description<common::HashedFile>, super::MissingFilename> {
+        let initialize = self.initialize.hashed(meta)?;
 
         let mut jobs = Vec::new();
 
         for (job_idx, job) in self.jobs.iter().enumerate() {
-            let hashed_job = job.hashed(job_idx)?;
+            let hashed_job = job.hashed(job_idx, meta)?;
 
             jobs.push(hashed_job);
         }
@@ -124,8 +127,11 @@ pub struct Initialize<FILE> {
 
 #[cfg(feature = "cli")]
 impl Initialize<common::File> {
-    pub(crate) fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFilename> {
-        let init_hash = hashing::filename_hash(self);
+    pub(crate) fn hashed(
+        &self,
+        meta: &super::Meta,
+    ) -> Result<Initialize<common::HashedFile>, super::MissingFilename> {
+        let init_hash = hashing::filename_hash(self, meta);
 
         let hashed_path = format!("setup_python_{init_hash}.dist").into();
         let unhashed_path = self.python_build_file_path.path().into();
@@ -191,8 +197,9 @@ impl Job<common::File> {
     pub(crate) fn hashed(
         &self,
         job_idx: usize,
+        meta: &super::Meta,
     ) -> Result<Job<common::HashedFile>, super::MissingFilename> {
-        let hash = hashing::filename_hash(self);
+        let hash = hashing::filename_hash(self, meta);
 
         let required_files = self
             .required_files

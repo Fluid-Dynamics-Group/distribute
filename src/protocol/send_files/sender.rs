@@ -231,8 +231,9 @@ where
                     fs_meta
                 } else {
                     error!(
-                        "could not read metadata for {} - skipping",
-                        metadata.absolute_file_path.display()
+                        "could not read metadata for {} - skipping. Path exists: {}",
+                        metadata.absolute_file_path.display(),
+                        metadata.absolute_file_path.exists()
                     );
                     continue;
                 };

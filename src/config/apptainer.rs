@@ -49,14 +49,17 @@ impl Description<common::File> {
         self.jobs.len()
     }
 
-    pub(super) fn hashed(&self) -> Result<Description<common::HashedFile>, super::MissingFilename> {
-        let initialize = self.initialize.hashed()?;
+    pub(super) fn hashed(
+        &self,
+        meta: &super::Meta,
+    ) -> Result<Description<common::HashedFile>, super::MissingFilename> {
+        let initialize = self.initialize.hashed(meta)?;
 
         let jobs = self
             .jobs
             .iter()
             .enumerate()
-            .map(|(job_idx, job)| job.hashed(job_idx))
+            .map(|(job_idx, job)| job.hashed(job_idx, meta))
             .collect::<Result<Vec<_>, super::MissingFilename>>()?;
 
         let desc = Description { initialize, jobs };
@@ -122,8 +125,11 @@ pub struct Initialize<FILE> {
 
 #[cfg(feature = "cli")]
 impl Initialize<common::File> {
-    fn hashed(&self) -> Result<Initialize<common::HashedFile>, super::MissingFilename> {
-        let init_hash = hashing::filename_hash(self);
+    fn hashed(
+        &self,
+        meta: &super::Meta,
+    ) -> Result<Initialize<common::HashedFile>, super::MissingFilename> {
+        let init_hash = hashing::filename_hash(self, meta);
 
         // hash the sif
         let hashed_path = format!("setup_sif_{init_hash}.dist").into();
@@ -190,11 +196,12 @@ impl Job<common::File> {
     pub(crate) fn hashed(
         &self,
         job_idx: usize,
+        meta: &super::Meta,
     ) -> Result<Job<common::HashedFile>, super::MissingFilename> {
         //
         // for each job ...
         //
-        let hash = hashing::filename_hash(self);
+        let hash = hashing::filename_hash(self, meta);
         let required_files = self
             .required_files
             .iter()

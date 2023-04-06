@@ -1,9 +1,9 @@
 /// apptainer configuration types
 pub mod apptainer;
-/// python configuration types
-pub mod python;
 /// helper types common between python and apptainer
 pub mod common;
+/// python configuration types
+pub mod python;
 /// helper types for job or compute node capabilities
 pub mod requirements;
 
@@ -34,10 +34,30 @@ macro_rules! const_port {
 //
 // ports for different communication channels
 //
-const_port!(SERVER_PORT, SERVER_PORT_STR, 8952, "default port that the server listens on for user connections");
-const_port!(CLIENT_PORT, CLIENT_PORT_STR, 8953, "default port that the client listens on for server compute connections");
-const_port!(CLIENT_KEEPALIVE_PORT, CLIENT_KEEPALIVE_PORT_STR, 8954, "default port that the client listens on for server keepalive checks");
-const_port!(CLIENT_CANCEL_PORT, CLIENT_CANCEL_PORT_STR, 8955, "default port that the client listens on for server cancellation notices");
+const_port!(
+    SERVER_PORT,
+    SERVER_PORT_STR,
+    8952,
+    "default port that the server listens on for user connections"
+);
+const_port!(
+    CLIENT_PORT,
+    CLIENT_PORT_STR,
+    8953,
+    "default port that the client listens on for server compute connections"
+);
+const_port!(
+    CLIENT_KEEPALIVE_PORT,
+    CLIENT_KEEPALIVE_PORT_STR,
+    8954,
+    "default port that the client listens on for server keepalive checks"
+);
+const_port!(
+    CLIENT_CANCEL_PORT,
+    CLIENT_CANCEL_PORT_STR,
+    8955,
+    "default port that the client listens on for server cancellation notices"
+);
 
 #[derive(Debug, Display, thiserror::Error, Constructor)]
 #[display(
@@ -386,7 +406,7 @@ impl Jobs<common::File> {
     pub fn hashed(&self) -> Result<Jobs<common::HashedFile>, MissingFilename> {
         match &self {
             Self::Python(pyconfig) => {
-                let description = pyconfig.description.hashed()?;
+                let description = pyconfig.description.hashed(&pyconfig.meta)?;
 
                 Ok(Jobs::from(PythonConfig {
                     meta: pyconfig.meta.clone(),
@@ -395,7 +415,9 @@ impl Jobs<common::File> {
                 }))
             }
             Self::Apptainer(apptainer_config) => {
-                let description = apptainer_config.description.hashed()?;
+                let description = apptainer_config
+                    .description
+                    .hashed(&apptainer_config.meta)?;
 
                 Ok(Jobs::from(ApptainerConfig {
                     meta: apptainer_config.meta.clone(),

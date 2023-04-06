@@ -80,8 +80,12 @@ impl HashableComponent for config::python::Job<File> {
     }
 }
 
-pub(super) fn filename_hash<T: HashableComponent>(data: &T) -> String {
+pub(super) fn filename_hash<T: HashableComponent>(data: &T, meta: &super::Meta) -> String {
     let mut sha = sha1::Sha1::new();
+
+    // hash the meta section first
+    sha.update(meta.batch_name().as_bytes());
+    sha.update(meta.namespace().as_bytes());
 
     sha.update(data.job_name().as_bytes());
 

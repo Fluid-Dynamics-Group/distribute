@@ -8,7 +8,7 @@ nodes:
     capabilities: [cargo, singularity, apptainer, lab2, lab2-3, python3, lab1-2]
     name: "lab2"
   - ip: "134.197.95.113"
-    capabilities: [cargo, fftw, python3, openfoam, singularity, apptainer, lab1-3, lab2-3, lab3, gpu]
+    capabilities: [cargo, fftw, python3, openfoam, singularity, apptainer, lab1-3, lab2-3, lab3, lab3-5, gpu]
     name: "lab3"
   - ip: "134.197.27.69"
     capabilities: [cargo, singularity, apptainer, lab5, lab3-5, gpu]

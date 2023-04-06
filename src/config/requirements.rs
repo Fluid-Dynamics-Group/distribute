@@ -41,12 +41,12 @@ impl<T> FromIterator<Requirement> for Requirements<T> {
     }
 }
 
-impl <INTO, T> From<Vec<INTO>> for Requirements<T> 
-where INTO: Into<String>
+impl<INTO, T> From<Vec<INTO>> for Requirements<T>
+where
+    INTO: Into<String>,
 {
     fn from(reqs: Vec<INTO>) -> Self {
-        reqs.into_iter()
-            .map(|x| Requirement(x.into())).collect()
+        reqs.into_iter().map(|x| Requirement(x.into())).collect()
     }
 }
 
@@ -78,7 +78,7 @@ pub struct NodeProvidedCaps;
 pub struct JobRequiredCaps;
 
 #[derive(From, Ord, Eq, PartialEq, PartialOrd, Debug, Clone, Deserialize, Serialize, Display)]
-/// specifies a required capability that a node should possess in 
+/// specifies a required capability that a node should possess in
 /// order to a job to be scheduled to it.
 pub struct Requirement(String);
 

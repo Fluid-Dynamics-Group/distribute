@@ -1,7 +1,7 @@
 use crate::error::{self, Error};
 use crate::prelude::*;
 
-/// add a job batch to the head node 
+/// add a job batch to the head node
 pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files

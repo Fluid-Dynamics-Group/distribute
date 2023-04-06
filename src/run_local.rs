@@ -36,7 +36,7 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
     for job in apptainer_config.description().jobs().into_iter().cloned() {
         working_dir.copy_job_files_apptainer(&job).await;
 
-        let job = job.hashed(0).unwrap();
+        let job = job.hashed(0, &apptainer_config.meta()).unwrap();
         let name = job.name().to_string();
 
         client::execute::run_apptainer_job(job, &working_dir, &mut rx, &state).await?;
