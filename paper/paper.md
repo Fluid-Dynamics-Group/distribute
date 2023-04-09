@@ -41,7 +41,7 @@ Many research groups face challenges with inefficient utilization or over-schedu
 computational resources. While some computers work for days to complete a queue of simulations, 
 others remain unused. Dividing simulations manually among computers is time-consuming and often 
 ineffective due to varying hardware configurations. Additionally, multiple individuals running 
-jobs on a single computer can slow down progress for everyone involved.
+jobs on a single computer can slow simulatiaoni progress for everyone involved.
 
 To meet the growing challenges of managing compute resources between 
 researchers, workload managers such as Slurm [@SLURM] and TORQUE [@TORQUE] quickly 
