@@ -148,11 +148,9 @@ impl Machine<Building, ClientBuildingState> {
             ..
         } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         super::built::ClientBuiltState {
             conn,
@@ -172,14 +170,7 @@ impl Machine<Building, ClientBuildingState> {
 
         let mut conn = conn.update_state();
 
-        if conn.bytes_left().await != 0 {
-            error!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-            panic!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-        }
+        super::assert_conn_empty(&mut conn).await;
 
         super::prepare_build::ClientPrepareBuildState {
             conn,
@@ -262,11 +253,9 @@ impl Machine<Building, ServerBuildingState> {
             batch_name,
             job_identifier,
         } = self.state;
-        #[allow(unused_mut)]
-        let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        let mut conn = conn.update_state();
+        super::assert_conn_empty(&mut conn).await;
 
         super::built::ServerBuiltState {
             conn,
@@ -287,14 +276,7 @@ impl Machine<Building, ServerBuildingState> {
 
         let mut conn = conn.update_state();
 
-        if conn.bytes_left().await != 0 {
-            error!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-            panic!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-        }
+        super::assert_conn_empty(&mut conn).await;
 
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }

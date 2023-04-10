@@ -18,7 +18,7 @@ use getset::Getters;
 #[serde(deny_unknown_fields)]
 /// initialization and job specification for apptainer job batches
 pub struct Description<FILE> {
-    #[getset(get = "pub(crate)")]
+    #[getset(get = "pub(crate)", get_mut = "pub")]
     /// initialization information on apptainer job
     pub initialize: Initialize<FILE>,
     #[getset(get = "pub(crate)")]

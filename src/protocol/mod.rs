@@ -242,3 +242,20 @@ impl Common {
         (tx, common)
     }
 }
+
+#[allow(unused_variables)]
+async fn assert_conn_empty<TX, RX>(conn: &mut transport::Connection<TX>) 
+where
+    TX: Serialize + transport::AssociatedMessage<Receive = RX>,
+    RX: serde::de::DeserializeOwned,
+{
+    #[cfg(test)] 
+    if conn.bytes_left().await != 0 {
+        error!(
+            "connection was not empty - this is guaranteed to cause error in following steps!"
+        );
+        panic!(
+            "connection was not empty - this is guaranteed to cause error in following steps!"
+        );
+    }
+}

@@ -61,8 +61,8 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
 
         let job: pool_data::BuildTaskInfo = msg.unwrap_initialize_job();
 
-        let compiling_state = self.into_send_files_state(job).await;
-        let machine = Machine::from_state(compiling_state);
+        let send_files_compiling_state = self.into_send_files_state(job).await;
+        let machine = Machine::from_state(send_files_compiling_state);
         Ok(machine)
     }
 
@@ -95,15 +95,7 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
         } = self.state;
 
         let mut conn = conn.update_state();
-
-        if conn.bytes_left().await != 0 {
-            error!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-            panic!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-        }
+        super::assert_conn_empty(&mut conn).await;
 
         // TODO: have better function to generate this signature
         let save_location = working_dir.initial_files_folder();
@@ -205,11 +197,9 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
             self.state.common.node_meta
         );
         let ServerPrepareBuildState { conn, common } = self.state;
-        #[allow(unused_mut)]
-        let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        let mut conn = conn.update_state();
+        super::assert_conn_empty(&mut conn).await;
 
         let extra = send_files::BuildingSender { common, build_info };
 
@@ -218,7 +208,6 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
 }
 
 #[derive(Serialize, Deserialize, Unwrap)]
-// TODO: also need to send full information to rebuild the next state if required
 pub(crate) enum ServerMsg {
     InitializeJob(pool_data::BuildTaskInfo),
 }

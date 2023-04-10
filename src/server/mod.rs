@@ -26,7 +26,7 @@ use tokio::sync::{broadcast, mpsc};
 pub async fn server_command(server: cli::Server) -> Result<(), Error> {
     debug!("starting server");
 
-    let nodes_config = config::load_config::<config::Nodes>(&server.nodes_file)?;
+    let nodes_config = config::load_config::<config::Nodes>(&server.nodes_file, true)?;
     debug!("finished loading nodes config");
 
     if server.save_path.exists() && server.clean_output {

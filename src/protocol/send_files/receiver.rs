@@ -373,15 +373,7 @@ where
                         );
                     }
 
-                    // ensure the connection is empty as we expect it to be
-                    if self.state.conn.bytes_left().await != 0 {
-                        error!(
-                            "connection was not empty - this is guaranteed to cause error in following steps!"
-                        );
-                        panic!(
-                            "connection was not empty - this is guaranteed to cause error in following steps!"
-                        );
-                    }
+                    super::super::assert_conn_empty(&mut self.state.conn).await;
 
                     // we are now done receiving files
                     let built_state = self.state.next_state();

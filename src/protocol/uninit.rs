@@ -129,15 +129,7 @@ impl Machine<Uninit, ClientUninitState> {
         } = self.state;
 
         let mut conn = conn.update_state();
-
-        if conn.bytes_left().await != 0 {
-            error!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-            panic!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-        }
+        super::assert_conn_empty(&mut conn).await;
 
         debug!("moving client uninit -> prepare build");
         super::prepare_build::ClientPrepareBuildState {
@@ -229,15 +221,7 @@ impl Machine<Uninit, ServerUninitState> {
         let ServerUninitState { conn, common } = self.state;
 
         let mut conn = conn.update_state();
-
-        if conn.bytes_left().await != 0 {
-            error!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-            panic!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-        }
+        super::assert_conn_empty(&mut conn).await;
 
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }

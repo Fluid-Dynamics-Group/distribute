@@ -13,24 +13,22 @@ pub(crate) enum JobResponse {
 impl JobResponse {
     pub(crate) fn enumerate_paths(&self, meta: &NodeMetadata) {
         match &self {
-            Self::SetupOrRun(task_info) => {
-                enumerate_paths(meta, task_info)
-            }
-            Self::EmptyJobs => {
-            }
+            Self::SetupOrRun(task_info) => enumerate_paths(meta, task_info),
+            Self::EmptyJobs => {}
         }
     }
 }
 
-#[instrument(fields(
+#[instrument(
+    skip(node_meta, task_info)
+    fields(
     node_meta=%node_meta,
     namespace=task_info.namespace,
     batch_name=task_info.batch_name,
 ))]
 fn enumerate_paths(node_meta: &NodeMetadata, task_info: &TaskInfo) {
-
     fn print_file(file: &client::execute::FileMetadata) {
-        let exists = file.absolute_file_path.exists ();
+        let exists = file.absolute_file_path.exists();
 
         if exists {
             info!(

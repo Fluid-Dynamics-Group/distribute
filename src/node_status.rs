@@ -26,7 +26,7 @@ enum Status {
 
 /// check if nodes are online & what their current version of `distribute` is
 pub async fn node_status(args: cli::NodeStatus) -> Result<(), Error> {
-    let nodes_config = config::load_config::<config::Nodes>(&args.nodes_file)?;
+    let nodes_config = config::load_config::<config::Nodes>(&args.nodes_file, true)?;
 
     let mut results = Vec::new();
 

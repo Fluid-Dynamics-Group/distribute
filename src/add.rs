@@ -6,7 +6,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files
     //
-    let config = config::load_config::<config::Jobs<config::common::File>>(&args.jobs)?;
+    let config = config::load_config::<config::Jobs<config::common::File>>(&args.jobs, true)?;
 
     if config.len_jobs() == 0 {
         return Err(Error::Add(error::AddError::NoJobsToAdd));

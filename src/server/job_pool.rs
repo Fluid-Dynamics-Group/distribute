@@ -40,8 +40,12 @@ where
                             new_req.initialized_job,
                             new_req.capabilities,
                             &new_req.build_failures,
-                            new_req.node_meta,
+                            new_req.node_meta.clone(),
                         );
+
+                        // log all the paths, ensure they exist
+                        new_task.enumerate_paths(&new_req.node_meta);
+
                         new_req.tx.send(new_task).ok().unwrap();
                     }
                     // a job failed to execute on the node

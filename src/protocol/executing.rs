@@ -179,11 +179,8 @@ impl Machine<Executing, ClientExecutingState> {
             run_info,
         } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         let job_name = run_info.task.name().to_string();
 
@@ -211,15 +208,7 @@ impl Machine<Executing, ClientExecutingState> {
         debug!("moving client executing -> prepare build");
 
         let mut conn = conn.update_state();
-
-        if conn.bytes_left().await != 0 {
-            error!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-            panic!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-        }
+        super::assert_conn_empty(&mut conn).await;
 
         super::prepare_build::ClientPrepareBuildState {
             conn,
@@ -387,11 +376,8 @@ impl Machine<Executing, ServerExecutingState> {
             run_info,
         } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         let extra = send_files::ReceiverFinalStore { common, run_info };
 
@@ -410,15 +396,7 @@ impl Machine<Executing, ServerExecutingState> {
         let ServerExecutingState { conn, common, .. } = self.state;
 
         let mut conn = conn.update_state();
-
-        if conn.bytes_left().await != 0 {
-            error!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-            panic!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-        }
+        super::assert_conn_empty(&mut conn).await;
 
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }

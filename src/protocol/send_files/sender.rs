@@ -373,14 +373,7 @@ where
         let tmp = self.state.conn.transport_data(&msg).await;
         throw_error_with_self!(tmp, self);
 
-        if self.state.conn.bytes_left().await != 0 {
-            error!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-            panic!(
-                "connection was not empty - this is guaranteed to cause error in following steps!"
-            );
-        }
+        super::super::assert_conn_empty(&mut self.state.conn).await;
 
         let next_state = self.state.next_state();
         let machine = Machine::from_state(next_state);

@@ -21,6 +21,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use getset::Getters;
+use getset::Setters;
 
 macro_rules! const_port {
     ($NUMERIC:ident, $STR:ident, $value:expr, $docstring:expr) => {
@@ -247,10 +248,12 @@ impl<F> From<TransportJobs<F>> for Jobs<F> {
 #[serde(deny_unknown_fields)]
 /// apptainer configuration file
 pub struct ApptainerConfig<FILE> {
-    #[getset(get = "pub(crate)")]
+    /// Getters for configuration metadata
+    #[getset(get = "pub(crate)", get_mut = "pub")]
     meta: Meta,
     #[serde(rename = "apptainer")]
-    #[getset(get = "pub(crate)", get_mut = "pub(crate)")]
+    #[getset(get = "pub(crate)", get_mut = "pub")]
+    /// description of the initialization and jobs for this config
     description: apptainer::Description<FILE>,
     #[getset(get = "pub(crate)")]
     slurm: Option<Slurm>,
@@ -366,11 +369,11 @@ impl Job {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters, Setters)]
 #[serde(deny_unknown_fields)]
 /// A container for the `meta:` section of a distribute-jobs.yaml file
 pub struct Meta {
-    #[getset(get = "pub(crate)")]
+    #[getset(get = "pub(crate)", set = "pub")]
     /// the batch name for the job set
     pub batch_name: String,
     #[getset(get = "pub(crate)")]
@@ -541,6 +544,7 @@ impl NormalizePaths for Nodes {
 /// read in a config file from disk
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     path: &Path,
+    normalize: bool
 ) -> Result<T, ConfigurationError> {
     let file = std::fs::File::open(path).map_err(|e| {
         ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e))
@@ -575,7 +579,9 @@ pub fn load_config<T: DeserializeOwned + NormalizePaths>(
         Ok(config) => config,
     };
 
-    config.normalize_paths(path.parent().unwrap().to_owned());
+    if normalize {
+        config.normalize_paths(path.parent().unwrap().to_owned());
+    }
 
     Ok(config)
 }

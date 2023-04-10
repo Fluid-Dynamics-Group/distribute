@@ -9,7 +9,7 @@ pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
     //
     // load the config files
     //
-    let jobs = config::load_config::<config::Jobs<config::common::File>>(&args.jobs)?;
+    let jobs = config::load_config::<config::Jobs<config::common::File>>(&args.jobs, true)?;
 
     if jobs.len_jobs() == 0 {
         return Err(error::Slurm::NoJobs);
