@@ -170,11 +170,17 @@ impl Machine<Building, ClientBuildingState> {
             ..
         } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        if conn.bytes_left().await != 0 {
+            error!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+            panic!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+        }
+
         super::prepare_build::ClientPrepareBuildState {
             conn,
             working_dir,
@@ -279,11 +285,17 @@ impl Machine<Building, ServerBuildingState> {
 
         let ServerBuildingState { conn, common, .. } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        if conn.bytes_left().await != 0 {
+            error!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+            panic!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+        }
+
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }
 }

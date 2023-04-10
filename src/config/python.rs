@@ -166,7 +166,7 @@ impl Initialize<common::File> {
 
 #[cfg(feature = "cli")]
 impl Initialize<common::HashedFile> {
-    pub(super) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
+    pub(crate) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
         files.push(self.python_build_file_path.as_sendable(is_user));
 
         self.required_files

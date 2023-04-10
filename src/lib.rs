@@ -117,22 +117,6 @@ impl LoggingOutput {
     }
 }
 
-// helper macro to create the subscriber since each individual `$writer` is a distinct type,
-// and they are difficult / impossible to express as boxed trait objects
-#[cfg(feature = "cli")]
-macro_rules! subscriber_helper {
-    ($writer:expr, $with_filename:expr, $level:expr) => {
-        let subscriber = tracing_subscriber::FmtSubscriber::builder()
-            .with_max_level($level)
-            .with_file($with_filename)
-            .with_writer($writer)
-            .finish();
-
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("setting default subscriber failed");
-    };
-}
-
 #[cfg(feature = "cli")]
 /// setup logging with a specific [`LoggingOutput`] configuration
 ///
@@ -141,23 +125,52 @@ macro_rules! subscriber_helper {
 /// `with_filename`: enable filename in logs
 pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
     let stdout = std::io::stdout;
-    let logging_level = logging_output.level();
+    //let logging_level = logging_output.level();
+    let logging_level = tracing::Level::DEBUG;
 
     match logging_output {
-        LoggingOutput::None | LoggingOutput::Stdout => {
-            let writer = stdout;
+        LoggingOutput::None => (),
+        LoggingOutput::Stdout => {
+            let subscriber = tracing_subscriber::FmtSubscriber::builder()
+                .with_max_level(logging_level)
+                .with_file(with_filename)
+                .with_writer(stdout)
+                .with_ansi(true)
+                .finish();
 
-            // if the logging output is none, then the logging_level will be set to
-            // off, and this case will handle itself
-            subscriber_helper!(writer, with_filename, logging_level);
+            tracing::subscriber::set_global_default(subscriber)
+                .expect("setting default subscriber failed");
         }
         LoggingOutput::StdoutAndFile(file_writer) => {
-            let writer = tracing_subscriber::fmt::writer::Tee::new(file_writer, stdout);
-            subscriber_helper!(writer, with_filename, logging_level);
+            use tracing_subscriber::{fmt, prelude::*, registry::Registry};
+
+            let stdout_subscriber = fmt::Layer::new()
+                .with_file(with_filename)
+                .with_writer(stdout.with_max_level(logging_level))
+                .with_ansi(true);
+
+            let file_subscriber = fmt::Layer::new()
+                .with_file(with_filename)
+                .with_writer(file_writer.with_max_level(logging_level))
+                .with_ansi(false);
+
+            let subscriber = Registry::default()
+                .with(stdout_subscriber)
+                .with(file_subscriber);
+
+            tracing::subscriber::set_global_default(subscriber)
+                .expect("setting default subscriber failed");
         }
         LoggingOutput::File(file_writer) => {
-            let writer = file_writer;
-            subscriber_helper!(writer, with_filename, logging_level);
+            let subscriber = tracing_subscriber::FmtSubscriber::builder()
+                .with_max_level(logging_level)
+                .with_file(with_filename)
+                .with_writer(file_writer)
+                .with_ansi(false)
+                .finish();
+
+            tracing::subscriber::set_global_default(subscriber)
+                .expect("setting default subscriber failed");
         }
     }
 }

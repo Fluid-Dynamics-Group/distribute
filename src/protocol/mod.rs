@@ -107,6 +107,12 @@ impl<StateMarker, T> Machine<StateMarker, transport::Connection<T>> {
     }
 }
 
+impl UninitServer {
+    pub(crate) fn node_meta(&self) -> &pool_data::NodeMetadata {
+        &self.state.common.node_meta
+    }
+}
+
 impl<T> SendFilesServer<T> {
     pub(crate) fn into_connection(self) -> transport::Connection<send_files::ServerMsg> {
         self.state.conn

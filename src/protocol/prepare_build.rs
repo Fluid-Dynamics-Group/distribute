@@ -94,11 +94,16 @@ impl Machine<PrepareBuild, ClientPrepareBuildState> {
             cancel_addr,
         } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        if conn.bytes_left().await != 0 {
+            error!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+            panic!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+        }
 
         // TODO: have better function to generate this signature
         let save_location = working_dir.initial_files_folder();

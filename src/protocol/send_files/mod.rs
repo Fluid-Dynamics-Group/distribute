@@ -3,6 +3,7 @@ mod sender;
 
 use super::Machine;
 use crate::prelude::*;
+use crate::server::pool_data::NodeMetadata;
 
 pub(crate) use receiver::{
     BuildingReceiver, ExecutingReceiver, Nothing, ReceiverFinalStore, ReceiverState,
@@ -24,6 +25,14 @@ pub(crate) trait NextState {
     type Marker;
 
     fn next_state(self) -> Self::Next;
+}
+
+pub(crate) trait SendLogging {
+    fn job_identifier(&self) -> JobSetIdentifier;
+    fn namespace(&self) -> &str;
+    fn batch_name(&self) -> &str;
+    fn job_name(&self) -> &str;
+    fn node_meta(&self) -> &NodeMetadata;
 }
 
 #[derive(thiserror::Error, Debug, From)]

@@ -129,12 +129,20 @@ impl Machine<Built, ClientBuiltState> {
             cancel_addr,
             ..
         } = self.state;
+
         debug!("moving client built -> prepare build");
-        #[allow(unused_mut)]
+
         let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        if conn.bytes_left().await != 0 {
+            error!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+            panic!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+        }
+
         super::prepare_build::ClientPrepareBuildState {
             conn,
             working_dir,
@@ -297,8 +305,14 @@ impl Machine<Built, ServerBuiltState> {
         #[allow(unused_mut)]
         let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        if conn.bytes_left().await != 0 {
+            error!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+            panic!(
+                "connection was not empty - this is guaranteed to cause error in following steps!"
+            );
+        }
 
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }

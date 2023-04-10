@@ -166,7 +166,7 @@ impl Initialize<common::File> {
 
 #[cfg(feature = "cli")]
 impl Initialize<common::HashedFile> {
-    pub(super) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
+    pub(crate) fn sendable_files(&self, is_user: bool, files: &mut Vec<FileMetadata>) {
         files.push(self.sif.as_sendable(is_user));
 
         self.required_files
@@ -239,4 +239,43 @@ impl Job<common::HashedFile> {
             .iter()
             .for_each(|hashed_file| files.push(hashed_file.as_sendable(is_user)));
     }
+}
+
+#[test]
+fn hash_not_same() {
+    let namespace = "common_namespace".to_string();
+    let inner_caps: Vec<String> = vec![];
+    let caps =
+        super::requirements::Requirements::<super::requirements::JobRequiredCaps>::from(inner_caps);
+
+    let meta_1 = super::Meta {
+        batch_name: "batch_01".into(),
+        namespace: namespace.clone(),
+        matrix: None,
+        capabilities: caps.clone(),
+    };
+
+    let meta_2 = super::Meta {
+        batch_name: "batch_02".into(),
+        namespace: namespace.clone(),
+        matrix: None,
+        capabilities: caps.clone(),
+    };
+
+    let initialize: Initialize<common::File> = Initialize {
+        sif: common::File::new_relative("some_path.sif"),
+        required_files: Vec::new(),
+        required_mounts: Vec::new(),
+    };
+
+    let jobs = Vec::new();
+
+    let desc = Description { initialize, jobs };
+
+    let hashed_1 = desc.hashed(&meta_1).unwrap();
+    let hashed_2 = desc.hashed(&meta_2).unwrap();
+
+    dbg!(&hashed_1, &hashed_2);
+
+    assert!(hashed_1.initialize.sif.hashed_path() != hashed_2.initialize.sif.hashed_path());
 }

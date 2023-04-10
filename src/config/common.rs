@@ -161,6 +161,7 @@ pub struct HashedFile {
     // on the user's computer, this is a relative path that only contains the hash of the file
     // so that the file will be dumped precisely where we intend it to be dumped on the server
     // through send_files
+    #[getset(get = "pub(crate)")]
     hashed_path: PathBuf,
     // on the user's computer, this is the absolute path to the file
     //
@@ -200,6 +201,7 @@ impl HashedFile {
     }
 
     pub(super) fn delete_at_hashed_path(&self) -> Result<(), std::io::Error> {
+        debug!(hashed_path = %self.hashed_path.display(), original_filename = self.original_filename, "deleting hashed file");
         std::fs::remove_file(&self.hashed_path)?;
 
         Ok(())

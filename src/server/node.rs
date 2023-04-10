@@ -80,7 +80,9 @@ async fn run_all_jobs(
                 let (uninit, run_task_info) = send_files_err_state.into_uninit();
 
                 // return the task to the scheduler
-                let return_msg = server::JobRequest::DeadNode(run_task_info);
+                let dead_node =
+                    server::pool_data::DeadNode::new(run_task_info, uninit.node_meta().clone());
+                let return_msg = server::JobRequest::DeadNode(dead_node);
                 scheduler_tx
                     .send(return_msg)
                     .await
@@ -128,7 +130,9 @@ async fn execute_and_send_files(
 
             let (uninit, run_task_info) = execute.into_uninit();
 
-            let return_msg = server::JobRequest::DeadNode(run_task_info);
+            let dead_node =
+                server::pool_data::DeadNode::new(run_task_info, uninit.node_meta().clone());
+            let return_msg = server::JobRequest::DeadNode(dead_node);
             scheduler_tx
                 .send(return_msg)
                 .await
@@ -162,7 +166,9 @@ async fn execute_and_send_files(
                 run_task_info.batch_name,
             );
 
-            let return_msg = server::JobRequest::DeadNode(run_task_info);
+            let dead_node =
+                server::pool_data::DeadNode::new(run_task_info, uninit.node_meta().clone());
+            let return_msg = server::JobRequest::DeadNode(dead_node);
             scheduler_tx
                 .send(return_msg)
                 .await

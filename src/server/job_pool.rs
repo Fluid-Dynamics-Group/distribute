@@ -24,6 +24,7 @@ where
                 match new_req {
                     JobRequest::FinishJob(finish) => {
                         info!(
+                            node_meta = %finish.node_meta,
                             "marking a finished job for {} ({})",
                             finish.job_name, finish.ident
                         );
@@ -32,7 +33,7 @@ where
                     }
                     // we want a new job from the scheduler
                     JobRequest::NewJob(new_req) => {
-                        debug!("a node has asked for a new job");
+                        debug!(node_meta = %new_req.node_meta, "a node has asked for a new job");
                         // if we are requesting a new job -not- right after building a job
 
                         let new_task: JobResponse = self.remaining_jobs.fetch_new_task(
@@ -45,9 +46,9 @@ where
                     }
                     // a job failed to execute on the node
                     JobRequest::DeadNode(pending_job) => {
-                        debug!("a node has died for now, the job is returning to the scheduler");
+                        debug!(node_meta = %pending_job.node_meta, "a node has died for now, the job is returning to the scheduler");
                         self.remaining_jobs
-                            .add_job_back(pending_job.task, pending_job.identifier);
+                            .add_job_back(pending_job.task.task, pending_job.task.identifier);
 
                         continue;
                     }
@@ -108,6 +109,8 @@ where
                         }
                     }
                     JobRequest::MarkBuildFailure(failure) => {
+                        info!(node_meta = %failure.node_meta, "marking job set as build failure on node");
+
                         self.remaining_jobs
                             .mark_build_failure(failure.ident, self.total_nodes);
                     }

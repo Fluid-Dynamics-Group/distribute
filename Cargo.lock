@@ -337,7 +337,7 @@ dependencies = [
 
 [[package]]
 name = "distribute"
-version = "0.14.1"
+version = "0.14.3"
 dependencies = [
  "base16",
  "bincode",

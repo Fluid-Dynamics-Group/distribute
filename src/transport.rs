@@ -154,62 +154,6 @@ impl fmt::Debug for File {
     }
 }
 
-//#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
-//pub struct PythonJob {
-//    pub python_file: Vec<u8>,
-//    pub job_name: String,
-//    pub job_files: Vec<File>,
-//}
-//
-//impl fmt::Debug for PythonJob {
-//    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-//        fmt.debug_struct("PythonJob")
-//            .field("job_name", &self.job_name)
-//            .field("job_files", &self.job_files)
-//            .field("python_file (length)", &self.python_file.len())
-//            .finish()
-//    }
-//}
-//
-//#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
-//pub struct ApptainerJob {
-//    pub job_name: String,
-//    pub job_files: Vec<File>,
-//}
-//
-//impl fmt::Debug for ApptainerJob {
-//    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-//        fmt.debug_struct("ApptainerJob")
-//            .field("job_name", &self.job_name)
-//            .field("job_files", &self.job_files)
-//            .finish()
-//    }
-//}
-//
-//#[derive(Clone, PartialEq, From, Debug, Serialize, Deserialize, Eq)]
-//pub(crate) enum JobOpt {
-//    Apptainer(ApptainerJob),
-//    Python(PythonJob),
-//}
-//
-//impl JobOpt {
-//    pub(crate) fn name(&self) -> &str {
-//        match &self {
-//            Self::Apptainer(x) => &x.job_name,
-//            Self::Python(x) => &x.job_name,
-//        }
-//    }
-//
-//    #[cfg(test)]
-//    pub(crate) fn placeholder_test_data() -> Self {
-//        transport::JobOpt::Python(transport::PythonJob {
-//            python_file: vec![],
-//            job_name: "test_job".into(),
-//            job_files: vec![],
-//        })
-//    }
-//}
-
 #[derive(Deserialize, Serialize, PartialEq, Eq, Display, Debug)]
 #[display(fmt = "{}.{}.{}", major, minor, patch)]
 pub struct Version {
@@ -259,6 +203,7 @@ fn serialization_options() -> bincode::config::DefaultOptions {
 #[derive(derive_more::From)]
 pub(crate) struct Connection<T> {
     conn: TcpStream,
+    addr: SocketAddr,
     _marker: std::marker::PhantomData<T>,
 }
 
@@ -280,12 +225,14 @@ where
 
         Ok(Self {
             conn,
+            addr,
             _marker: std::marker::PhantomData,
         })
     }
 
     pub(crate) fn from_connection(conn: TcpStream) -> Self {
         Self {
+            addr: conn.peer_addr().unwrap(),
             conn,
             _marker: std::marker::PhantomData,
         }
@@ -335,11 +282,11 @@ where
         let conn = self.conn;
         Connection {
             conn,
+            addr: self.addr,
             _marker: std::marker::PhantomData,
         }
     }
 
-    #[cfg(test)]
     /// determine how many bytes are remaining in the connection
     pub(crate) async fn bytes_left(&mut self) -> usize {
         let mut buffer = vec![0; 100];
@@ -348,6 +295,10 @@ where
         let buffer_length: Result<Result<usize, _>, _> =
             tokio::time::timeout(Duration::from_millis(500), fut).await;
         buffer_length.map(|x| x.unwrap_or(0)).unwrap_or(0)
+    }
+
+    pub(crate) fn addr(&self) -> &SocketAddr {
+        &self.addr
     }
 }
 

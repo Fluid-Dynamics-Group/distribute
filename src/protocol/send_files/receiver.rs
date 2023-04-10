@@ -8,7 +8,7 @@ use super::super::built::{self};
 use super::super::uninit::{self, ClientUninitState};
 use super::super::{UninitClient, UninitServer};
 use super::NextState;
-use super::{ClientMsg, SendFiles, ServerError, ServerMsg};
+use super::{ClientMsg, SendFiles, SendLogging, ServerError, ServerMsg};
 
 // in the job execution process, this is the server
 pub(crate) struct ReceiverState<T> {
@@ -22,14 +22,6 @@ pub(crate) struct ReceiverState<T> {
 pub(crate) struct ReceiverFinalStore {
     pub(crate) run_info: server::pool_data::RunTaskInfo,
     pub(crate) common: super::super::Common,
-}
-
-pub(crate) trait SendLogging {
-    fn job_identifier(&self) -> JobSetIdentifier;
-    fn namespace(&self) -> &str;
-    fn batch_name(&self) -> &str;
-    fn job_name(&self) -> &str;
-    fn node_meta(&self) -> &NodeMetadata;
 }
 
 impl SendLogging for ReceiverFinalStore {
@@ -74,14 +66,7 @@ impl NextState for ReceiverState<ReceiverFinalStore> {
         let batch_name = run_info.batch_name;
         let job_identifier = run_info.identifier;
 
-        #[allow(unused_mut)]
-        let mut conn = conn.update_state();
-
-        //#[cfg(test)]
-        //{
-        //    info!("checking for remaining bytes on server side...");
-        //    assert!(conn.bytes_left().await == 0);
-        //}
+        let conn = conn.update_state();
 
         built::ServerBuiltState {
             conn,
@@ -369,7 +354,9 @@ where
                     let finish_msg = server::pool_data::FinishJob {
                         ident: self.state.extra.job_identifier(),
                         job_name: self.state.extra.job_name().to_string(),
+                        node_meta: self.state.extra.node_meta().clone(),
                     };
+
                     if let Err(_e) = scheduler_tx
                         .send(server::pool_data::JobRequest::FinishJob(finish_msg))
                         .await
@@ -386,6 +373,16 @@ where
                         );
                     }
 
+                    // ensure the connection is empty as we expect it to be
+                    if self.state.conn.bytes_left().await != 0 {
+                        error!(
+                            "connection was not empty - this is guaranteed to cause error in following steps!"
+                        );
+                        panic!(
+                            "connection was not empty - this is guaranteed to cause error in following steps!"
+                        );
+                    }
+
                     // we are now done receiving files
                     let built_state = self.state.next_state();
                     let machine = Machine::from_state(built_state);
@@ -398,6 +395,7 @@ where
                 .conn
                 .transport_data(&ServerMsg::ReceivedFile)
                 .await;
+
             throw_error_with_self!(tmp, self);
         }
     }
