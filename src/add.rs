@@ -6,7 +6,7 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
     //
     // load the config files
     //
-    let config = config::load_config::<config::Jobs<config::common::File>>(&args.jobs)?;
+    let config = config::load_config::<config::Jobs<config::common::File>>(&args.jobs, true)?;
 
     if config.len_jobs() == 0 {
         return Err(Error::Add(error::AddError::NoJobsToAdd));
@@ -96,6 +96,10 @@ pub async fn add(args: cli::Add) -> Result<(), Error> {
 
     let extra = protocol::send_files::FlatFileList {
         files: hashed_files_to_send,
+        node_meta: server::pool_data::NodeMetadata {
+            node_name: "SERVER".into(),
+            node_address: addr,
+        },
     };
     let state = protocol::send_files::SenderState { conn, extra };
     let machine = protocol::Machine::from_state(state);

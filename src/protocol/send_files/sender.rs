@@ -1,13 +1,16 @@
 use super::Machine;
 use crate::prelude::*;
 
+use crate::server::pool_data::NodeMetadata;
 use client::utils;
 
 use super::super::built::{Built, ClientBuiltState};
 use super::super::uninit::ClientUninitState;
 use super::super::UninitClient;
 use super::super::UninitServer;
-use super::{ClientError, ClientMsg, NextState, SendFiles, ServerMsg, LARGE_FILE_BYTE_THRESHOLD};
+use super::{
+    ClientError, ClientMsg, NextState, SendFiles, SendLogging, ServerMsg, LARGE_FILE_BYTE_THRESHOLD,
+};
 use crate::client::execute::FileMetadata;
 use protocol::uninit::ServerUninitState;
 
@@ -18,7 +21,6 @@ pub(crate) struct SenderState<T> {
 }
 
 pub(crate) trait FileSender {
-    fn job_name(&self) -> &str;
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send>;
 }
 
@@ -28,17 +30,33 @@ pub(crate) struct SenderFinalStore {
     pub(crate) folder_state: client::BindingFolderState,
     pub(crate) cancel_addr: SocketAddr,
     pub(crate) working_dir: WorkingDir,
+    // does not really matter, here for the interface mostly
+    pub(crate) node_meta: NodeMetadata,
 }
 
 impl FileSender for SenderFinalStore {
-    fn job_name(&self) -> &str {
-        &self.job_name
-    }
-
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
         let folder_files_to_send = self.working_dir.distribute_save_folder();
         let files = utils::read_folder_files(&folder_files_to_send);
         Box::new(files.into_iter().skip(1))
+    }
+}
+
+impl SendLogging for SenderFinalStore {
+    fn job_identifier(&self) -> JobSetIdentifier {
+        JobSetIdentifier::None
+    }
+    fn namespace(&self) -> &str {
+        "UNKNOWN"
+    }
+    fn batch_name(&self) -> &str {
+        "UNKNOWN"
+    }
+    fn job_name(&self) -> &str {
+        &self.job_name
+    }
+    fn node_meta(&self) -> &NodeMetadata {
+        &self.node_meta
     }
 }
 
@@ -57,13 +75,7 @@ impl NextState for SenderState<SenderFinalStore> {
             ..
         } = extra;
 
-        #[allow(unused_mut)]
-        let mut conn = conn.update_state();
-
-        // TODO: find how to include this in non-async code
-        //
-        //#[cfg(test)]
-        //assert!(conn.bytes_left().await == 0);
+        let conn = conn.update_state();
 
         ClientBuiltState {
             conn,
@@ -77,6 +89,7 @@ impl NextState for SenderState<SenderFinalStore> {
 /// state for a simple list of files to transfer
 pub(crate) struct FlatFileList {
     pub(crate) files: Vec<FileMetadata>,
+    pub(crate) node_meta: NodeMetadata,
 }
 
 impl NextState for SenderState<FlatFileList> {
@@ -89,9 +102,6 @@ impl NextState for SenderState<FlatFileList> {
 }
 
 impl FileSender for FlatFileList {
-    fn job_name(&self) -> &str {
-        "user_file_send"
-    }
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
         warn!("enumerating files (flat send) and their destinations");
 
@@ -104,6 +114,24 @@ impl FileSender for FlatFileList {
         }
 
         Box::new(self.files.clone().into_iter())
+    }
+}
+
+impl SendLogging for FlatFileList {
+    fn job_identifier(&self) -> JobSetIdentifier {
+        JobSetIdentifier::None
+    }
+    fn namespace(&self) -> &str {
+        "UNKNOWN"
+    }
+    fn batch_name(&self) -> &str {
+        "UNKNOWN"
+    }
+    fn job_name(&self) -> &str {
+        "UNKNOWN"
+    }
+    fn node_meta(&self) -> &NodeMetadata {
+        &self.node_meta
     }
 }
 
@@ -140,10 +168,6 @@ impl NextState for SenderState<BuildingSender> {
 }
 
 impl FileSender for BuildingSender {
-    fn job_name(&self) -> &str {
-        "building_file_send"
-    }
-
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
         let sendable_files = self.build_info.init.sendable_files(false);
         warn!("enumerating files (BUILDING) and their destinations");
@@ -157,6 +181,24 @@ impl FileSender for BuildingSender {
         }
 
         Box::new(sendable_files.into_iter())
+    }
+}
+
+impl SendLogging for BuildingSender {
+    fn job_identifier(&self) -> JobSetIdentifier {
+        self.build_info.identifier
+    }
+    fn namespace(&self) -> &str {
+        &self.build_info.namespace
+    }
+    fn batch_name(&self) -> &str {
+        &self.build_info.batch_name
+    }
+    fn job_name(&self) -> &str {
+        "BUILDING"
+    }
+    fn node_meta(&self) -> &NodeMetadata {
+        &self.common.node_meta
     }
 }
 
@@ -193,18 +235,32 @@ impl NextState for SenderState<ExecutingSender> {
 }
 
 impl FileSender for ExecutingSender {
-    fn job_name(&self) -> &str {
-        "building_file_send"
-    }
-
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
         Box::new(self.run_info.task.sendable_files(false).into_iter())
     }
 }
 
+impl SendLogging for ExecutingSender {
+    fn job_identifier(&self) -> JobSetIdentifier {
+        self.run_info.identifier
+    }
+    fn namespace(&self) -> &str {
+        &self.run_info.namespace
+    }
+    fn batch_name(&self) -> &str {
+        &self.run_info.batch_name
+    }
+    fn job_name(&self) -> &str {
+        &self.run_info.task.name()
+    }
+    fn node_meta(&self) -> &NodeMetadata {
+        &self.common.node_meta
+    }
+}
+
 impl<T, NEXT, MARKER> Machine<SendFiles, SenderState<T>>
 where
-    T: FileSender,
+    T: FileSender + SendLogging,
     SenderState<T>: NextState<Marker = MARKER, Next = NEXT>,
     MARKER: Default,
 {
@@ -212,7 +268,12 @@ where
     ///
     /// if there is an error reading a file, that file will be logged but not sent. The
     /// only possible error from this function is if the TCP connection is cut.
-    #[instrument(skip(self), fields(job_name=self.state.extra.job_name()))]
+    #[instrument(skip(self), fields(
+        job_name=self.state.extra.job_name(),
+        node_meta=%self.state.extra.node_meta(),
+        namespace=self.state.extra.namespace(),
+        batch_name=self.state.extra.batch_name(),
+    ))]
     pub(crate) async fn send_files(mut self) -> Result<Machine<MARKER, NEXT>, (Self, ClientError)> {
         let job_name = self.state.extra.job_name();
         let files_to_send = self.state.extra.files_to_send();
@@ -311,6 +372,8 @@ where
         let msg = ClientMsg::FinishFiles;
         let tmp = self.state.conn.transport_data(&msg).await;
         throw_error_with_self!(tmp, self);
+
+        super::super::assert_conn_empty(&mut self.state.conn).await;
 
         let next_state = self.state.next_state();
         let machine = Machine::from_state(next_state);

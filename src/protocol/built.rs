@@ -129,12 +129,12 @@ impl Machine<Built, ClientBuiltState> {
             cancel_addr,
             ..
         } = self.state;
-        debug!("moving client built -> prepare build");
-        #[allow(unused_mut)]
-        let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        debug!("moving client built -> prepare build");
+
+        let mut conn = conn.update_state();
+        super::assert_conn_empty(&mut conn).await;
+
         super::prepare_build::ClientPrepareBuildState {
             conn,
             working_dir,
@@ -154,11 +154,8 @@ impl Machine<Built, ClientBuiltState> {
         } = self.state;
         debug!("moving client built -> executing");
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         // dump all the files in the ./input directory
         let save_location = working_dir.input_folder();
@@ -294,11 +291,8 @@ impl Machine<Built, ServerBuiltState> {
         );
         let ServerBuiltState { conn, common, .. } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }
@@ -320,11 +314,8 @@ impl Machine<Built, ServerBuiltState> {
             job_identifier: _,
         } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         let job_name = run_info.task.name();
 

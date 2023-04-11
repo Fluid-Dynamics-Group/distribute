@@ -14,7 +14,7 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
 
     create_required_dirs(&args, &working_dir).await?;
 
-    let config = config::load_config::<config::Jobs<config::common::File>>(&args.job_file)?;
+    let config = config::load_config::<config::Jobs<config::common::File>>(&args.job_file, true)?;
 
     let apptainer_config = match config {
         config::Jobs::Apptainer(app) => app,

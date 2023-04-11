@@ -1,0 +1,21 @@
+---
+meta:
+  batch_name: some_batch
+  namespace: some_namespace
+  capabilities: []
+apptainer:
+  initialize:
+    sif: 
+      path: apptainer_local.sif
+    required_mounts:
+      - /dir1
+      - /dir2
+  jobs:
+    - name: job_1
+      required_files:
+        - path: input_1.txt
+          alias: input.txt
+    - name: job_2
+      required_files:
+        - path: input_2.txt
+          alias: input.txt

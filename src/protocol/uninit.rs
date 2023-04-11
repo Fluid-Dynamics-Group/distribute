@@ -127,11 +127,9 @@ impl Machine<Uninit, ClientUninitState> {
             working_dir,
             cancel_addr,
         } = self.state;
-        #[allow(unused_mut)]
-        let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        let mut conn = conn.update_state();
+        super::assert_conn_empty(&mut conn).await;
 
         debug!("moving client uninit -> prepare build");
         super::prepare_build::ClientPrepareBuildState {
@@ -221,11 +219,9 @@ impl Machine<Uninit, ServerUninitState> {
             self.state.common.node_meta
         );
         let ServerUninitState { conn, common } = self.state;
-        #[allow(unused_mut)]
-        let mut conn = conn.update_state();
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        let mut conn = conn.update_state();
+        super::assert_conn_empty(&mut conn).await;
 
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }

@@ -107,6 +107,12 @@ impl<StateMarker, T> Machine<StateMarker, transport::Connection<T>> {
     }
 }
 
+impl UninitServer {
+    pub(crate) fn node_meta(&self) -> &pool_data::NodeMetadata {
+        &self.state.common.node_meta
+    }
+}
+
 impl<T> SendFilesServer<T> {
     pub(crate) fn into_connection(self) -> transport::Connection<send_files::ServerMsg> {
         self.state.conn
@@ -234,5 +240,22 @@ impl Common {
 
         // tx here is a cancellation handle
         (tx, common)
+    }
+}
+
+#[allow(unused_variables)]
+async fn assert_conn_empty<TX, RX>(conn: &mut transport::Connection<TX>) 
+where
+    TX: Serialize + transport::AssociatedMessage<Receive = RX>,
+    RX: serde::de::DeserializeOwned,
+{
+    #[cfg(test)] 
+    if conn.bytes_left().await != 0 {
+        error!(
+            "connection was not empty - this is guaranteed to cause error in following steps!"
+        );
+        panic!(
+            "connection was not empty - this is guaranteed to cause error in following steps!"
+        );
     }
 }

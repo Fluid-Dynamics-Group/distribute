@@ -179,11 +179,8 @@ impl Machine<Executing, ClientExecutingState> {
             run_info,
         } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         let job_name = run_info.task.name().to_string();
 
@@ -192,6 +189,10 @@ impl Machine<Executing, ClientExecutingState> {
             job_name,
             folder_state,
             cancel_addr,
+            node_meta: server::pool_data::NodeMetadata {
+                node_name: "SERVER".into(),
+                node_address: *conn.addr(),
+            },
         };
 
         ClientSendFilesState { conn, extra }
@@ -206,11 +207,9 @@ impl Machine<Executing, ClientExecutingState> {
         } = self.state;
         debug!("moving client executing -> prepare build");
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
+        super::assert_conn_empty(&mut conn).await;
 
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
         super::prepare_build::ClientPrepareBuildState {
             conn,
             working_dir,
@@ -304,6 +303,7 @@ impl Machine<Executing, ServerExecutingState> {
                 let finish_msg = server::pool_data::FinishJob {
                     ident: self.state.job_identifier(),
                     job_name: self.state.run_info.task.name().to_string(),
+                    node_meta: self.state.common.node_meta.clone(),
                 };
 
                 let mark_finished_msg = server::JobRequest::FinishJob(finish_msg);
@@ -376,11 +376,8 @@ impl Machine<Executing, ServerExecutingState> {
             run_info,
         } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         let extra = send_files::ReceiverFinalStore { common, run_info };
 
@@ -398,11 +395,8 @@ impl Machine<Executing, ServerExecutingState> {
         );
         let ServerExecutingState { conn, common, .. } = self.state;
 
-        #[allow(unused_mut)]
         let mut conn = conn.update_state();
-
-        #[cfg(test)]
-        assert!(conn.bytes_left().await == 0);
+        super::assert_conn_empty(&mut conn).await;
 
         super::prepare_build::ServerPrepareBuildState { conn, common }
     }

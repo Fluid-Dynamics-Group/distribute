@@ -10,12 +10,81 @@ pub(crate) enum JobResponse {
     EmptyJobs,
 }
 
+impl JobResponse {
+    pub(crate) fn enumerate_paths(&self, meta: &NodeMetadata) {
+        match &self {
+            Self::SetupOrRun(task_info) => enumerate_paths(meta, task_info),
+            Self::EmptyJobs => {}
+        }
+    }
+}
+
+#[instrument(
+    skip(node_meta, task_info)
+    fields(
+    node_meta=%node_meta,
+    namespace=task_info.namespace,
+    batch_name=task_info.batch_name,
+))]
+fn enumerate_paths(node_meta: &NodeMetadata, task_info: &TaskInfo) {
+    fn print_file(file: &client::execute::FileMetadata) {
+        let exists = file.absolute_file_path.exists();
+
+        if exists {
+            info!(
+                absolute_path = %file.absolute_file_path.display(),
+                relative_path = %file.relative_file_path.display(),
+                exists = exists
+            );
+        } else {
+            error!(
+                absolute_path = %file.absolute_file_path.display(),
+                relative_path = %file.relative_file_path.display(),
+                exists = exists
+            );
+        }
+    }
+
+    let mut files = Vec::new();
+
+    match &task_info.task {
+        JobOrInit::Job(job) => {
+            info!("enumerating all files required for job execution");
+            match job {
+                config::Job::Python(py) => {
+                    py.sendable_files(false, &mut files);
+                }
+                config::Job::Apptainer(app) => {
+                    app.sendable_files(false, &mut files);
+                }
+            }
+        }
+        JobOrInit::JobInit(init) => {
+            info!("enumerating all files required for job initialization");
+            match init {
+                config::Init::Python(py) => {
+                    py.sendable_files(false, &mut files);
+                }
+                config::Init::Apptainer(app) => {
+                    app.sendable_files(false, &mut files);
+                }
+            }
+        }
+    }
+
+    for file in &files {
+        print_file(file);
+    }
+
+    info!("finished enumerating all files required for job / build");
+}
+
 #[derive(derive_more::From)]
 pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
     /// a client failed a keepalive check while it was
     /// executing
-    DeadNode(RunTaskInfo),
+    DeadNode(DeadNode),
     AddJobSet(config::Jobs<config::common::HashedFile>),
     QueryRemainingJobs(RemainingJobsQuery),
     CancelBatchByName(CancelBatchQuery),
@@ -23,14 +92,22 @@ pub(crate) enum JobRequest {
     FinishJob(FinishJob),
 }
 
-#[derive(PartialEq)]
+//#[derive(PartialEq)]
 pub(crate) struct FinishJob {
     pub(crate) ident: JobSetIdentifier,
     pub(crate) job_name: String,
+    pub(crate) node_meta: NodeMetadata,
 }
 
 pub(crate) struct MarkBuildFailure {
     pub(crate) ident: JobSetIdentifier,
+    pub(crate) node_meta: NodeMetadata,
+}
+
+#[derive(derive_more::Constructor)]
+pub(crate) struct DeadNode {
+    pub(crate) task: RunTaskInfo,
+    pub(crate) node_meta: NodeMetadata,
 }
 
 pub(crate) struct NewJobRequest {
@@ -168,7 +245,7 @@ pub(crate) enum JobOrInit {
     JobInit(config::Init),
 }
 
-#[derive(Display, Clone, Debug, Serialize, Deserialize, Constructor)]
+#[derive(Display, Clone, Debug, Serialize, Deserialize, Constructor, PartialEq)]
 #[display(fmt = "{node_name} : {node_address}")]
 /// information about the compute node that is stored on the scheduling server.
 ///
