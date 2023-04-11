@@ -13,9 +13,11 @@ use std::fmt;
 ///
 /// ```
 /// use distribute::requirements::Requirements;
+/// use distribute::requirements::JobRequiredCaps;
+///
 /// let job_capabilities = vec!["gpu", "apptainer"];
 ///
-/// let requirements : Requirements = Requirements::from(job_capabilities);
+/// let requirements : Requirements<JobRequiredCaps> = Requirements::from(job_capabilities);
 /// ```
 pub struct Requirements<T> {
     pub(crate) reqs: BTreeSet<Requirement>,

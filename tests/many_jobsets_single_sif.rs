@@ -15,7 +15,7 @@ use std::time::Duration;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn many_jobsets_single_sif() {
     println!("starting many_jobsets_single_sif");
-    if true {
+    if false {
         distribute::logger();
     }
 
@@ -85,7 +85,7 @@ async fn many_jobsets_single_sif() {
     // let the server start up for a few seconds
     thread::sleep(Duration::from_secs(1));
 
-    let num_batches = 3;
+    let num_batches = 10;
 
     let config_paths = write_many_batch_configs(
         "./tests/apptainer_local/distribute-jobs.yaml".into(),
