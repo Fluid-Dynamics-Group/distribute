@@ -33,7 +33,7 @@ getset = "0.1.2"
 [dependencies.matrix-notify]
 default_features = false
 git = "https://github.com/fluid-Dynamics-Group/matrix-notify"
-rev = "d88dd6518ec3ce1e5bb1992ecf1e229be5b98016"
+rev = "fb5fea4557d82663a9df45d427c3463c73e91c2e"
 
 [dependencies.pyo3]
 version = "0.17.3" 
