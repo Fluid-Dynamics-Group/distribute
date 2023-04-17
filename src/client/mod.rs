@@ -383,6 +383,7 @@ pub(crate) async fn return_on_cancellation(addr: SocketAddr) -> Result<(), error
 
         match res {
             Ok(_) => {
+                tracing::warn!("successfully received message on cancellation port - returning to main process");
                 return Ok(());
             }
             Err(e) => tracing::error!("error when accepting cancellation connection: {e}"),

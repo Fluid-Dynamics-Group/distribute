@@ -51,8 +51,8 @@ impl NextState for ReceiverState<ReceiverFinalStore> {
     type Marker = built::Built;
 
     fn next_state(self) -> Self::Next {
-        debug!(
-            "moving {} server send files -> built",
+        info!(
+            "moving {} server send files (store after execution) -> built",
             self.extra.node_meta()
         );
 
@@ -94,6 +94,7 @@ impl NextState for ReceiverState<Nothing> {
     type Marker = ();
 
     fn next_state(self) -> Self::Next {
+        info!("transitioning send_files (flat list) -> simple connection");
         self.conn
     }
 }
@@ -132,6 +133,8 @@ impl NextState for ReceiverState<BuildingReceiver> {
     type Marker = protocol::compiling::Building;
 
     fn next_state(self) -> Self::Next {
+        info!("transitioning send_files (building) -> building");
+
         let ReceiverState {
             conn,
             save_location: _,
@@ -190,6 +193,8 @@ impl NextState for ReceiverState<ExecutingReceiver> {
     type Marker = protocol::executing::Executing;
 
     fn next_state(self) -> Self::Next {
+        info!("transitioning send_files (executing) -> executing");
+
         let ReceiverState {
             conn,
             save_location: _,

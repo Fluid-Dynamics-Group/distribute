@@ -463,7 +463,7 @@ impl CancelArbiter {
                 // the first branch of the selection here just returns when we receive a
                 // message from the head node that the current job should be shutdown
                 _ = client::return_on_cancellation(cancel_addr) => {
-                    info!("cancelling job from arbiter");
+                    warn!("cancelling job from arbiter");
 
                     // try to prevent any race conditions where the execution of the job finishes
                     is_cancelled.store(true, Ordering::Relaxed);

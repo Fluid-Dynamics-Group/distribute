@@ -26,7 +26,7 @@ async fn failed_keepalive() {
     // this is the port in the corresponding distribute-nodes.yaml file for this job
     let client_port = 9967;
     let keepalive_port = 9968;
-    let cancel_port = 8955;
+    let cancel_port = 8956;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
     let dir: PathBuf = "./tests/failed_keepalive/".into();

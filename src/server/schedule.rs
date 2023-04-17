@@ -333,12 +333,7 @@ impl Schedule for GpuPriority {
                 job_set.batch_name
             );
 
-            if let Err(e) = job_set.clear_remaining_jobs() {
-                error!(
-                    "failed to clear some of the remaining jobs after cancellation: {}",
-                    e
-                )
-            }
+            job_set.clear_remaining_jobs();
         } else {
             warn!(
                 "could not find batch with the identifier {} in cancellation request",
@@ -437,7 +432,7 @@ impl JobSet {
         }
     }
 
-    fn clear_remaining_jobs(&mut self) -> Result<(), std::io::Error> {
+    fn clear_remaining_jobs(&mut self) {
         for job in self.remaining_jobs.drain(..) {
             // loading the job deletes the previous files after reading it into memory
             // TODO: impl Drop destructors for Lazy_ files so that we can just drop the whole
@@ -445,16 +440,15 @@ impl JobSet {
             //
             // also - there is no reason to load this data into memory if we are just throwing it
             // out
-            job.delete_files()?;
+            job.delete_files().ok();
         }
 
         debug!(
-            "length of remaining jobs after clearing them all with drain: len: {}, cap: {}",
+            "length of remaining jobs for batch {} after clearing them all with drain: len: {}, cap: {}",
+            self.batch_name,
             self.remaining_jobs.len(),
             self.remaining_jobs.capacity()
         );
-
-        Ok(())
     }
 
     pub(crate) fn from_config(

@@ -24,7 +24,7 @@ async fn cancel_job() {
     // this is the port in the corresponding distribute-nodes.yaml file for this job
     let client_port = 9967;
     let keepalive_port = 9968;
-    let cancel_port = 8955;
+    let cancel_port = 8956;
     let addr: IpAddr = [0, 0, 0, 0].into();
 
     let dir: PathBuf = "./tests/cancel_job/".into();
@@ -96,6 +96,8 @@ async fn cancel_job() {
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
+    dbg!(&jobs);
+
     // we should have 1 job set on the server currently
     // this job set will have multiple jobs within it
     assert!(jobs.len() == 1);
@@ -108,12 +110,15 @@ async fn cancel_job() {
     let status = ServerStatus::new(server_port, addr);
     let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
+    dbg!(&jobs);
+
     assert!(jobs[0].running_jobs.len() == 1);
 
     //
     // cancel the job set then
     //
     // `job_name` comes from distribute-jobs.yaml file
+    tracing::warn!("from test: sending kill signal to server");
     let kill_msg = Kill {
         port: server_port,
         ip: addr,

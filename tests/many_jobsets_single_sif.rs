@@ -1,6 +1,3 @@
-use distribute::cli::Run;
-use distribute::cli::Slurm;
-
 use distribute::cli::Add;
 use distribute::cli::Client;
 use distribute::cli::Server;
@@ -101,13 +98,7 @@ async fn many_jobsets_single_sif() {
 
     for config_path in &config_paths {
         // configure a job to send off to the server
-        let run = Add::new(
-            config_path.to_owned(),
-            server_port,
-            addr,
-            false,
-            false,
-        );
+        let run = Add::new(config_path.to_owned(), server_port, addr, false, false);
         distribute::add(run).await.unwrap();
     }
 
@@ -120,7 +111,7 @@ async fn many_jobsets_single_sif() {
     //let status = ServerStatus::new(server_port, addr);
     //let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
-    // check that all batches are available on the server 
+    // check that all batches are available on the server
     //dbg!(jobs.len());
     //dbg!(&jobs);
     //assert!(jobs.len() == num_batches);
@@ -141,55 +132,6 @@ async fn many_jobsets_single_sif() {
     // were deallocated
     assert_eq!(jobs.len(), 0);
 
-    //// directory tree should be this:
-    //// check_deallocate_jobs
-    ////     ├── distribute-nodes.yaml
-    ////     ├── server_save_dir
-    ////     │   └── some_namespace
-    ////     │       └── some_batch
-    ////     │           ├── job_1
-    ////     │           │   ├── job_1_output.txt
-    ////     │           │   └── simulated_output.txt
-    ////     │           └── job_2
-    ////     │               ├── job_2_output.txt
-    ////     │               └── simulated_output.txt
-
-    //let batch = server_save_dir.join("some_namespace/some_batch");
-    //assert_eq!(
-    //    batch.join("job_1/simulated_output.txt").exists(),
-    //    true,
-    //    "missing job 1 simulation output"
-    //);
-    //assert_eq!(
-    //    batch.join("job_2/simulated_output.txt").exists(),
-    //    true,
-    //    "missing job 2 simulation output"
-    //);
-
-    //// we should also have output files for the jobs that we ran
-    //assert_eq!(
-    //    batch.join("job_1/job_1_output.txt").exists(),
-    //    true,
-    //    "missing job 1 output file"
-    //);
-    //assert_eq!(
-    //    batch.join("job_2/job_2_output.txt").exists(),
-    //    true,
-    //    "missing job 2 output file"
-    //);
-
-    //// we should not have output files from jobs we did not run
-    //assert_eq!(
-    //    batch.join("job_1/job_2_output.txt").exists(),
-    //    false,
-    //    "output for job 2 exists in job 1"
-    //);
-    //assert_eq!(
-    //    batch.join("job_2/job_1_output.txt").exists(),
-    //    false,
-    //    "output for job 1 exists in job 2"
-    //);
-
     fs::remove_dir_all(&server_save_dir).ok();
     fs::remove_dir_all(&server_temp_dir).ok();
     fs::remove_dir_all(&client_workdir).ok();
@@ -207,7 +149,9 @@ fn write_many_batch_configs(
 
     let mut out = Vec::new();
 
-    let relative_path = PathBuf::from("./tests/apptainer_local/").canonicalize().unwrap();
+    let relative_path = PathBuf::from("./tests/apptainer_local/")
+        .canonicalize()
+        .unwrap();
 
     let mut main_config =
         distribute::load_config::<distribute::Jobs<distribute::common::File>>(&base_config, false)

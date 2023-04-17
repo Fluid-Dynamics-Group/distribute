@@ -152,7 +152,7 @@ impl Machine<Built, ClientBuiltState> {
             folder_state,
             cancel_addr,
         } = self.state;
-        debug!("moving client built -> executing");
+        debug!("moving client built -> send_files (job execution instructions)");
 
         let mut conn = conn.update_state();
         super::assert_conn_empty(&mut conn).await;
@@ -302,7 +302,7 @@ impl Machine<Built, ServerBuiltState> {
         run_info: server::pool_data::RunTaskInfo,
     ) -> send_files::SenderState<send_files::ExecutingSender> {
         debug!(
-            "{} is moving built -> executing",
+            "{} is moving built -> send_files (job execution instructions)",
             self.state.common.node_meta
         );
 

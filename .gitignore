@@ -15,3 +15,6 @@ tests/apptainer_local/slurm_output
 paper/paper.jats
 paper/paper.pdf
 paper/media
+
+tests/many_jobsets_single_sif/configs/
+tests/many_jobsets_single_sif/server_temp_dir/

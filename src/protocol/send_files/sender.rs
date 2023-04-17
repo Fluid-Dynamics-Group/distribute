@@ -65,7 +65,10 @@ impl NextState for SenderState<SenderFinalStore> {
     type Marker = Built;
 
     fn next_state(self) -> Self::Next {
-        info!("moving client send files -> built");
+        info!(
+            "moving {} client send files (store after execution) -> built",
+            self.extra.node_meta()
+        );
         let SenderState { conn, extra, .. } = self;
 
         let SenderFinalStore {
@@ -97,6 +100,8 @@ impl NextState for SenderState<FlatFileList> {
     type Marker = ();
 
     fn next_state(self) -> Self::Next {
+        info!("transitioning send_files (flat list) -> simple connection");
+
         self.conn
     }
 }
@@ -146,6 +151,8 @@ impl NextState for SenderState<BuildingSender> {
     type Marker = protocol::compiling::Building;
 
     fn next_state(self) -> Self::Next {
+        info!("transitioning send_files (building) -> building");
+
         let SenderState { conn, extra } = self;
         let BuildingSender { common, build_info } = extra;
         let server::pool_data::BuildTaskInfo {
@@ -170,13 +177,14 @@ impl NextState for SenderState<BuildingSender> {
 impl FileSender for BuildingSender {
     fn files_to_send(&self) -> Box<dyn Iterator<Item = FileMetadata> + Send> {
         let sendable_files = self.build_info.init.sendable_files(false);
-        warn!("enumerating files (BUILDING) and their destinations");
+        debug!("enumerating files (BUILDING) and their destinations");
 
         for file in sendable_files.iter() {
             debug!(
-                "{} -> {}",
+                "{} -> {} (exists: {})",
                 file.absolute_file_path.display(),
-                file.relative_file_path.display()
+                file.relative_file_path.display(),
+                file.absolute_file_path.exists(),
             );
         }
 
@@ -216,6 +224,8 @@ impl NextState for SenderState<ExecutingSender> {
     type Marker = protocol::executing::Executing;
 
     fn next_state(self) -> Self::Next {
+        info!("transitioning send_files (executing) -> executing");
+
         let SenderState { conn, extra } = self;
         let ExecutingSender {
             common,
