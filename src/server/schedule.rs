@@ -397,6 +397,7 @@ impl JobSet {
             .next()
         {
             self.running_jobs.remove(idx);
+
             debug!(
                 "calling removing job of name {job_name} from current queue -> currently running jobs is now {}",
                 self.running_jobs.len()

@@ -219,7 +219,7 @@ pub(super) fn delete_hashed_files(files: Vec<HashedFile>) -> Result<(), std::io:
     info!("deleting hashed files");
 
     let mut err = None;
-    
+
     for file in files {
         if let Err(e) = file.delete_at_hashed_path() {
             error!(error =  %e, "failed to delete a hashed file: `{}` (`{}`)", file.hashed_path.display(), file.original_filename);
@@ -228,8 +228,8 @@ pub(super) fn delete_hashed_files(files: Vec<HashedFile>) -> Result<(), std::io:
     }
 
     // return an error state to denote that something went wrong with one of the files
-    if let Some(e) = err  {
-        return Err(e.into())
+    if let Some(e) = err {
+        return Err(e.into());
     }
 
     Ok(())

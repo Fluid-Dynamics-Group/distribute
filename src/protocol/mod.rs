@@ -189,6 +189,7 @@ impl ServerError {
         )
     }
 }
+
 type ClientEitherPrepareBuild<T> =
     Either<Machine<prepare_build::PrepareBuild, prepare_build::ClientPrepareBuildState>, T>;
 type ServerEitherPrepareBuild<T> =
@@ -254,4 +255,30 @@ where
         error!("connection was not empty - this is guaranteed to cause error in following steps!");
         panic!("connection was not empty - this is guaranteed to cause error in following steps!");
     }
+}
+
+#[derive(From)]
+pub(crate) enum ProtocolState {
+    Server(ServerProtocolState),
+    Client(ClientProtocolState),
+}
+
+#[derive(From)]
+enum ServerProtocolState {
+    Uninitialized(uninit::ServerMsg),
+    PrepareBuild(prepare_build::ServerMsg),
+    Compiling(compiling::ServerMsg),
+    Built(built::ServerMsg),
+    Executing(executing::ServerMsg),
+    SendFiles(send_files::ServerMsg),
+}
+
+#[derive(From)]
+enum ClientProtocolState {
+    Uninitialized(uninit::ClientMsg),
+    PrepareBuild(prepare_build::ClientMsg),
+    Compiling(compiling::ClientMsg),
+    Built(built::ClientMsg),
+    Executing(executing::ClientMsg),
+    SendFiles(send_files::ClientMsg),
 }

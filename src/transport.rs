@@ -15,6 +15,7 @@ use crate::config::requirements;
 use crate::error;
 use crate::error::Error;
 use crate::server;
+use protocol::ProtocolState;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 #[cfg(not(test))]
