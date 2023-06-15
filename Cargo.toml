@@ -1,6 +1,6 @@
 [package]
 name = "distribute"
-version = "0.14.4"
+version = "0.14.5"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -29,6 +29,7 @@ base16 = "0.2.1"
 tracing = { version = "0.1.37", optional = true }
 tracing-subscriber = { version = "0.3.17", features = ["time", "std", "local-time"], optional = true }
 getset = "0.1.2"
+mimalloc = { version = "0.1.37", optional = true }
 
 [dependencies.matrix-notify]
 default_features = false
@@ -49,7 +50,7 @@ serial_test = "0.10.0"
 
 [features]
 default = ["cli"]
-cli = ["clap", "regex", "signal-hook", "sha1", "tokio-stream", "num_cpus", "nix", "futures", "chrono", "tokio", "walkdir", "bincode", "matrix-notify/cli", "tracing", "tracing-subscriber"]
+cli = ["clap", "regex", "signal-hook", "sha1", "tokio-stream", "num_cpus", "nix", "futures", "chrono", "tokio", "walkdir", "bincode", "matrix-notify/cli", "tracing", "tracing-subscriber", "mimalloc"]
 python = ["pyo3", "matrix-notify/userid"]
 config = ["matrix-notify/userid"]
 

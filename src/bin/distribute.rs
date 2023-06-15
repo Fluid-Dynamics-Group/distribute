@@ -4,6 +4,12 @@ use std::fs;
 
 use clap::Parser;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
+
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
     if let Err(e) = wrap_main().await {
