@@ -124,8 +124,11 @@ impl LoggingOutput {
 ///
 /// `with_filename`: enable filename in logs
 pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
+    use tracing_subscriber::fmt::time;
+
+    let time = time::SystemTime;
+
     let stdout = std::io::stdout;
-    //let logging_level = logging_output.level();
     let logging_level = tracing::Level::DEBUG;
 
     match logging_output {
@@ -136,6 +139,7 @@ pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
                 .with_file(with_filename)
                 .with_writer(stdout)
                 .with_ansi(true)
+                .with_timer(time)
                 .finish();
 
             tracing::subscriber::set_global_default(subscriber)
@@ -147,16 +151,18 @@ pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
             let stdout_subscriber = fmt::Layer::new()
                 .with_file(with_filename)
                 .with_writer(stdout.with_max_level(logging_level))
-                .with_ansi(true);
+                .with_timer(time.clone())
+                .with_ansi(false);
 
             let file_subscriber = fmt::Layer::new()
                 .with_file(with_filename)
                 .with_writer(file_writer.with_max_level(logging_level))
+                .with_timer(time)
                 .with_ansi(false);
 
             let subscriber = Registry::default()
-                .with(stdout_subscriber)
-                .with(file_subscriber);
+                .with(file_subscriber)
+                .with(stdout_subscriber);
 
             tracing::subscriber::set_global_default(subscriber)
                 .expect("setting default subscriber failed");
@@ -167,6 +173,7 @@ pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
                 .with_file(with_filename)
                 .with_writer(file_writer)
                 .with_ansi(false)
+                .with_timer(time)
                 .finish();
 
             tracing::subscriber::set_global_default(subscriber)
@@ -179,4 +186,47 @@ pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
 /// get a local address at a given port. Used exclusively for testing
 fn add_port(port: u16) -> SocketAddr {
     SocketAddr::from(([0, 0, 0, 0], port))
+}
+
+#[cfg(test)]
+/// ensure that logs do not contain ANSI escape sequences when saved to files
+//#[test]
+fn logs_no_ansi() {
+    let path = "./no_ansi_logs.txt";
+    let file = std::fs::File::create(path).unwrap();
+    let log_cfg = LoggingOutput::File(file);
+
+    logger_cfg(log_cfg, false);
+
+    helper_log_function(1, "1");
+    helper_log_function(1, "2");
+    helper_log_function(3, "3");
+    helper_log_function(4, "4");
+
+    std::fs::remove_file(path).unwrap();
+}
+
+#[cfg(test)]
+/// ensure that logs do not contain ANSI escape sequences when saved to files
+/// while also being written to stdout
+#[test]
+fn logs_no_ansi_with_stdout() {
+    let path = "./no_ansi_logs_and_stdout.txt";
+    let file = std::fs::File::create(path).unwrap();
+    let log_cfg = LoggingOutput::StdoutAndFile(file);
+
+    logger_cfg(log_cfg, false);
+
+    helper_log_function(1, "1");
+    helper_log_function(1, "2");
+    helper_log_function(3, "3");
+    helper_log_function(4, "4");
+
+    std::fs::remove_file(path).unwrap();
+}
+
+#[cfg(test)]
+#[instrument]
+fn helper_log_function(node_meta: usize, other_val: &str) {
+    error!("error in the helper log function! oh no! (this is simulated)")
 }
