@@ -149,7 +149,7 @@
 send jobs to the cluster. Ensure this is documented somewhere.</p>
 <h2 id="as-the-distribute-user-created-earlier"><a class="header" href="#as-the-distribute-user-created-earlier">As the <code>distribute</code> user created earlier</a></h2>
 <p>when logged into the user <code>distribute</code>, run</p>
-<pre><code>mkdir $HOME/server
+<pre><code class="language-bash">mkdir $HOME/server
 mkdir $HOME/server/results
 mkdir $HOME/server/tmp
 </code></pre>
@@ -162,22 +162,38 @@ node as they will appear in the logs. Place this file at <code>/home/distribute/
 result in some output with no errors)</p>
 <h2 id="while-root"><a class="header" href="#while-root">While Root</a></h2>
 <p>Clone the repo with the correct version of <code>distribute</code> you are using</p>
-<pre><code>git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
+<pre><code class="language-bash">git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
 cd distribute
 </code></pre>
 <p>copy the server service to the system directory:</p>
-<pre><code>sudo cp install/distribute-server.service /etc/systemd/system/
+<pre><code class="language-bash">sudo cp install/distribute-server.service /etc/systemd/system/
 </code></pre>
 <p>start the service and enable it at startup:</p>
-<pre><code>sudo systemctl daemon-reload
+<pre><code class="language-bash">sudo systemctl daemon-reload
 sudo systemctl enable distribute-server
 sudo systemctl start distribute-server
 </code></pre>
 <p>Note that if you have deviated from username or folder structure above, <code>distribute-server.service</code> will
 have to be updated with those paths since it relies on hard-coded paths.</p>
 <h2 id="updating"><a class="header" href="#updating">Updating</a></h2>
-<p>To update, simply reinstall <code>distribute</code> and restart the systemd service. On the compute node:</p>
-<pre><code>systemctl restart distribute-compute
+<p>To update, simply reinstall <code>distribute</code> and restart the systemd service on the head node. For a fixed version at the time
+of writing, this script with work:</p>
+<pre><code class="language-bash">cd ~/distribute
+
+# for fish shell
+set VERSION &quot;0.14.5&quot;
+
+git fetch -a
+git checkout release-$VERSION
+git pull
+
+cargo install --path .
+
+rm ~/logs/output.log
+systemctl restart distribute-compute
+</code></pre>
+<p>the most recent <code>$VERSION</code> is usually up to date <a href="https://github.com/Fluid-Dynamics-Group/distribute/blob/master/install/update.sh">here</a>.</p>
+<pre><code class="language-bash">systemctl restart distribute-server
 </code></pre>
 
                     </main>

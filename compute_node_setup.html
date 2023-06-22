@@ -147,35 +147,59 @@
 <p>First, ensure you have completed the common setup from the <a href="./admin_setup.html">admin setup</a></p>
 <h2 id="as-the-distribute-user-created-earlier"><a class="header" href="#as-the-distribute-user-created-earlier">As the <code>distribute</code> user created earlier</a></h2>
 <p>create the following directories:</p>
-<pre><code>mkdir $HOME/data
+<pre><code class="language-bash">mkdir $HOME/data
 mkdir $HOME/logs
 </code></pre>
-<p>Ensure that <code>distrbute</code> is installed for this user (running <code>distribute</code> should 
-result in some output with no errors)</p>
+<p>Clone <code>distribute</code> from the github repo and install the identical version as the head node.</p>
+<pre><code class="language-bash">git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
+cd distribute
+</code></pre>
+<p>then, to update to <code>$VERSION</code> (fish shell syntax):</p>
+<pre><code class="language-bash"># for fish shell
+set VERSION &quot;0.14.5&quot;
+
+git fetch -a
+git checkout release-$VERSION
+git pull
+
+cargo install --path .
+
+rm ~/logs/output.log
+systemctl restart distribute-compute
+</code></pre>
+<p>the most recent <code>$VERSION</code> is usually up to date <a href="https://github.com/Fluid-Dynamics-Group/distribute/blob/master/install/update.sh">here</a></p>
 <h2 id="while-root"><a class="header" href="#while-root">While Root</a></h2>
 <p>Clone the repo with the correct version of <code>distribute</code> you are using</p>
-<pre><code>git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
+<pre><code class="language-bash">git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
 cd distribute
 </code></pre>
 <p>copy the compute service to the system directory:</p>
-<pre><code>sudo cp install/distribute-compute.service /etc/systemd/system/
+<pre><code class="language-bash">sudo cp install/distribute-compute.service /etc/systemd/system/
 </code></pre>
 <p>start the service and enable it at startup:</p>
-<pre><code>sudo systemctl daemon-reload
+<pre><code class="language-bash">sudo systemctl daemon-reload
 sudo systemctl enable distribute-compute
 sudo systemctl start distribute-compute
 </code></pre>
 <p>Note that if you have deviated from username or folder structure above, <code>distribute-compute.service</code> will
 have to be updated with those paths since it relies on hard-coded paths.</p>
 <h2 id="updating"><a class="header" href="#updating">Updating</a></h2>
-<p>To update, simply reinstall <code>distribute</code> and restart the systemd service. On the head node:</p>
-<pre><code>systemctl restart distribute-server
+<p>To update, simply reinstall <code>distribute</code> and restart the systemd service. On the compute node (for a fixed version at the time of writing):</p>
+<pre><code class="language-bash"># for fish shell
+set VERSION &quot;0.14.5&quot;
+
+git fetch -a
+git checkout release-$VERSION
+git pull
+
+cargo install --path .
+
+rm ~/logs/output.log
+systemctl restart distribute-compute
 </code></pre>
-<p><code>distribute</code> requires that all compute nodes and head node have the same version of <code>distribute</code> installed.
-You can verify that all nodes are correctly setup or updated correctly with </p>
-<pre><code>sudo su distribute
-cd ~/server
-distribute node-status
+<p>the most recent <code>$VERSION</code> is usually up to date <a href="https://github.com/Fluid-Dynamics-Group/distribute/blob/master/install/update.sh">here</a>.
+Then, restart the systemd service so that is uses the new version of distribute:</p>
+<pre><code class="language-bash">systemctl restart distribute-server
 </code></pre>
 
                     </main>
