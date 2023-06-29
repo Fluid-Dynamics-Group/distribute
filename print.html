@@ -1536,7 +1536,8 @@ systemctl restart distribute-compute
 mkdir $HOME/logs
 </code></pre>
 <p>Clone <code>distribute</code> from the github repo and install the identical version as the head node.</p>
-<pre><code class="language-bash">git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
+<pre><code class="language-bash">cd ~
+git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
 cd distribute
 </code></pre>
 <p>then, to update to <code>$VERSION</code> (fish shell syntax):</p>
@@ -1548,9 +1549,6 @@ git checkout release-$VERSION
 git pull
 
 cargo install --path .
-
-rm ~/logs/output.log
-systemctl restart distribute-compute
 </code></pre>
 <p>the most recent <code>$VERSION</code> is usually up to date <a href="https://github.com/Fluid-Dynamics-Group/distribute/blob/master/install/update.sh">here</a></p>
 <h2 id="while-root-1"><a class="header" href="#while-root-1">While Root</a></h2>
