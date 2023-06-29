@@ -14,6 +14,7 @@ mkdir $HOME/logs
 Clone `distribute` from the github repo and install the identical version as the head node.
 
 ```bash
+cd ~
 git clone https://github.com/Fluid-Dynamics-Group/distribute --depth 1
 cd distribute
 ```
@@ -29,9 +30,6 @@ git checkout release-$VERSION
 git pull
 
 cargo install --path .
-
-rm ~/logs/output.log
-systemctl restart distribute-compute
 ```
 
 the most recent `$VERSION` is usually up to date [here](https://github.com/Fluid-Dynamics-Group/distribute/blob/master/install/update.sh)
