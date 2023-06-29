@@ -140,7 +140,7 @@ async fn transport_files_with_large_file() {
         job_name: "test job name".into(),
         folder_state: client::BindingFolderState::new(),
         cancel_addr,
-        node_meta: NodeMetadata::by_name("SERVER")
+        node_meta: NodeMetadata::by_name("SERVER"),
     };
 
     let client_state = SenderState {

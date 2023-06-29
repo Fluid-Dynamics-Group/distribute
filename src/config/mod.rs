@@ -544,7 +544,7 @@ impl NormalizePaths for Nodes {
 /// read in a config file from disk
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     path: &Path,
-    normalize: bool
+    normalize: bool,
 ) -> Result<T, ConfigurationError> {
     let file = std::fs::File::open(path).map_err(|e| {
         ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e))

@@ -101,13 +101,7 @@ async fn many_jobsets_single_sif() {
 
     for config_path in &config_paths {
         // configure a job to send off to the server
-        let run = Add::new(
-            config_path.to_owned(),
-            server_port,
-            addr,
-            false,
-            false,
-        );
+        let run = Add::new(config_path.to_owned(), server_port, addr, false, false);
         distribute::add(run).await.unwrap();
     }
 
@@ -120,7 +114,7 @@ async fn many_jobsets_single_sif() {
     //let status = ServerStatus::new(server_port, addr);
     //let jobs = distribute::get_current_jobs(&status).await.unwrap();
 
-    // check that all batches are available on the server 
+    // check that all batches are available on the server
     //dbg!(jobs.len());
     //dbg!(&jobs);
     //assert!(jobs.len() == num_batches);
@@ -207,7 +201,9 @@ fn write_many_batch_configs(
 
     let mut out = Vec::new();
 
-    let relative_path = PathBuf::from("./tests/apptainer_local/").canonicalize().unwrap();
+    let relative_path = PathBuf::from("./tests/apptainer_local/")
+        .canonicalize()
+        .unwrap();
 
     let mut main_config =
         distribute::load_config::<distribute::Jobs<distribute::common::File>>(&base_config, false)
