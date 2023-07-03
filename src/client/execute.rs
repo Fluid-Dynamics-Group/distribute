@@ -228,13 +228,13 @@ pub(crate) async fn initialize_apptainer_job(
     Ok(())
 }
 
-pub(crate) async fn initialize_podman_job(
-    init: &config::podman::Initialize<config::common::HashedFile>,
+pub(crate) async fn initialize_docker_job(
+    init: &config::docker::Initialize<config::common::HashedFile>,
     base_path: &WorkingDir,
     folder_state: &mut BindingFolderState,
 ) -> Result<(), Error> {
-    // pull the container with podman
-    let output = tokio::process::Command::new("podman")
+    // pull the container with docker
+    let output = tokio::process::Command::new("docker")
         .args(["image", "pull", &init.image])
         .output().await
         .map_err(error::CommandExecutionError::from)
@@ -242,7 +242,7 @@ pub(crate) async fn initialize_podman_job(
 
     let stdout_output_path = base_path
         .distribute_save_folder()
-        .join(format!("podman_initialization_output.txt",));
+        .join(format!("docker_initialization_output.txt",));
 
     command_output_to_file(output, stdout_output_path).await;
 
@@ -299,16 +299,16 @@ pub(crate) async fn run_apptainer_job(
     generalized_run(None, command_output, output_file_path, &job.name(), cancel).await
 }
 
-/// execute a job with podman after the build file has already been built
+/// execute a job with docker after the build file has already been built
 ///
 /// returns None if the job was cancelled
-pub(crate) async fn run_podman_job1(
-    job: config::podman::Job<config::common::HashedFile>,
+pub(crate) async fn run_docker_job(
+    job: config::docker::Job<config::common::HashedFile>,
     base_path: &WorkingDir,
     cancel: &mut broadcast::Receiver<()>,
     folder_state: &BindingFolderState,
 ) -> Result<Option<()>, Error> {
-    info!("running podman job");
+    info!("running docker job");
 
     // all job files were written to ./base_path/input in the previous state machine
     // so we do not need to write them to the folder here

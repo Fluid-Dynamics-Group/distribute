@@ -24,7 +24,7 @@ impl HashableComponent for config::apptainer::Initialize<File> {
     }
 }
 
-impl HashableComponent for config::podman::Initialize<File> {
+impl HashableComponent for config::docker::Initialize<File> {
     fn job_name(&self) -> &str {
         "initialize"
     }
@@ -65,7 +65,7 @@ impl HashableComponent for config::apptainer::Job<File> {
     }
 }
 
-impl HashableComponent for config::podman::Job<File> {
+impl HashableComponent for config::docker::Job<File> {
     fn job_name(&self) -> &str {
         self.name()
     }

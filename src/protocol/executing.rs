@@ -100,9 +100,9 @@ impl Machine<Executing, ClientExecutingState> {
                 .await;
                 ClientMsg::from_run_result(run_result)
             }
-            config::Job::Podman(podman_job) => {
-                let run_result = client::run_podman_job(
-                    podman_job,
+            config::Job::Docker(docker_job) => {
+                let run_result = client::run_docker_job(
+                    docker_job,
                     &working_dir,
                     &mut rx_cancel,
                     &self.state.folder_state,

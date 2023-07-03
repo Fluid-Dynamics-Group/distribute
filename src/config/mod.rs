@@ -2,8 +2,8 @@
 pub mod apptainer;
 /// helper types common between python and apptainer
 pub mod common;
-/// podman configuration types
-pub mod podman;
+/// docker configuration types
+pub mod docker;
 /// python configuration types
 pub mod python;
 /// helper types for job or compute node capabilities
@@ -115,13 +115,13 @@ pub enum LoadJobsError {
 
 #[derive(Debug, thiserror::Error)]
 /// error type for conditions in which jobs can not be loaded and read from disk
-pub enum PodmanError {
+pub enum DockerError {
     #[error("failed to initialize shell: {0}")]
     /// The shell could not be created with `xshell`. This should probably not happen
     ShellInit(xshell::Error),
-    #[error("failed to pull podman image: {0}")]
-    /// Podman was not able to pull the image from the registry, the user
-    /// has supplied the wrong configuration path to podman. The image url will 
+    #[error("failed to pull docker image: {0}")]
+    /// Docker was not able to pull the image from the registry, the user
+    /// has supplied the wrong configuration path to docker. The image url will 
     /// fail on the node, so we fail here instead.
     Execution(xshell::Error),
 }
@@ -142,7 +142,7 @@ pub(super) enum ConfigVerificationError {
     #[error("{0}")]
     MissingFilename(MissingFilename),
     #[error("{0}")]
-    Podman(PodmanError),
+    Docker(DockerError),
 }
 
 #[derive(Debug, From, thiserror::Error, Constructor, Display)]
@@ -287,15 +287,15 @@ pub struct ApptainerConfig<FILE> {
     Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters, getset::MutGetters,
 )]
 #[serde(deny_unknown_fields)]
-/// podman configuration file
-pub struct PodmanConfig<FILE> {
+/// docker configuration file
+pub struct DockerConfig<FILE> {
     /// Getters for configuration metadata
     #[getset(get = "pub(crate)", get_mut = "pub")]
     meta: Meta,
-    #[serde(rename = "podman")]
+    #[serde(rename = "docker")]
     #[getset(get = "pub(crate)", get_mut = "pub")]
     /// description of the initialization and jobs for this config
-    description: podman::Description<FILE>,
+    description: docker::Description<FILE>,
     #[getset(get = "pub(crate)")]
     slurm: Option<Slurm>,
 }
@@ -320,7 +320,7 @@ pub enum Init {
     /// initialization for apptainer job batch
     Apptainer(apptainer::Initialize<common::HashedFile>),
     /// initialization for apptainer job batch
-    Podman(podman::Initialize<common::HashedFile>),
+    Docker(docker::Initialize<common::HashedFile>),
 }
 
 impl From<&Jobs<common::HashedFile>> for Init {
@@ -340,7 +340,7 @@ impl Init {
         match &self {
             Self::Python(py) => py.sendable_files(is_user, &mut out),
             Self::Apptainer(app) => app.sendable_files(is_user, &mut out),
-            Self::Podman(podman) => podman.sendable_files(is_user, &mut out),
+            Self::Docker(docker) => docker.sendable_files(is_user, &mut out),
         }
 
         out
@@ -356,8 +356,8 @@ impl Init {
                 app.sif.delete_at_hashed_path()?;
                 common::delete_hashed_files(app.required_files)
             }
-            Self::Podman(podman) => {
-                common::delete_hashed_files(podman.required_files)
+            Self::Docker(docker) => {
+                common::delete_hashed_files(docker.required_files)
             }
         }
     }
@@ -370,8 +370,8 @@ pub enum Job {
     Python(python::Job<common::HashedFile>),
     /// initialization and job specification for a single apptainer job
     Apptainer(apptainer::Job<common::HashedFile>),
-    /// initialization and job specification for a single podman job
-    Podman(podman::Job<common::HashedFile>),
+    /// initialization and job specification for a single docker job
+    Docker(docker::Job<common::HashedFile>),
 }
 
 #[cfg(feature = "cli")]
@@ -382,6 +382,7 @@ impl Job {
         match &self {
             Self::Python(py) => py.sendable_files(is_user, &mut out),
             Self::Apptainer(app) => app.sendable_files(is_user, &mut out),
+            Self::Docker(docker) => docker.sendable_files(is_user, &mut out),
         }
 
         out
@@ -391,6 +392,7 @@ impl Job {
         match &self {
             Self::Python(py) => &py.name(),
             Self::Apptainer(app) => &app.name(),
+            Self::Docker(dock) => &dock.name(),
         }
     }
 
@@ -401,6 +403,7 @@ impl Job {
                 common::delete_hashed_files(py.required_files)
             }
             Self::Apptainer(app) => common::delete_hashed_files(app.required_files),
+            Self::Docker(dock) => common::delete_hashed_files(dock.required_files),
         }
     }
 

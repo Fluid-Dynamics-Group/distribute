@@ -95,9 +95,9 @@ impl Machine<Building, ClientBuildingState> {
                     let msg = ClientMsg::from_build_result(build_result);
                     tx_result.send((folder_state, msg)).ok().unwrap();
                 }
-                config::Init::Podman(podman_init) => {
-                    let build_result = crate::client::initialize_podman_job(
-                        &podman_init,
+                config::Init::Docker(docker_init) => {
+                    let build_result = crate::client::initialize_docker_job(
+                        &docker_init,
                         &working_dir,
                         &mut folder_state,
                     )

@@ -57,6 +57,9 @@ fn enumerate_paths(node_meta: &NodeMetadata, task_info: &TaskInfo) {
                 config::Job::Apptainer(app) => {
                     app.sendable_files(false, &mut files);
                 }
+                config::Job::Docker(docker) => {
+                    docker.sendable_files(false, &mut files);
+                }
             }
         }
         JobOrInit::JobInit(init) => {
@@ -68,8 +71,8 @@ fn enumerate_paths(node_meta: &NodeMetadata, task_info: &TaskInfo) {
                 config::Init::Apptainer(app) => {
                     app.sendable_files(false, &mut files);
                 }
-                config::Init::Podman(podman) => {
-                    podman.sendable_files(false, &mut files);
+                config::Init::Docker(docker) => {
+                    docker.sendable_files(false, &mut files);
                 }
             }
         }

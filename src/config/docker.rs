@@ -16,10 +16,10 @@ use getset::Getters;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
-/// initialization and job specification for podman job batches
+/// initialization and job specification for docker job batches
 pub struct Description<FILE> {
     #[getset(get = "pub(crate)", get_mut = "pub")]
-    /// initialization information on podman job
+    /// initialization information on docker job
     pub initialize: Initialize<FILE>,
     #[getset(get = "pub(crate)")]
     /// list of jobs to execute in the job batch
@@ -30,7 +30,7 @@ pub struct Description<FILE> {
 impl Description<common::File> {
     pub(super) fn verify_config(&self) -> Result<(), super::ConfigVerificationError> {
         // ensure the execution of the
-        podman_image_exists(&self.initialize.image)?;
+        docker_image_exists(&self.initialize.image)?;
 
         self.initialize
             .required_files
@@ -113,7 +113,7 @@ pub struct Initialize<FILE> {
     pub image: String,
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
-    /// list of required files used in podman initialization. Generally, for podman jobs,
+    /// list of required files used in docker initialization. Generally, for docker jobs,
     /// these are simply files that will always be present
     pub required_files: Vec<FILE>,
     /// paths in the folder that need to have mount points to
@@ -169,7 +169,7 @@ impl Initialize<common::HashedFile> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
-/// specification for a podman job
+/// specification for a docker job
 pub struct Job<FILE> {
     #[getset(get = "pub(crate)")]
     name: String,
@@ -233,12 +233,12 @@ impl Job<common::HashedFile> {
     }
 }
 
-/// verify that an image exists on podman
-fn podman_image_exists(image_url: &str) -> Result<(), super::PodmanError> {
-    let sh = xshell::Shell::new().map_err(|e| super::PodmanError::ShellInit(e))?;
+/// verify that an image exists on docker
+fn docker_image_exists(image_url: &str) -> Result<(), super::DockerError> {
+    let sh = xshell::Shell::new().map_err(|e| super::DockerError::ShellInit(e))?;
 
-    xshell::cmd!(sh, "podman image pull {image_url}").run()
-        .map_err(|e| super::PodmanError::Execution(e))?;
+    xshell::cmd!(sh, "docker image pull {image_url}").run()
+        .map_err(|e| super::DockerError::Execution(e))?;
 
     Ok(())
 }
