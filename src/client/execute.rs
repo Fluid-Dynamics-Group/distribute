@@ -211,11 +211,40 @@ pub(crate) async fn initialize_apptainer_job(
 ) -> Result<(), Error> {
     let initial_files = base_path.initial_files_folder();
 
+    // the .sif file is in some hashed state in the initial_files folder that we 
+    // downloaded from the head compute node. Here, we rename it to the correct directory
+    // that the solver execution in later steps will expect.
     let src = initial_files.join(init.sif.original_filename());
     let dest = base_path.apptainer_sif();
     std::fs::rename(&src, &dest)
         .map_err(|e| error::RenameFile::new(e, src, dest))
         .map_err(error::ClientInitError::from)?;
+
+    // clear out all the older bindings and create new folders for our mounts
+    // for this container
+    folder_state
+        .update_binded_paths(init.required_mounts.clone(), base_path.base())
+        .await;
+    Ok(())
+}
+
+pub(crate) async fn initialize_podman_job(
+    init: &config::podman::Initialize<config::common::HashedFile>,
+    base_path: &WorkingDir,
+    folder_state: &mut BindingFolderState,
+) -> Result<(), Error> {
+    // pull the container with podman
+    let output = tokio::process::Command::new("podman")
+        .args(["image", "pull", &init.image])
+        .output().await
+        .map_err(error::CommandExecutionError::from)
+        .map_err(error::RunJobError::ExecuteProcess)?;
+
+    let stdout_output_path = base_path
+        .distribute_save_folder()
+        .join(format!("podman_initialization_output.txt",));
+
+    command_output_to_file(output, stdout_output_path).await;
 
     // clear out all the older bindings and create new folders for our mounts
     // for this container
@@ -309,8 +338,7 @@ fn enter_output_dir(base_path: &Path) -> PathBuf {
     current_path
 }
 
-/// run a future producing a command till completion while also
-/// checking for a cancellation signal from the host
+/// run a future producing a command till completion for the build script
 async fn generalized_init(
     original_dir: &Path,
     command: impl std::future::Future<Output = Result<std::process::Output, std::io::Error>>,

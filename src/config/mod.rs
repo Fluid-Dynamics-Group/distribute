@@ -283,6 +283,23 @@ pub struct ApptainerConfig<FILE> {
     slurm: Option<Slurm>,
 }
 
+#[derive(
+    Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters, getset::MutGetters,
+)]
+#[serde(deny_unknown_fields)]
+/// podman configuration file
+pub struct PodmanConfig<FILE> {
+    /// Getters for configuration metadata
+    #[getset(get = "pub(crate)", get_mut = "pub")]
+    meta: Meta,
+    #[serde(rename = "podman")]
+    #[getset(get = "pub(crate)", get_mut = "pub")]
+    /// description of the initialization and jobs for this config
+    description: podman::Description<FILE>,
+    #[getset(get = "pub(crate)")]
+    slurm: Option<Slurm>,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, Getters)]
 #[serde(deny_unknown_fields)]
 /// python configuration file
@@ -302,6 +319,8 @@ pub enum Init {
     Python(python::Initialize<common::HashedFile>),
     /// initialization for apptainer job batch
     Apptainer(apptainer::Initialize<common::HashedFile>),
+    /// initialization for apptainer job batch
+    Podman(podman::Initialize<common::HashedFile>),
 }
 
 impl From<&Jobs<common::HashedFile>> for Init {
@@ -321,6 +340,7 @@ impl Init {
         match &self {
             Self::Python(py) => py.sendable_files(is_user, &mut out),
             Self::Apptainer(app) => app.sendable_files(is_user, &mut out),
+            Self::Podman(podman) => podman.sendable_files(is_user, &mut out),
         }
 
         out
@@ -335,6 +355,9 @@ impl Init {
             Self::Apptainer(app) => {
                 app.sif.delete_at_hashed_path()?;
                 common::delete_hashed_files(app.required_files)
+            }
+            Self::Podman(podman) => {
+                common::delete_hashed_files(podman.required_files)
             }
         }
     }
