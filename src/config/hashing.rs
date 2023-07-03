@@ -5,8 +5,6 @@ use std::path::PathBuf;
 use sha1::Digest;
 
 pub(super) trait HashableComponent {
-    /// either python compilation file, or the singularity .sif file
-    fn job_file(&self) -> PathBuf;
     /// name of the job
     fn job_name(&self) -> &str;
     /// all the files associated with this component
@@ -14,9 +12,19 @@ pub(super) trait HashableComponent {
 }
 
 impl HashableComponent for config::apptainer::Initialize<File> {
-    fn job_file(&self) -> PathBuf {
-        self.sif.path().to_owned()
+    fn job_name(&self) -> &str {
+        "initialize"
     }
+    fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
+        let iter = (&self.required_files)
+            .into_iter()
+            .map(|f| f.path().to_owned());
+
+        Box::new(iter)
+    }
+}
+
+impl HashableComponent for config::podman::Initialize<File> {
     fn job_name(&self) -> &str {
         "initialize"
     }
@@ -30,9 +38,6 @@ impl HashableComponent for config::apptainer::Initialize<File> {
 }
 
 impl HashableComponent for config::python::Initialize<File> {
-    fn job_file(&self) -> PathBuf {
-        self.python_build_file_path().path().to_owned()
-    }
     fn job_name(&self) -> &str {
         "initialize"
     }
@@ -47,9 +52,20 @@ impl HashableComponent for config::python::Initialize<File> {
 }
 
 impl HashableComponent for config::apptainer::Job<File> {
-    fn job_file(&self) -> PathBuf {
-        PathBuf::from("job")
+    fn job_name(&self) -> &str {
+        self.name()
     }
+    fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
+        let iter = self
+            .required_files()
+            .into_iter()
+            .map(|f| f.path().to_owned());
+
+        Box::new(iter)
+    }
+}
+
+impl HashableComponent for config::podman::Job<File> {
     fn job_name(&self) -> &str {
         self.name()
     }
@@ -64,9 +80,9 @@ impl HashableComponent for config::apptainer::Job<File> {
 }
 
 impl HashableComponent for config::python::Job<File> {
-    fn job_file(&self) -> PathBuf {
-        self.python_job_file().path().to_owned()
-    }
+    //fn job_file(&self) -> PathBuf {
+    //    self.python_job_file().path().to_owned()
+    //}
     fn job_name(&self) -> &str {
         self.name()
     }

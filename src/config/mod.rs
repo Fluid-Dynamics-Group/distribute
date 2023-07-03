@@ -2,6 +2,8 @@
 pub mod apptainer;
 /// helper types common between python and apptainer
 pub mod common;
+/// podman configuration types
+pub mod podman;
 /// python configuration types
 pub mod python;
 /// helper types for job or compute node capabilities
@@ -111,6 +113,19 @@ pub enum LoadJobsError {
     Canonicalize(CanonicalizeError),
 }
 
+#[derive(Debug, thiserror::Error)]
+/// error type for conditions in which jobs can not be loaded and read from disk
+pub enum PodmanError {
+    #[error("failed to initialize shell: {0}")]
+    /// The shell could not be created with `xshell`. This should probably not happen
+    ShellInit(xshell::Error),
+    #[error("failed to pull podman image: {0}")]
+    /// Podman was not able to pull the image from the registry, the user
+    /// has supplied the wrong configuration path to podman. The image url will 
+    /// fail on the node, so we fail here instead.
+    Execution(xshell::Error),
+}
+
 #[derive(Debug, Display, From, thiserror::Error, Constructor)]
 #[display(
     fmt = "The filename for the path {} was missing, and no alias was supplied",
@@ -119,6 +134,15 @@ pub enum LoadJobsError {
 /// a path was supplied to the configuration that does not have filename associated with the path
 pub struct MissingFilename {
     path: PathBuf,
+}
+
+#[derive(Debug, thiserror::Error, From)]
+/// 
+pub(super) enum ConfigVerificationError {
+    #[error("{0}")]
+    MissingFilename(MissingFilename),
+    #[error("{0}")]
+    Podman(PodmanError),
 }
 
 #[derive(Debug, From, thiserror::Error, Constructor, Display)]
@@ -544,7 +568,7 @@ impl NormalizePaths for Nodes {
 /// read in a config file from disk
 pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     path: &Path,
-    normalize: bool
+    normalize: bool,
 ) -> Result<T, ConfigurationError> {
     let file = std::fs::File::open(path).map_err(|e| {
         ConfigurationError::new(path.display().to_string(), ConfigErrorReason::from(e))

@@ -30,6 +30,7 @@ tracing = { version = "0.1.37", optional = true }
 tracing-subscriber = { version = "0.3.17", features = ["time", "std", "local-time"], optional = true }
 getset = "0.1.2"
 mimalloc = { version = "0.1.37", optional = true }
+xshell = "0.2.3"
 
 [dependencies.matrix-notify]
 default_features = false
