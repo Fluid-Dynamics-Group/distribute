@@ -299,6 +299,51 @@ pub(crate) async fn run_apptainer_job(
     generalized_run(None, command_output, output_file_path, &job.name(), cancel).await
 }
 
+/// execute a job with podman after the build file has already been built
+///
+/// returns None if the job was cancelled
+pub(crate) async fn run_podman_job1(
+    job: config::podman::Job<config::common::HashedFile>,
+    base_path: &WorkingDir,
+    cancel: &mut broadcast::Receiver<()>,
+    folder_state: &BindingFolderState,
+) -> Result<Option<()>, Error> {
+    info!("running podman job");
+
+    // all job files were written to ./base_path/input in the previous state machine
+    // so we do not need to write them to the folder here
+
+    let apptainer_path = base_path.apptainer_sif().to_string_lossy().to_string();
+
+    let bind_arg = create_bind_argument(base_path, folder_state);
+
+    info!("binding argument for apptainer job is {}", bind_arg);
+
+    let mut command = tokio::process::Command::new("apptainer");
+    command.args([
+        "run",
+        "--nv",
+        "--app",
+        "distribute",
+        "--bind",
+        &bind_arg,
+        &apptainer_path,
+        &num_cpus::get_physical().to_string(),
+    ]);
+
+    debug!("command to be run: {:?}", command);
+
+    let command_output = command.output();
+
+    let output_file_path = base_path
+        .distribute_save_folder()
+        .join(format!("{}_output.txt", job.name()));
+
+    debug!("starting generalized run");
+
+    generalized_run(None, command_output, output_file_path, &job.name(), cancel).await
+}
+
 /// create a --bind argument for `apptainer run`
 fn create_bind_argument(base_path: &WorkingDir, folder_state: &BindingFolderState) -> String {
     let dist_save = base_path.distribute_save_folder();

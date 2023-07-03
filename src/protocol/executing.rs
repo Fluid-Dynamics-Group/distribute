@@ -100,6 +100,16 @@ impl Machine<Executing, ClientExecutingState> {
                 .await;
                 ClientMsg::from_run_result(run_result)
             }
+            config::Job::Podman(podman_job) => {
+                let run_result = client::run_podman_job(
+                    podman_job,
+                    &working_dir,
+                    &mut rx_cancel,
+                    &self.state.folder_state,
+                )
+                .await;
+                ClientMsg::from_run_result(run_result)
+            }
         };
 
         // stop monitoring the cancellation port, the job is now done

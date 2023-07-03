@@ -370,6 +370,8 @@ pub enum Job {
     Python(python::Job<common::HashedFile>),
     /// initialization and job specification for a single apptainer job
     Apptainer(apptainer::Job<common::HashedFile>),
+    /// initialization and job specification for a single podman job
+    Podman(podman::Job<common::HashedFile>),
 }
 
 #[cfg(feature = "cli")]
