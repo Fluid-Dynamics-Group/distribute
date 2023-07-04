@@ -211,7 +211,7 @@ pub(crate) async fn initialize_apptainer_job(
 ) -> Result<(), Error> {
     let initial_files = base_path.initial_files_folder();
 
-    // the .sif file is in some hashed state in the initial_files folder that we 
+    // the .sif file is in some hashed state in the initial_files folder that we
     // downloaded from the head compute node. Here, we rename it to the correct directory
     // that the solver execution in later steps will expect.
     let src = initial_files.join(init.sif.original_filename());
@@ -236,7 +236,8 @@ pub(crate) async fn initialize_docker_job(
     // pull the container with docker
     let output = tokio::process::Command::new("docker")
         .args(["image", "pull", &init.image])
-        .output().await
+        .output()
+        .await
         .map_err(error::CommandExecutionError::from)
         .map_err(error::RunJobError::ExecuteProcess)?;
 
@@ -270,7 +271,7 @@ pub(crate) async fn run_apptainer_job(
 
     let apptainer_path = base_path.apptainer_sif().to_string_lossy().to_string();
 
-    let bind_arg = create_bind_argument(base_path, folder_state);
+    let bind_arg = create_apptainer_bind_argument(base_path, folder_state);
 
     info!("binding argument for apptainer job is {}", bind_arg);
 
@@ -312,24 +313,22 @@ pub(crate) async fn run_docker_job(
 
     // all job files were written to ./base_path/input in the previous state machine
     // so we do not need to write them to the folder here
+    let bind_arg = create_docker_bind_argument(base_path, folder_state);
 
-    let apptainer_path = base_path.apptainer_sif().to_string_lossy().to_string();
+    info!("binding argument for apptainer job is {bind_arg:?}");
 
-    let bind_arg = create_bind_argument(base_path, folder_state);
+    let mut command = tokio::process::Command::new("docker");
 
-    info!("binding argument for apptainer job is {}", bind_arg);
-
-    let mut command = tokio::process::Command::new("apptainer");
-    command.args([
+    let mut args = vec![
         "run",
-        "--nv",
-        "--app",
-        "distribute",
-        "--bind",
-        &bind_arg,
-        &apptainer_path,
-        &num_cpus::get_physical().to_string(),
-    ]);
+        "--gpus",
+        "all",
+    ];
+
+    args.push(&image_url);
+    args.push(&num_cpus::get_physical().to_string());
+
+    command.args(args);
 
     debug!("command to be run: {:?}", command);
 
@@ -345,7 +344,10 @@ pub(crate) async fn run_docker_job(
 }
 
 /// create a --bind argument for `apptainer run`
-fn create_bind_argument(base_path: &WorkingDir, folder_state: &BindingFolderState) -> String {
+fn create_apptainer_bind_argument(
+    base_path: &WorkingDir,
+    folder_state: &BindingFolderState,
+) -> String {
     let dist_save = base_path.distribute_save_folder();
     let input = base_path.input_folder();
 
@@ -373,6 +375,35 @@ fn create_bind_argument(base_path: &WorkingDir, folder_state: &BindingFolderStat
     }
 
     bind_arg
+}
+
+/// create a list of --volume argumets for docker to bind volumes correctly
+fn create_docker_bind_argument(
+    base_path: &WorkingDir,
+    folder_state: &BindingFolderState,
+) -> Vec<String> {
+    let dist_save = base_path.distribute_save_folder();
+    let input = base_path.input_folder();
+
+    let mut bind_arguments = vec![
+        "--volume".into(),
+        format!("{}:/distribute_save", dist_save.display()),
+        "--volume".into(),
+        format!("{}:/input", input.display()),
+    ];
+
+    // add bindings for any use-requested folders
+    for folder in &folder_state.folders {
+        bind_arguments.push("--volume".into());
+        bind_arguments.push(
+            format!("{}:{}",
+                folder.host_path.display(),
+                folder.container_path.display()
+            )
+        )
+    }
+
+    bind_arguments
 }
 
 fn enter_output_dir(base_path: &Path) -> PathBuf {
@@ -484,7 +515,7 @@ mod tests {
     fn bind_arg_1() {
         let base_path = WorkingDir::from(PathBuf::from("/"));
         let state = BindingFolderState::new();
-        let out = create_bind_argument(&base_path, &state);
+        let out = create_apptainer_bind_argument(&base_path, &state);
         assert_eq!(out, "/distribute_save:/distribute_save:rw,/input:/input:rw");
     }
 
@@ -497,7 +528,7 @@ mod tests {
             .update_binded_paths(vec![PathBuf::from("/reqpath")], &base_path.base())
             .await;
 
-        let out = create_bind_argument(&base_path, &state);
+        let out = create_apptainer_bind_argument(&base_path, &state);
         assert_eq!(out, "/some/distribute_save:/distribute_save:rw,/some/input:/input:rw,/some/_bind_path_0:/reqpath:rw");
     }
 }

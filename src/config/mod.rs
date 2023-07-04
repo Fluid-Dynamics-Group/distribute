@@ -121,7 +121,7 @@ pub enum DockerError {
     ShellInit(xshell::Error),
     #[error("failed to pull docker image: {0}")]
     /// Docker was not able to pull the image from the registry, the user
-    /// has supplied the wrong configuration path to docker. The image url will 
+    /// has supplied the wrong configuration path to docker. The image url will
     /// fail on the node, so we fail here instead.
     Execution(xshell::Error),
 }
@@ -137,7 +137,7 @@ pub struct MissingFilename {
 }
 
 #[derive(Debug, thiserror::Error, From)]
-/// 
+///
 pub(super) enum ConfigVerificationError {
     #[error("{0}")]
     MissingFilename(MissingFilename),
@@ -356,9 +356,7 @@ impl Init {
                 app.sif.delete_at_hashed_path()?;
                 common::delete_hashed_files(app.required_files)
             }
-            Self::Docker(docker) => {
-                common::delete_hashed_files(docker.required_files)
-            }
+            Self::Docker(docker) => common::delete_hashed_files(docker.required_files),
         }
     }
 }

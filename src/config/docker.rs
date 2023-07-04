@@ -237,7 +237,8 @@ impl Job<common::HashedFile> {
 fn docker_image_exists(image_url: &str) -> Result<(), super::DockerError> {
     let sh = xshell::Shell::new().map_err(|e| super::DockerError::ShellInit(e))?;
 
-    xshell::cmd!(sh, "docker image pull {image_url}").run()
+    xshell::cmd!(sh, "docker image pull {image_url}")
+        .run()
         .map_err(|e| super::DockerError::Execution(e))?;
 
     Ok(())

@@ -4,9 +4,8 @@ pub(crate) mod utils;
 pub(crate) use utils::WorkingDir;
 
 pub(crate) use execute::{
-    initialize_apptainer_job, initialize_python_job, run_apptainer_job, run_python_job, run_docker_job,
-    BindingFolderState,
-    initialize_docker_job
+    initialize_apptainer_job, initialize_docker_job, initialize_python_job, run_apptainer_job,
+    run_docker_job, run_python_job, BindingFolderState,
 };
 
 use crate::error::Error;
