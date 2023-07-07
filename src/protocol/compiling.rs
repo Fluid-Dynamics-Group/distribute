@@ -155,6 +155,7 @@ impl Machine<Building, ClientBuildingState> {
             conn,
             working_dir,
             cancel_addr,
+            build_info,
             ..
         } = self.state;
 
@@ -167,6 +168,7 @@ impl Machine<Building, ClientBuildingState> {
             working_dir,
             folder_state,
             cancel_addr,
+            build_info
         }
     }
 

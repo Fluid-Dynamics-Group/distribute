@@ -27,6 +27,7 @@ pub(crate) struct ClientBuiltState {
     pub(super) working_dir: WorkingDir,
     pub(super) folder_state: client::BindingFolderState,
     pub(super) cancel_addr: SocketAddr,
+    pub(super) build_info: server::pool_data::BuildTaskInfo,
 }
 
 #[derive(Debug)]
@@ -151,6 +152,7 @@ impl Machine<Built, ClientBuiltState> {
             working_dir,
             folder_state,
             cancel_addr,
+            build_info,
         } = self.state;
         debug!("moving client built -> executing");
 
@@ -169,6 +171,7 @@ impl Machine<Built, ClientBuiltState> {
                 "SERVER".into(),
                 ([0, 0, 0, 0], 0).into(),
             ),
+            build_info,
         };
 
         ReceiveState {

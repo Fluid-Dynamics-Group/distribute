@@ -308,6 +308,7 @@ pub(crate) async fn run_docker_job(
     base_path: &WorkingDir,
     cancel: &mut broadcast::Receiver<()>,
     folder_state: &BindingFolderState,
+    image_url: &str,
 ) -> Result<Option<()>, Error> {
     info!("running docker job");
 
@@ -319,14 +320,11 @@ pub(crate) async fn run_docker_job(
 
     let mut command = tokio::process::Command::new("docker");
 
-    let mut args = vec![
-        "run",
-        "--gpus",
-        "all",
-    ];
+    let mut args = vec!["run", "--gpus", "all"];
 
     args.push(&image_url);
-    args.push(&num_cpus::get_physical().to_string());
+    let cpus = num_cpus::get_physical().to_string();
+    args.push(&cpus);
 
     command.args(args);
 
@@ -395,12 +393,11 @@ fn create_docker_bind_argument(
     // add bindings for any use-requested folders
     for folder in &folder_state.folders {
         bind_arguments.push("--volume".into());
-        bind_arguments.push(
-            format!("{}:{}",
-                folder.host_path.display(),
-                folder.container_path.display()
-            )
-        )
+        bind_arguments.push(format!(
+            "{}:{}",
+            folder.host_path.display(),
+            folder.container_path.display()
+        ))
     }
 
     bind_arguments

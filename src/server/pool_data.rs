@@ -202,7 +202,7 @@ pub(crate) enum FetchedJob {
     MissedKeepalive,
 }
 
-#[derive(From, Clone, Constructor, Serialize, Deserialize)]
+#[derive(From, Clone, Constructor, Serialize, Deserialize, Debug)]
 pub(crate) struct BuildTaskInfo {
     pub(crate) namespace: String,
     pub(crate) batch_name: String,

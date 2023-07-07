@@ -16,6 +16,7 @@ pub(crate) struct ClientExecutingState {
     pub(super) conn: transport::Connection<ClientMsg>,
     pub(super) working_dir: WorkingDir,
     pub(super) run_info: server::pool_data::RunTaskInfo,
+    pub(super) build_info: server::pool_data::BuildTaskInfo,
     pub(super) folder_state: client::BindingFolderState,
     pub(super) cancel_addr: SocketAddr,
 }
@@ -101,11 +102,23 @@ impl Machine<Executing, ClientExecutingState> {
                 ClientMsg::from_run_result(run_result)
             }
             config::Job::Docker(docker_job) => {
+                let image_url = if let Some(image_url) =
+                    self.state.build_info.init.docker_image_url()
+                {
+                    image_url
+                } else {
+                    error!("docker url was not set, received docker job. This should not happen");
+                    panic!("docker url was not set, received docker job. This should not happen");
+                };
+
                 let run_result = client::run_docker_job(
                     docker_job,
                     &working_dir,
                     &mut rx_cancel,
                     &self.state.folder_state,
+                    // this variable MUST be set in the previous state machine correctly if
+                    // we are to
+                    &image_url,
                 )
                 .await;
                 ClientMsg::from_run_result(run_result)
@@ -187,6 +200,7 @@ impl Machine<Executing, ClientExecutingState> {
             folder_state,
             cancel_addr,
             run_info,
+            build_info,
         } = self.state;
 
         let mut conn = conn.update_state();
@@ -203,6 +217,7 @@ impl Machine<Executing, ClientExecutingState> {
                 node_name: "SERVER".into(),
                 node_address: *conn.addr(),
             },
+            build_info
         };
 
         ClientSendFilesState { conn, extra }

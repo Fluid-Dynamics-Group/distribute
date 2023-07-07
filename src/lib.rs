@@ -230,3 +230,16 @@ fn logs_no_ansi_with_stdout() {
 fn helper_log_function(node_meta: usize, other_val: &str) {
     error!("error in the helper log function! oh no! (this is simulated)")
 }
+
+#[cfg(test)]
+fn docker_cuda_execute(node_meta: usize, other_val: &str) {
+    use xshell::{cmd, Shell};
+
+    let sh = Shell::new().unwrap();
+    cmd!(
+        sh,
+        "docker run --gpus all docker.io/mirrorgooglecontainers/cuda-vector-add:v0.1"
+    )
+    .run()
+    .unwrap();
+}

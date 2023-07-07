@@ -359,6 +359,16 @@ impl Init {
             Self::Docker(docker) => common::delete_hashed_files(docker.required_files),
         }
     }
+
+    /// if this initialization is for docker, return the docker image url used to execute the
+    /// container. Otherwise, return `None`
+    pub(crate) fn docker_image_url(&self) -> Option<String> {
+        match self {
+            Self::Python(_) => None,
+            Self::Apptainer(_) => None,
+            Self::Docker(docker) => Some(docker.image.to_owned()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, From)]

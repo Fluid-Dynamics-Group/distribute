@@ -32,6 +32,7 @@ pub(crate) struct SenderFinalStore {
     pub(crate) working_dir: WorkingDir,
     // does not really matter, here for the interface mostly
     pub(crate) node_meta: NodeMetadata,
+    pub(crate) build_info: server::pool_data::BuildTaskInfo,
 }
 
 impl FileSender for SenderFinalStore {
@@ -72,6 +73,7 @@ impl NextState for SenderState<SenderFinalStore> {
             working_dir,
             folder_state,
             cancel_addr,
+            build_info,
             ..
         } = extra;
 
@@ -82,6 +84,7 @@ impl NextState for SenderState<SenderFinalStore> {
             working_dir,
             folder_state,
             cancel_addr,
+            build_info 
         }
     }
 }

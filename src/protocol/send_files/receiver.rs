@@ -177,12 +177,15 @@ impl SendLogging for BuildingReceiver {
     }
 }
 
+/// A receiver type for loading files for execution in the `executing` state. This includes input
+/// files, initial conditions, etc
 pub(crate) struct ExecutingReceiver {
     pub(crate) node_meta: NodeMetadata,
     pub(crate) working_dir: WorkingDir,
     pub(crate) cancel_addr: SocketAddr,
     pub(crate) run_info: server::pool_data::RunTaskInfo,
     pub(crate) folder_state: client::BindingFolderState,
+    pub(crate) build_info: server::pool_data::BuildTaskInfo,
 }
 
 impl NextState for ReceiverState<ExecutingReceiver> {
@@ -201,6 +204,7 @@ impl NextState for ReceiverState<ExecutingReceiver> {
             run_info,
             node_meta: _,
             folder_state,
+            build_info,
         } = extra;
 
         let conn = conn.update_state();
@@ -211,6 +215,7 @@ impl NextState for ReceiverState<ExecutingReceiver> {
             working_dir,
             cancel_addr,
             folder_state,
+            build_info,
         }
     }
 }
