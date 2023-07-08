@@ -231,7 +231,6 @@ fn helper_log_function(node_meta: usize, other_val: &str) {
     error!("error in the helper log function! oh no! (this is simulated)")
 }
 
-#[cfg(test)]
 #[test]
 fn docker_cuda_execute() {
     use xshell::{cmd, Shell};
@@ -243,6 +242,19 @@ fn docker_cuda_execute() {
     )
     .output()
     .unwrap();
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+
+    dbg!(stdout, stderr);
+}
+
+#[test]
+fn apptainer_in_path() {
+    use xshell::{cmd, Shell};
+
+    let sh = Shell::new().unwrap();
+    let out = cmd!(sh, "apptainer --help").output().unwrap();
 
     let stdout = String::from_utf8(out.stdout).unwrap();
     let stderr = String::from_utf8(out.stderr).unwrap();
