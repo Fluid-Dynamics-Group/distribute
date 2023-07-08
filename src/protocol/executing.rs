@@ -641,12 +641,26 @@ async fn cancel_run() {
 
     let folder_state = client::execute::BindingFolderState::new();
 
+    let init = config::Init::Docker(config::docker::Initialize {
+        image: "docker.io/ubuntu:22.04".into(),
+        required_files: vec![],
+        required_mounts: vec![]
+    });
+
+    let build_info = server::pool_data::BuildTaskInfo {
+        namespace: run_info.namespace.clone(),
+        batch_name: run_info.batch_name.clone(),
+        identifier: run_info.identifier.clone(),
+        init
+    };
+
     let client_state = ClientExecutingState {
         conn: client_conn,
         working_dir: work_dir.clone(),
         folder_state,
         cancel_addr,
         run_info: run_info.clone(),
+        build_info
     };
 
     //

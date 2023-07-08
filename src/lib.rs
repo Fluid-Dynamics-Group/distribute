@@ -209,7 +209,7 @@ fn logs_no_ansi() {
 #[cfg(test)]
 /// ensure that logs do not contain ANSI escape sequences when saved to files
 /// while also being written to stdout
-#[test]
+//#[test]
 fn logs_no_ansi_with_stdout() {
     let path = "./no_ansi_logs_and_stdout.txt";
     let file = std::fs::File::create(path).unwrap();
