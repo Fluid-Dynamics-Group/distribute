@@ -217,7 +217,7 @@ impl Machine<Executing, ClientExecutingState> {
                 node_name: "SERVER".into(),
                 node_address: *conn.addr(),
             },
-            build_info
+            build_info,
         };
 
         ClientSendFilesState { conn, extra }
@@ -245,7 +245,7 @@ impl Machine<Executing, ClientExecutingState> {
 
 impl Machine<Executing, ServerExecutingState> {
     #[instrument(
-        skip(self, scheduler_tx), 
+        skip(self, scheduler_tx),
         fields(
             node_meta = %self.state.common.node_meta,
             namespace = self.state.run_info.namespace,
@@ -644,14 +644,14 @@ async fn cancel_run() {
     let init = config::Init::Docker(config::docker::Initialize {
         image: "docker.io/ubuntu:22.04".into(),
         required_files: vec![],
-        required_mounts: vec![]
+        required_mounts: vec![],
     });
 
     let build_info = server::pool_data::BuildTaskInfo {
         namespace: run_info.namespace.clone(),
         batch_name: run_info.batch_name.clone(),
         identifier: run_info.identifier.clone(),
-        init
+        init,
     };
 
     let client_state = ClientExecutingState {
@@ -660,7 +660,7 @@ async fn cancel_run() {
         folder_state,
         cancel_addr,
         run_info: run_info.clone(),
-        build_info
+        build_info,
     };
 
     //

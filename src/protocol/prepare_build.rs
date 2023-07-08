@@ -121,7 +121,7 @@ impl Machine<PrepareBuild, ServerPrepareBuildState> {
     /// This method is also responsible for creating direcories for the namespace and batch name
     /// that this job will store its results in
     #[instrument(
-        skip(self, scheduler_tx), 
+        skip(self, scheduler_tx),
         fields(
             node_meta = %self.state.common.node_meta,
         )

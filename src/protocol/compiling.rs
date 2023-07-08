@@ -168,7 +168,7 @@ impl Machine<Building, ClientBuildingState> {
             working_dir,
             folder_state,
             cancel_addr,
-            build_info
+            build_info,
         }
     }
 
@@ -201,7 +201,7 @@ impl Machine<Building, ServerBuildingState> {
     ///
     /// this routine is also responsible for listening for cancellation requests from the server
     #[instrument(
-        skip(self), 
+        skip(self),
         fields(
             node_meta = %self.state.common.node_meta,
             namespace = self.state.namespace,

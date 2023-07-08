@@ -84,7 +84,7 @@ impl NextState for SenderState<SenderFinalStore> {
             working_dir,
             folder_state,
             cancel_addr,
-            build_info 
+            build_info,
         }
     }
 }

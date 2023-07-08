@@ -232,14 +232,20 @@ fn helper_log_function(node_meta: usize, other_val: &str) {
 }
 
 #[cfg(test)]
-fn docker_cuda_execute(node_meta: usize, other_val: &str) {
+#[test]
+fn docker_cuda_execute() {
     use xshell::{cmd, Shell};
 
     let sh = Shell::new().unwrap();
-    cmd!(
+    let out = cmd!(
         sh,
         "docker run --gpus all docker.io/mirrorgooglecontainers/cuda-vector-add:v0.1"
     )
-    .run()
+    .output()
     .unwrap();
+
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+
+    dbg!(stdout, stderr);
 }

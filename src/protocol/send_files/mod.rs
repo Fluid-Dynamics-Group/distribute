@@ -138,14 +138,14 @@ async fn transport_files_with_large_file() {
     let init = config::Init::Docker(config::docker::Initialize {
         image: "docker.io/ubuntu:22.04".into(),
         required_files: vec![],
-        required_mounts: vec![]
+        required_mounts: vec![],
     });
 
     let build_info = server::pool_data::BuildTaskInfo {
         namespace: "some namespace".into(),
         batch_name: "some batch".into(),
         identifier: server::JobSetIdentifier::Identity(0),
-        init
+        init,
     };
 
     let extra = SenderFinalStore {
@@ -154,7 +154,7 @@ async fn transport_files_with_large_file() {
         folder_state: client::BindingFolderState::new(),
         cancel_addr,
         node_meta: NodeMetadata::by_name("SERVER"),
-        build_info
+        build_info,
     };
 
     let client_state = SenderState {
