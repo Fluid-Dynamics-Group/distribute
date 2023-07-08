@@ -72,7 +72,15 @@ sudo systemctl start distribute-compute
 Note that if you have deviated from username or folder structure above, `distribute-compute.service` will
 have to be updated with those paths since it relies on hard-coded paths.
 
-### Docker Setup
+## Docker Setup
+
+On popOS / Ubuntu based systems, install docker:
+
+```bash
+sudo apt install docker.io
+```
+
+### Rootless docker
 
 As root, you must allow `docker` to be executed by the `distribute` user without `sudo`. This is
 done because the `distribute` executable explicitly avoids running with root privileges. Without 
