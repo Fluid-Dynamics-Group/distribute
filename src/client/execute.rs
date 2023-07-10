@@ -235,7 +235,7 @@ pub(crate) async fn initialize_docker_job(
 ) -> Result<(), Error> {
     // pull the container with docker
     let output = tokio::process::Command::new("docker")
-        .args(["image", "pull", &init.image])
+        .args(["image", "pull", init.image.image_url()])
         .output()
         .await
         .map_err(error::CommandExecutionError::from)
@@ -308,7 +308,7 @@ pub(crate) async fn run_docker_job(
     base_path: &WorkingDir,
     cancel: &mut broadcast::Receiver<()>,
     folder_state: &BindingFolderState,
-    image_url: &str,
+    image: &config::docker::Image,
 ) -> Result<Option<()>, Error> {
     info!("running docker job");
 
@@ -327,7 +327,7 @@ pub(crate) async fn run_docker_job(
         args.push(&arg);
     }
 
-    args.push(&image_url);
+    args.push(image.image_url());
     let cpus = num_cpus::get_physical().to_string();
     args.push(&cpus);
 

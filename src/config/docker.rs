@@ -102,6 +102,25 @@ where
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
+#[serde(transparent)]
+/// wrapper type specifying an OCI image hosted on some registry, possibly hub.docker.com
+pub struct Image {
+    #[getset(get = "pub(crate)")]
+    image_url: String
+}
+
+impl From<&str> for Image {
+    fn from(x: &str) -> Self {
+        Image {image_url: x.into()}
+    }
+}
+
+impl From<String> for Image {
+    fn from(x: String) -> Self {
+        Image {image_url: x }
+    }
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
@@ -111,7 +130,7 @@ pub struct Initialize<FILE> {
     /// path to the image on a registry.
     ///
     /// Example: `docker.io/jellyfin/jellyfin:latest`
-    pub image: String,
+    pub image: Image,
     #[serde(default = "Default::default")]
     #[getset(get = "pub(crate)")]
     /// list of required files used in docker initialization. Generally, for docker jobs,
@@ -235,8 +254,10 @@ impl Job<common::HashedFile> {
 }
 
 /// verify that an image exists on docker
-fn docker_image_exists(image_url: &str) -> Result<(), super::DockerError> {
+fn docker_image_exists(image: &Image) -> Result<(), super::DockerError> {
     let sh = xshell::Shell::new().map_err(|e| super::DockerError::ShellInit(e))?;
+
+    let image_url = image.image_url();
 
     xshell::cmd!(sh, "docker image pull {image_url}")
         .run()

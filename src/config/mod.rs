@@ -376,7 +376,7 @@ impl Init {
 
     /// if this initialization is for docker, return the docker image url used to execute the
     /// container. Otherwise, return `None`
-    pub(crate) fn docker_image_url(&self) -> Option<String> {
+    pub(crate) fn docker_image_url(&self) -> Option<docker::Image> {
         match self {
             Self::Python(_) => None,
             Self::Apptainer(_) => None,
