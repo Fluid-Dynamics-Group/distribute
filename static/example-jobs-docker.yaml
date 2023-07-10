@@ -1,0 +1,36 @@
+# the meta section is the same between files
+# see the python example for full explanations of each field
+meta:
+  batch_name: your_jobset_name
+  namespace: example_namespace
+  matrix: "@your_username:matrix.org"
+  # docker capability must be specified
+  capabilities:
+  - docker
+docker:
+  initialize:
+    # path to docker image. Could be hosted on docker hub or elsewhere.
+    # Cannot be stored locally, must be hosted on an external platform
+    image: docker.io/your_username/docker_image:latest
+    # you can also specify required files to be present in the 
+    # mounted input directory for each run here
+    required_files:
+    - path: /file/always/present/1.txt
+      alias: input.txt
+    # if we need mutable folders bound to the container then
+    # you can do it here. Generally, this is not needed for docker since
+    # docker containers are mutable
+    required_mounts:
+    - /path/inside/container/to/mount
+  # a list of python files and thier associated file to be included
+  jobs:
+  # a list of names and the (presumably) input files to run them
+  - name: job_1
+    required_files:
+    - path: job_configuration_file.json
+    - path: job_configuration_file_with_alias.json
+      alias: input.json
+  - name: job_2
+    required_files:
+    - path: job_configuration_file_with_alias.json
+      alias: input.json

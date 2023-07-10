@@ -1,6 +1,6 @@
 use super::cli;
 use super::cli::Template;
-use crate::config::{self, apptainer, common, python, docker};
+use crate::config::{self, apptainer, common, docker, python};
 use crate::error::{Error, TemplateError};
 
 /// create a `distribute-jobs.yaml` with some default fields
@@ -94,9 +94,10 @@ fn apptainer_template() -> Result<String, TemplateError> {
 fn docker_template() -> Result<String, TemplateError> {
     let initialize = docker::Initialize::new(
         "docker_image".into(),
-        vec![
-            common::File::with_alias_relative("/file/always/present/1.txt", "input.txt"),
-        ],
+        vec![common::File::with_alias_relative(
+            "/file/always/present/1.txt",
+            "input.txt",
+        )],
         vec!["/path/inside/container/to/mount".into()],
     );
 
@@ -118,8 +119,7 @@ fn docker_template() -> Result<String, TemplateError> {
 
     // TODO: better slurm defaults
     let slurm = None;
-    let desc: config::Jobs<common::File> =
-        config::DockerConfig::new(meta, apptainer, slurm).into();
+    let desc: config::Jobs<common::File> = config::DockerConfig::new(meta, apptainer, slurm).into();
     let serialized = serde_yaml::to_string(&desc)?;
 
     Ok(serialized)
@@ -130,10 +130,7 @@ fn meta(caps: &[&str]) -> config::Meta {
         batch_name: "your_jobset_name".into(),
         namespace: "example_namespace".into(),
         matrix: None,
-        capabilities: caps
-            .iter()
-            .map(|x| (*x).into())
-            .collect(),
+        capabilities: caps.iter().map(|x| (*x).into()).collect(),
     }
 }
 

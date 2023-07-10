@@ -102,6 +102,7 @@ where
     }
 }
 
+
 #[derive(Debug, Clone, Deserialize, Serialize, Constructor, getset::Getters)]
 #[serde(deny_unknown_fields)]
 /// initialization information for python jobs

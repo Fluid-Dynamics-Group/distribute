@@ -481,7 +481,9 @@ pub enum Slurm {
     NoJobs,
     #[error("SLURM configuration does not support python build/run scripts (apptainer only)")]
     PythonConfig,
-    #[error("SLURM configuration does not support docker containers at this time (apptainer only)")]
+    #[error(
+        "SLURM configuration does not support docker containers at this time (apptainer only)"
+    )]
     DockerConfig,
     #[error("{0}")]
     DuplicateJobName(DuplicateJobName),

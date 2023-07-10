@@ -208,7 +208,7 @@ pub struct Template {
 pub(crate) enum TemplateType {
     Apptainer,
     Python,
-    Docker
+    Docker,
 }
 
 #[derive(Parser, PartialEq, Debug, Constructor, Eq)]

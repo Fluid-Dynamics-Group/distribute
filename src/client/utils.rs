@@ -186,6 +186,37 @@ impl WorkingDir {
         }
     }
 
+    pub(crate) async fn copy_initial_files_docker(
+        &self,
+        init: &config::docker::Initialize<config::common::File>,
+        state: &mut client::execute::BindingFolderState,
+    ) {
+        let initial_files = self.initial_files_folder();
+
+        for file in init.required_files.iter() {
+            let filename = file.filename().unwrap();
+            std::fs::copy(file.path(), initial_files.join(filename)).unwrap();
+        }
+
+        state
+            .update_binded_paths(init.required_mounts.clone(), self.base())
+            .await;
+    }
+
+    pub(crate) async fn copy_job_files_docker(
+        &self,
+        job: &config::docker::Job<config::common::File>,
+    ) {
+        self.clean_input().await.unwrap();
+
+        let input = self.input_folder();
+
+        for file in job.required_files.iter() {
+            let filename = file.filename().unwrap();
+            std::fs::copy(file.path(), input.join(filename)).unwrap();
+        }
+    }
+
     pub(crate) async fn copy_job_files_python(
         &self,
         job: &config::python::Job<config::common::File>,

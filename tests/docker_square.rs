@@ -125,7 +125,6 @@ async fn docker_square() {
     // │               ├── job_2_output.txt
     // │               └── output.txt
 
-
     let batch = server_save_dir.join("some_namespace/some_batch");
     assert_eq!(
         batch.join("job_1/output.txt").exists(),
@@ -154,4 +153,3 @@ async fn docker_square() {
     fs::remove_dir_all(&server_temp_dir).ok();
     fs::remove_dir_all(&client_workdir).ok();
 }
-

@@ -505,9 +505,7 @@ impl Jobs<common::File> {
                 }))
             }
             Self::Docker(docker_config) => {
-                let description = docker_config
-                    .description
-                    .hashed(&docker_config.meta)?;
+                let description = docker_config.description.hashed(&docker_config.meta)?;
 
                 Ok(Jobs::from(DockerConfig {
                     meta: docker_config.meta.clone(),
@@ -787,6 +785,12 @@ fn serialize_jobs_python() {
 #[test]
 fn serialize_jobs_apptainer() {
     let bytes = include_str!("../../static/example-jobs-apptainer.yaml");
+    let _out: Jobs<common::File> = serde_yaml::from_str(bytes).unwrap();
+}
+
+#[test]
+fn serialize_jobs_docker() {
+    let bytes = include_str!("../../static/example-jobs-docker.yaml");
     let _out: Jobs<common::File> = serde_yaml::from_str(bytes).unwrap();
 }
 

@@ -5,9 +5,10 @@ meta:
 
   namespace: "brooks-openfoam"
 
-  capabilities: [gpu, fortran, fftw]
+  # apptainer capability must be specified
+  capabilities: [gpu, apptainer]
 
-  matrix: "@karlik:matrix.org"
+  matrix: "@your_username:matrix.org"
 
 apptainer:
 

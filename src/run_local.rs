@@ -16,12 +16,20 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
 
     let config = config::load_config::<config::Jobs<config::common::File>>(&args.job_file, true)?;
 
-    let apptainer_config = match config {
-        config::Jobs::Apptainer(app) => app,
+    match config {
+        config::Jobs::Apptainer(app) => run_apptainer(args, working_dir, app).await?,
         config::Jobs::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
-        config::Jobs::Docker(_) => return Err(RunErrorLocal::OnlyApptainer),
+        config::Jobs::Docker(dock) => run_docker(args, working_dir, dock).await?,
     };
 
+    Ok(())
+}
+
+async fn run_apptainer(
+    args: cli::Run,
+    working_dir: WorkingDir,
+    apptainer_config: config::ApptainerConfig<config::common::File>,
+) -> Result<(), RunErrorLocal> {
     let mut state = client::execute::BindingFolderState::new();
 
     let (_tx, mut rx) = tokio::sync::broadcast::channel(1);
@@ -41,6 +49,39 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
         let name = job.name().to_string();
 
         client::execute::run_apptainer_job(job, &working_dir, &mut rx, &state).await?;
+        fs::rename(&distribute_save, archive.join(name))?;
+        fs::create_dir(&distribute_save)?;
+    }
+
+    Ok(())
+}
+
+async fn run_docker(
+    args: cli::Run,
+    working_dir: WorkingDir,
+    docker_config: config::DockerConfig<config::common::File>,
+) -> Result<(), RunErrorLocal> {
+    let mut state = client::execute::BindingFolderState::new();
+
+    let (_tx, mut rx) = tokio::sync::broadcast::channel(1);
+
+    working_dir
+        .copy_initial_files_docker(&docker_config.description().initialize(), &mut state)
+        .await;
+    let archive = args.save_dir.join("archived_files");
+    fs::create_dir(&archive)?;
+
+    let distribute_save = args.save_dir.join("distribute_save");
+
+    let image_url = &docker_config.description().initialize().image;
+
+    for job in docker_config.description().jobs().into_iter().cloned() {
+        working_dir.copy_job_files_docker(&job).await;
+
+        let job = job.hashed(0, &docker_config.meta()).unwrap();
+        let name = job.name().to_string();
+
+        client::execute::run_docker_job(job, &working_dir, &mut rx, &state, image_url).await?;
         fs::rename(&distribute_save, archive.join(name))?;
         fs::create_dir(&distribute_save)?;
     }
