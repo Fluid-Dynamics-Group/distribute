@@ -322,6 +322,11 @@ pub(crate) async fn run_docker_job(
 
     let mut args = vec!["run", "--gpus", "all"];
 
+    // add the volume mounts to the docker container
+    for arg in &bind_arg {
+        args.push(&arg);
+    }
+
     args.push(&image_url);
     let cpus = num_cpus::get_physical().to_string();
     args.push(&cpus);

@@ -1,0 +1,23 @@
+meta:
+  batch_name: some_batch
+  namespace: some_namespace
+  matrix: null
+  capabilities:
+  - docker
+docker:
+  initialize:
+    # this image must be built locally
+    image: docker.io/vanillabrooks/docker_square:latest
+    required_files: []
+    required_mounts:
+    - /mounted/path/
+  jobs:
+  - name: job_1
+    required_files:
+    - path: input_1.txt
+      alias: input.txt
+  - name: job_2
+    required_files:
+    - path: input_2.txt
+      alias: input.txt
+slurm: null

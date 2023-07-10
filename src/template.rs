@@ -16,7 +16,7 @@ fn to_template(template: cli::TemplateType) -> Result<String, TemplateError> {
     match template {
         cli::TemplateType::Python => python_template(),
         cli::TemplateType::Apptainer => apptainer_template(),
-        cli::TemplateType::Docker => apptainer_template(),
+        cli::TemplateType::Docker => docker_template(),
     }
 }
 
@@ -44,7 +44,7 @@ fn python_template() -> Result<String, TemplateError> {
     );
 
     let python = python::Description::new(initialize, vec![job_1]);
-    let meta = meta();
+    let meta = meta(&["python3", "matplotlib", "gfortran"]);
 
     // TODO: better slurm documentation
     let slurm = None;
@@ -80,7 +80,7 @@ fn apptainer_template() -> Result<String, TemplateError> {
     );
 
     let apptainer = apptainer::Description::new(initialize, vec![job_1]);
-    let meta = meta();
+    let meta = meta(&["apptainer"]);
 
     // TODO: better slurm defaults
     let slurm = None;
@@ -114,7 +114,7 @@ fn docker_template() -> Result<String, TemplateError> {
     );
 
     let apptainer = docker::Description::new(initialize, vec![job_1]);
-    let meta = meta();
+    let meta = meta(&["docker"]);
 
     // TODO: better slurm defaults
     let slurm = None;
@@ -125,14 +125,14 @@ fn docker_template() -> Result<String, TemplateError> {
     Ok(serialized)
 }
 
-fn meta() -> config::Meta {
+fn meta(caps: &[&str]) -> config::Meta {
     config::Meta {
         batch_name: "your_jobset_name".into(),
         namespace: "example_namespace".into(),
         matrix: None,
-        capabilities: vec!["python3", "apptainer", "gfortran"]
-            .into_iter()
-            .map(Into::into)
+        capabilities: caps
+            .iter()
+            .map(|x| (*x).into())
             .collect(),
     }
 }

@@ -61,7 +61,7 @@ impl WorkingDir {
         tokio::fs::remove_dir_all(&path).await?;
         tokio::fs::create_dir(&path).await?;
 
-        debug!("removed and created ./input/ directory. Going to start copying form initial_files");
+        debug!("removed and created ./input/ directory. Going to start copying from initial_files");
 
         let file_source = self.initial_files_folder();
 

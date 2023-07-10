@@ -213,6 +213,7 @@ fn write_many_batch_configs(
 
     let config: distribute::ApptainerConfig<_> = match main_config {
         distribute::Jobs::Python(_) => unreachable!(),
+        distribute::Jobs::Docker(_) => unreachable!(),
         distribute::Jobs::Apptainer(app) => app,
     };
 

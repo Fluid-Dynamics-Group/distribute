@@ -154,7 +154,7 @@ impl Machine<Built, ClientBuiltState> {
             cancel_addr,
             build_info,
         } = self.state;
-        debug!("moving client built -> executing");
+        debug!("moving client built -> send_files (executing)");
 
         let mut conn = conn.update_state();
         super::assert_conn_empty(&mut conn).await;
