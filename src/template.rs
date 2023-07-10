@@ -1,6 +1,6 @@
 use super::cli;
 use super::cli::Template;
-use crate::config::{self, apptainer, common, python};
+use crate::config::{self, apptainer, common, python, docker};
 use crate::error::{Error, TemplateError};
 
 /// create a `distribute-jobs.yaml` with some default fields
@@ -16,6 +16,7 @@ fn to_template(template: cli::TemplateType) -> Result<String, TemplateError> {
     match template {
         cli::TemplateType::Python => python_template(),
         cli::TemplateType::Apptainer => apptainer_template(),
+        cli::TemplateType::Docker => apptainer_template(),
     }
 }
 
@@ -85,6 +86,40 @@ fn apptainer_template() -> Result<String, TemplateError> {
     let slurm = None;
     let desc: config::Jobs<common::File> =
         config::ApptainerConfig::new(meta, apptainer, slurm).into();
+    let serialized = serde_yaml::to_string(&desc)?;
+
+    Ok(serialized)
+}
+
+fn docker_template() -> Result<String, TemplateError> {
+    let initialize = docker::Initialize::new(
+        "docker_image".into(),
+        vec![
+            common::File::with_alias_relative("/file/always/present/1.txt", "input.txt"),
+        ],
+        vec!["/path/inside/container/to/mount".into()],
+    );
+
+    let job_1 = docker::Job::new(
+        "job_1".into(),
+        vec![
+            common::File::new_relative("job_configuration_file.json"),
+            common::File::with_alias_relative(
+                "job_configuration_file_with_alias.json",
+                "input.json",
+            ),
+        ],
+        // No slurm information
+        None,
+    );
+
+    let apptainer = docker::Description::new(initialize, vec![job_1]);
+    let meta = meta();
+
+    // TODO: better slurm defaults
+    let slurm = None;
+    let desc: config::Jobs<common::File> =
+        config::DockerConfig::new(meta, apptainer, slurm).into();
     let serialized = serde_yaml::to_string(&desc)?;
 
     Ok(serialized)

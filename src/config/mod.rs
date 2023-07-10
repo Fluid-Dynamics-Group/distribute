@@ -86,6 +86,10 @@ pub enum ConfigErrorReason {
     #[display(fmt = "General Io error when opening config file: {}", _0)]
     /// general io error
     IoError(std::io::Error),
+    /// error with a docker configurationn. This error also includes a MissingFilename
+    /// error internally
+    #[display(fmt = "{}", _0)]
+    VerificationError(ConfigVerificationError),
 }
 
 #[derive(Debug, Display, Constructor)]
@@ -138,10 +142,13 @@ pub struct MissingFilename {
 
 #[derive(Debug, thiserror::Error, From)]
 ///
-pub(super) enum ConfigVerificationError {
-    #[error("{0}")]
+pub enum ConfigVerificationError {
+    #[error("missing file: {0}")]
+    /// a file specified in the configuration file does not exist on disk
     MissingFilename(MissingFilename),
     #[error("{0}")]
+    /// Unable to verify certain attributes about the docker image specified in the configuration
+    /// file
     Docker(DockerError),
 }
 
@@ -234,6 +241,8 @@ pub enum TransportJobs<FILE> {
     Python(PythonConfig<FILE>),
     /// apptainer transportable configuration
     Apptainer(ApptainerConfig<FILE>),
+    /// apptainer transportable configuration
+    Docker(DockerConfig<FILE>),
 }
 
 impl<F> From<Jobs<F>> for TransportJobs<F> {
@@ -241,6 +250,7 @@ impl<F> From<Jobs<F>> for TransportJobs<F> {
         match x {
             Jobs::Python(py) => TransportJobs::Python(py),
             Jobs::Apptainer(app) => TransportJobs::Apptainer(app),
+            Jobs::Docker(dock) => TransportJobs::Docker(dock),
         }
     }
 }
@@ -255,6 +265,8 @@ pub enum Jobs<FILE> {
     Python(PythonConfig<FILE>),
     /// full configuration for an apptainer job batch
     Apptainer(ApptainerConfig<FILE>),
+    /// full configuration for an apptainer job batch
+    Docker(DockerConfig<FILE>),
 }
 
 impl<F> From<TransportJobs<F>> for Jobs<F> {
@@ -262,6 +274,7 @@ impl<F> From<TransportJobs<F>> for Jobs<F> {
         match x {
             TransportJobs::Python(py) => Jobs::Python(py),
             TransportJobs::Apptainer(app) => Jobs::Apptainer(app),
+            TransportJobs::Docker(app) => Jobs::Docker(app),
         }
     }
 }
@@ -328,6 +341,7 @@ impl From<&Jobs<common::HashedFile>> for Init {
         match &config {
             Jobs::Apptainer(app) => Init::Apptainer(app.description.initialize.clone()),
             Jobs::Python(py) => Init::Python(py.description.initialize.clone()),
+            Jobs::Docker(dock) => Init::Docker(dock.description.initialize.clone()),
         }
     }
 }
@@ -452,6 +466,7 @@ impl Jobs<common::File> {
         match &self {
             Self::Python(pyconfig) => pyconfig.description.len_jobs(),
             Self::Apptainer(apptainer_config) => apptainer_config.description.len_jobs(),
+            Self::Docker(docker_config) => docker_config.description.len_jobs(),
         }
     }
 
@@ -460,6 +475,7 @@ impl Jobs<common::File> {
         match &self {
             Self::Python(py) => py.description.verify_config()?,
             Self::Apptainer(app) => app.description.verify_config()?,
+            Self::Docker(dock) => dock.description.verify_config()?,
         };
 
         Ok(())
@@ -488,6 +504,17 @@ impl Jobs<common::File> {
                     slurm: apptainer_config.slurm.clone(),
                 }))
             }
+            Self::Docker(docker_config) => {
+                let description = docker_config
+                    .description
+                    .hashed(&docker_config.meta)?;
+
+                Ok(Jobs::from(DockerConfig {
+                    meta: docker_config.meta.clone(),
+                    description,
+                    slurm: docker_config.slurm.clone(),
+                }))
+            }
         }
     }
 }
@@ -498,6 +525,7 @@ impl Jobs<common::HashedFile> {
         match &self {
             Jobs::Python(py) => py.description.sendable_files(is_user),
             Jobs::Apptainer(app) => app.description.sendable_files(is_user),
+            Jobs::Docker(dock) => dock.description.sendable_files(is_user),
         }
     }
 }
@@ -510,6 +538,7 @@ impl<FILE> Jobs<FILE> {
         match &self {
             Self::Python(py) => &py.meta.capabilities,
             Self::Apptainer(app) => &app.meta.capabilities,
+            Self::Docker(dock) => &dock.meta.capabilities,
         }
     }
 
@@ -518,6 +547,7 @@ impl<FILE> Jobs<FILE> {
         match self {
             Self::Python(py) => py.meta.batch_name.clone(),
             Self::Apptainer(app) => app.meta.batch_name.clone(),
+            Self::Docker(dock) => dock.meta.batch_name.clone(),
         }
     }
 
@@ -526,6 +556,7 @@ impl<FILE> Jobs<FILE> {
         match self {
             Self::Python(py) => py.meta.matrix.clone(),
             Self::Apptainer(app) => app.meta.matrix.clone(),
+            Self::Docker(dock) => dock.meta.matrix.clone(),
         }
     }
 
@@ -534,6 +565,7 @@ impl<FILE> Jobs<FILE> {
         match self {
             Self::Python(py) => py.meta.namespace.clone(),
             Self::Apptainer(app) => app.meta.namespace.clone(),
+            Self::Docker(dock) => dock.meta.namespace.clone(),
         }
     }
 
@@ -547,6 +579,12 @@ impl<FILE> Jobs<FILE> {
                 .map(|job| job.name().as_str())
                 .collect(),
             Self::Apptainer(apt) => apt
+                .description
+                .jobs
+                .iter()
+                .map(|job| job.name().as_str())
+                .collect(),
+            Self::Docker(dock) => dock
                 .description
                 .jobs
                 .iter()
@@ -591,6 +629,7 @@ where
         match self {
             Self::Python(py) => py.description.normalize_paths(base),
             Self::Apptainer(app) => app.description.normalize_paths(base),
+            Self::Docker(dock) => dock.description.normalize_paths(base),
         }
     }
 }

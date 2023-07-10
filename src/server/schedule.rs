@@ -482,6 +482,13 @@ impl JobSet {
                 .map(Clone::clone)
                 .map(config::Job::from)
                 .collect::<Vec<_>>(),
+            config::Jobs::Docker(dock) => dock
+                .description()
+                .jobs()
+                .into_iter()
+                .map(Clone::clone)
+                .map(config::Job::from)
+                .collect::<Vec<_>>(),
         };
 
         Ok(Self {

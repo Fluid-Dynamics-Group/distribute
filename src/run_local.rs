@@ -19,6 +19,7 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
     let apptainer_config = match config {
         config::Jobs::Apptainer(app) => app,
         config::Jobs::Python(_) => return Err(RunErrorLocal::OnlyApptainer),
+        config::Jobs::Docker(_) => return Err(RunErrorLocal::OnlyApptainer),
     };
 
     let mut state = client::execute::BindingFolderState::new();

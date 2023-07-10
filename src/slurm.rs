@@ -20,6 +20,7 @@ pub fn slurm(args: cli::Slurm) -> Result<(), error::Slurm> {
 
     let apptainer_config = match jobs {
         config::Jobs::Python(_) => return Err(error::Slurm::PythonConfig),
+        config::Jobs::Docker(_) => return Err(error::Slurm::DockerConfig),
         config::Jobs::Apptainer(apptainer) => apptainer,
     };
 

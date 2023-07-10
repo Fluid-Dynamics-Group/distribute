@@ -442,7 +442,7 @@ pub enum RunErrorLocal {
     #[error("A general io error occured: {0}")]
     /// an unhandled io error occured
     GeneralIo(std::io::Error),
-    #[error("A python configuration was specified, but run-local only supports apptainer configurations")]
+    #[error("A python / docker configuration was specified, but run-local only supports apptainer configurations")]
     /// only apptainer job formats can be executed locally, python environments cannot
     OnlyApptainer,
     #[error("{0}")]
@@ -481,6 +481,8 @@ pub enum Slurm {
     NoJobs,
     #[error("SLURM configuration does not support python build/run scripts (apptainer only)")]
     PythonConfig,
+    #[error("SLURM configuration does not support docker containers at this time (apptainer only)")]
+    DockerConfig,
     #[error("{0}")]
     DuplicateJobName(DuplicateJobName),
     #[error("Error with configuration file: {0}")]
