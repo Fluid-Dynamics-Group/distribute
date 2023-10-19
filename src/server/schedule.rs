@@ -278,7 +278,7 @@ impl Schedule for GpuPriority {
     }
 
     fn mark_build_failure(&mut self, failed_ident: JobSetIdentifier, total_nodes: usize) {
-        if let Some((_ident, mut job_set)) = self
+        if let Some((_ident, job_set)) = self
             .map
             .iter_mut()
             .find(|(identifier, _)| **identifier == failed_ident)
