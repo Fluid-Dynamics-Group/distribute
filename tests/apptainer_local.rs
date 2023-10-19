@@ -1,3 +1,9 @@
+//! tests specific to apptainer execution.
+//!
+//! These tests require that the correct `apptainer.sif` file was generated at
+//! `./tests/apptainer_local/apptainer.sif`. The generation of this file is handled
+//! by running the shell script at .tests/apptainer_local
+
 use distribute::cli::Run;
 use distribute::cli::Slurm;
 
@@ -6,6 +12,7 @@ use std::fs;
 use std::path::PathBuf;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[cfg(feature = "test-apptainer")]
 async fn verify_apptainer_execution() {
     let dir = PathBuf::from("./tests/apptainer_local");
 
@@ -18,14 +25,6 @@ async fn verify_apptainer_execution() {
     let run = Run::new(dir.join("distribute-jobs.yaml"), dir.join("output"), true);
 
     distribute::run_local(run).await.unwrap();
-
-    //let p1 = dir.join("output").join("_bind_path_0").join("file1.txt");
-    //let p2 = dir.join("output").join("_bind_path_1").join("file2.txt");
-
-    //dbg!(&p1);
-
-    //assert_eq!(p1.exists(), true);
-    //assert_eq!(p2.exists(), true);
 
     let output_1 = dir.join("output/archived_files/job_1/simulated_output.txt");
     let output_2 = dir.join("output/archived_files/job_2/simulated_output.txt");
@@ -42,6 +41,7 @@ async fn verify_apptainer_execution() {
 }
 
 #[test]
+#[cfg(feature = "test-apptainer")]
 fn slurm_output_verify() {
     if false {
         distribute::logger();

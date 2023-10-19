@@ -163,7 +163,7 @@ pub(crate) async fn run_python_job(
         Some(&original_dir),
         command,
         output_file_path,
-        &job.name(),
+        job.name(),
         cancel,
     )
     .await
@@ -190,7 +190,7 @@ pub(crate) async fn initialize_python_job(
     info!("initialized all init files");
 
     // enter the file to execute the file from
-    let original_dir = enter_output_dir(&base_path.base());
+    let original_dir = enter_output_dir(base_path.base());
     debug!("current file path is {:?}", std::env::current_dir());
 
     let command = tokio::process::Command::new("python3")
@@ -267,7 +267,7 @@ pub(crate) async fn run_apptainer_job(
 
     debug!("starting generalized run");
 
-    generalized_run(None, command_output, output_file_path, &job.name(), cancel).await
+    generalized_run(None, command_output, output_file_path, job.name(), cancel).await
 }
 
 /// create a --bind argument for `apptainer run`

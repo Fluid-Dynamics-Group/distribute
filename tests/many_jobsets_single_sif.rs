@@ -13,6 +13,7 @@ use std::thread;
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[cfg(feature = "test-apptainer")]
 async fn many_jobsets_single_sif() {
     println!("starting many_jobsets_single_sif");
     if false {

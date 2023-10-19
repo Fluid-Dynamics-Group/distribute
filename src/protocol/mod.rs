@@ -194,7 +194,7 @@ type ClientEitherPrepareBuild<T> =
 type ServerEitherPrepareBuild<T> =
     Either<Machine<prepare_build::PrepareBuild, prepare_build::ServerPrepareBuildState>, T>;
 
-#[derive(Constructor, Debug)]
+#[derive(Debug)]
 pub(crate) struct Common {
     receive_cancellation: broadcast::Receiver<JobSetIdentifier>,
     capabilities: Arc<Requirements<NodeProvidedCaps>>,
@@ -211,6 +211,35 @@ pub(crate) struct Common {
 }
 
 impl Common {
+    /// generalized constructor
+    ///
+    /// we dont use [`derive_more::Constructor`] here since we need to remove
+    /// the clippy lint for too many arguments. We do not want another method of
+    /// constructing this since we dont want the fields to be public (initializer-list
+    /// style construction)
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
+        receive_cancellation: broadcast::Receiver<JobSetIdentifier>,
+        capabilities: Arc<Requirements<NodeProvidedCaps>>,
+        save_path: PathBuf,
+        node_meta: pool_data::NodeMetadata,
+        keepalive_addr: SocketAddr,
+        main_transport_addr: SocketAddr,
+        cancel_addr: SocketAddr,
+        errored_jobs: BTreeSet<server::JobSetIdentifier>,
+    ) -> Self {
+        Self {
+            receive_cancellation,
+            capabilities,
+            save_path,
+            node_meta,
+            keepalive_addr,
+            main_transport_addr,
+            cancel_addr,
+            errored_jobs,
+        }
+    }
+
     #[cfg(test)]
     fn test_configuration(
         transport_addr: SocketAddr,

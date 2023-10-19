@@ -17,7 +17,7 @@ use tracing::{error, info};
 async fn failed_keepalive() {
     println!("starting failed keepalive test");
     if false {
-        distribute::logger();
+        distribute::logging::default();
     }
 
     let current_dir = std::env::current_dir().unwrap();

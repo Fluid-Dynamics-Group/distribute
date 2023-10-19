@@ -143,7 +143,7 @@ impl Machine<Uninit, ClientUninitState> {
 impl Machine<Uninit, ServerUninitState> {
     /// on the master node, try to connect to the compute node
     #[instrument(
-        skip(self), 
+        skip(self),
         fields(
             node_meta = %self.state.common.node_meta,
         )

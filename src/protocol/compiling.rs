@@ -56,6 +56,7 @@ impl Machine<Building, ClientBuildingState> {
     ///
     /// this routine is also responsible for listening for cancellation requests from the server
     #[instrument(skip(self), fields(batch_name=self.state.build_info.batch_name))]
+    #[allow(clippy::type_complexity)]
     pub(crate) async fn build_job(
         mut self,
     ) -> Result<
@@ -189,13 +190,14 @@ impl Machine<Building, ServerBuildingState> {
     ///
     /// this routine is also responsible for listening for cancellation requests from the server
     #[instrument(
-        skip(self), 
+        skip(self),
         fields(
             node_meta = %self.state.common.node_meta,
             namespace = self.state.namespace,
             batch_name = self.state.batch_name,
         )
     )]
+    #[allow(clippy::type_complexity)]
     pub(crate) async fn prepare_for_execution(
         mut self,
     ) -> Result<

@@ -26,17 +26,17 @@ pub async fn run_local(args: cli::Run) -> Result<(), RunErrorLocal> {
     let (_tx, mut rx) = tokio::sync::broadcast::channel(1);
 
     working_dir
-        .copy_initial_files_apptainer(&apptainer_config.description().initialize(), &mut state)
+        .copy_initial_files_apptainer(apptainer_config.description().initialize(), &mut state)
         .await;
     let archive = args.save_dir.join("archived_files");
     fs::create_dir(&archive)?;
 
     let distribute_save = args.save_dir.join("distribute_save");
 
-    for job in apptainer_config.description().jobs().into_iter().cloned() {
-        working_dir.copy_job_files_apptainer(&job).await;
+    for job in apptainer_config.description().jobs().iter() {
+        working_dir.copy_job_files_apptainer(job).await;
 
-        let job = job.hashed(0, &apptainer_config.meta()).unwrap();
+        let job = job.hashed(0, apptainer_config.meta()).unwrap();
         let name = job.name().to_string();
 
         client::execute::run_apptainer_job(job, &working_dir, &mut rx, &state).await?;

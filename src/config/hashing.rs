@@ -21,9 +21,7 @@ impl HashableComponent for config::apptainer::Initialize<File> {
         "initialize"
     }
     fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
-        let iter = (&self.required_files)
-            .into_iter()
-            .map(|f| f.path().to_owned());
+        let iter = self.required_files.iter().map(|f| f.path().to_owned());
 
         Box::new(iter)
     }
@@ -37,10 +35,7 @@ impl HashableComponent for config::python::Initialize<File> {
         "initialize"
     }
     fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
-        let iter = self
-            .required_files()
-            .into_iter()
-            .map(|f| f.path().to_owned());
+        let iter = self.required_files().iter().map(|f| f.path().to_owned());
 
         Box::new(iter)
     }
@@ -54,10 +49,7 @@ impl HashableComponent for config::apptainer::Job<File> {
         self.name()
     }
     fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
-        let iter = self
-            .required_files()
-            .into_iter()
-            .map(|f| f.path().to_owned());
+        let iter = self.required_files().iter().map(|f| f.path().to_owned());
 
         Box::new(iter)
     }
@@ -71,10 +63,7 @@ impl HashableComponent for config::python::Job<File> {
         self.name()
     }
     fn files(&self) -> Box<dyn Iterator<Item = PathBuf> + '_> {
-        let iter = self
-            .required_files()
-            .into_iter()
-            .map(|f| f.path().to_owned());
+        let iter = self.required_files().iter().map(|f| f.path().to_owned());
 
         Box::new(iter)
     }
@@ -96,7 +85,5 @@ pub(super) fn filename_hash<T: HashableComponent>(data: &T, meta: &super::Meta) 
         sha.update(&bytes);
     }
 
-    let hash = base16::encode_lower(&sha.finalize());
-
-    hash
+    base16::encode_lower(&sha.finalize())
 }

@@ -12,6 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[cfg(feature = "test-apptainer")]
 async fn check_deallocate_jobs() {
     println!("starting check_deallocate_jobs");
     if false {

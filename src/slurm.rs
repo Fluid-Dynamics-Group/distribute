@@ -330,10 +330,10 @@ fn schedule_jobs_sciprt(args: &cli::Slurm, jobs: &[String]) -> Result<(), error:
     file.write_all(CURRENT_DUR_BASH)
         .map_err(|e| error::WriteFile::new(e, filename.clone()))?;
 
-    writeln!(file, "").map_err(|e| error::WriteFile::new(e, filename.clone()))?;
+    writeln!(file).map_err(|e| error::WriteFile::new(e, filename.clone()))?;
 
     for job_name in jobs {
-        let command = srun_command(&job_name);
+        let command = srun_command(job_name);
 
         writeln!(file, "{command}\n").map_err(|e| error::WriteFile::new(e, filename.clone()))?;
     }

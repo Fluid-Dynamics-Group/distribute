@@ -17,5 +17,5 @@ default_features=false
 features = ["python"]
 
 [dependencies.pyo3]
-version = "0.17.3" 
+version = "0.20.0" 
 features = ["extension-module"]

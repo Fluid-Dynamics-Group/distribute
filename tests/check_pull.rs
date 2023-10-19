@@ -11,7 +11,7 @@ use std::time::Duration;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn check_pull() {
     if false {
-        distribute::logger();
+        distribute::logging::default();
     }
 
     let server_port = 9980;
@@ -113,7 +113,7 @@ async fn check_pull() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pull_large_file() {
     if false {
-        distribute::logger();
+        distribute::logging::default();
     }
 
     let server_port = 9981;
