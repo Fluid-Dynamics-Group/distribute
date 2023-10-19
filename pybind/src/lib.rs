@@ -35,7 +35,7 @@ use std::path::PathBuf;
 use wrap::{ApptainerConfig, Description, File, Initialize, Job, Meta};
 use distribute::Slurm;
 
-#[pyfunction(matrix_username = "None")]
+#[pyfunction]
 /// construct the metadata ``Meta`` object for information about what this job batch will run
 ///
 /// :param str namespace: namespace where several ``batch_name`` runs may live
@@ -119,7 +119,7 @@ pub fn initialize(
     }
 }
 
-#[pyfunction(slurm = "None")]
+#[pyfunction]
 /// creates a job from its name and the required input files
 ///
 /// once you have a list of jobs that should be run in the batch, move on to creating a
@@ -191,7 +191,7 @@ pub fn description(initialize: Initialize, jobs: Vec<Job>) -> Description {
     Description { initialize, jobs }
 }
 
-#[pyfunction(relative = "false", alias = "None")]
+#[pyfunction(signature=(path, / , relative = false, alias = None))]
 /// create a file to appear in the ``/input`` directory of the solver
 ///
 /// :param path: a path to the file on disk. ``path`` should be an absolute, unless ``relative=True`` is also specified. If ``relative=True`` is not speficied, the full directory structure to the file *must* already exist.
@@ -244,7 +244,7 @@ pub fn file(path: PathBuf, relative: bool, alias: Option<String>) -> PyResult<Fi
     Ok(file)
 }
 
-#[pyfunction(slurm="None")]
+#[pyfunction]
 /// assemble the :func:`metadata` and :func:`description` into a config file that can be written
 /// to disk
 ///

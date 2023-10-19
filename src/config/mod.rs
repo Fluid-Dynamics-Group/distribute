@@ -611,9 +611,12 @@ pub struct Slurm {
 }
 
 impl Slurm {
+    /// Generalized constructor for slurm data
+    ///
+    /// We explicitly do not make individual members `pub` to prevent external mutation
     #[cfg(feature = "python")]
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    pub fn new(
         job_name: Option<String>,
         output: Option<String>,
         nodes: Option<usize>,
