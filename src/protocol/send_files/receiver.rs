@@ -38,7 +38,7 @@ impl SendLogging for ReceiverFinalStore {
     }
 
     fn job_name(&self) -> &str {
-        &self.run_info.task.name()
+        self.run_info.task.name()
     }
 
     fn node_meta(&self) -> &NodeMetadata {
@@ -261,7 +261,7 @@ where
         let save_location = &self.state.save_location;
 
         // create directories recursively, with error handling
-        let create_dir = server::create_dir_all_helper::<ServerError>(&save_location);
+        let create_dir = server::create_dir_all_helper::<ServerError>(save_location);
         throw_error_with_self!(create_dir, self);
 
         loop {
@@ -417,7 +417,7 @@ impl Machine<SendFiles, ReceiverState<ReceiverFinalStore>> {
     }
 
     pub(crate) fn job_name(&self) -> &str {
-        &self.state.extra.run_info.task.name()
+        self.state.extra.run_info.task.name()
     }
 }
 

@@ -323,7 +323,7 @@ impl Machine<Built, ServerBuiltState> {
             .save_path
             .join(namespace)
             .join(batch_name)
-            .join(&job_name);
+            .join(job_name);
 
         let extra = send_files::ExecutingSender {
             common,
@@ -336,6 +336,7 @@ impl Machine<Built, ServerBuiltState> {
 }
 
 #[derive(Serialize, Deserialize, Unwrap)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum ServerMsg {
     ReturnPrepareBuild,
     ExecuteJob(server::pool_data::RunTaskInfo),

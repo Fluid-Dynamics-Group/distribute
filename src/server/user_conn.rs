@@ -212,7 +212,7 @@ async fn add_job_set(
             .ok();
     }
 
-    return conn;
+    conn
 }
 
 async fn query_capabilities(

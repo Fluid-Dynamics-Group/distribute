@@ -471,14 +471,14 @@ impl JobSet {
             config::Jobs::Python(python) => python
                 .description()
                 .jobs()
-                .into_iter()
+                .iter()
                 .map(Clone::clone)
                 .map(config::Job::from)
                 .collect::<Vec<_>>(),
             config::Jobs::Apptainer(apptainer) => apptainer
                 .description()
                 .jobs()
-                .into_iter()
+                .iter()
                 .map(Clone::clone)
                 .map(config::Job::from)
                 .collect::<Vec<_>>(),

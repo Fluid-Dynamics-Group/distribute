@@ -340,8 +340,8 @@ impl Job {
 
     pub(crate) fn name(&self) -> &str {
         match &self {
-            Self::Python(py) => &py.name(),
-            Self::Apptainer(app) => &app.name(),
+            Self::Python(py) => py.name(),
+            Self::Apptainer(app) => app.name(),
         }
     }
 
@@ -586,7 +586,7 @@ pub fn load_config<T: DeserializeOwned + NormalizePaths>(
     Ok(config)
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, getset::Getters, Constructor)]
+#[derive(Deserialize, Serialize, Clone, Debug, getset::Getters)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 /// fields that can be serialized to slurm parameters
 pub struct Slurm {

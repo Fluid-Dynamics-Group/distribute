@@ -251,7 +251,7 @@ impl SendLogging for ExecutingSender {
         &self.run_info.batch_name
     }
     fn job_name(&self) -> &str {
-        &self.run_info.task.name()
+        self.run_info.task.name()
     }
     fn node_meta(&self) -> &NodeMetadata {
         &self.common.node_meta

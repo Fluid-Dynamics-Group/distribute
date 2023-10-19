@@ -5,6 +5,7 @@ use crate::config::requirements::{NodeProvidedCaps, Requirements};
 use crate::prelude::*;
 
 #[derive(Debug, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum JobResponse {
     SetupOrRun(TaskInfo),
     EmptyJobs,
@@ -80,6 +81,7 @@ fn enumerate_paths(node_meta: &NodeMetadata, task_info: &TaskInfo) {
 }
 
 #[derive(derive_more::From)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum JobRequest {
     NewJob(NewJobRequest),
     /// a client failed a keepalive check while it was
@@ -190,6 +192,7 @@ impl TaskInfo {
 }
 
 #[derive(From)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum FetchedJob {
     Build(BuildTaskInfo),
     Run(RunTaskInfo),
@@ -240,6 +243,7 @@ impl RunTaskInfo {
 
 #[cfg_attr(test, derive(derive_more::Unwrap))]
 #[derive(From, Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum JobOrInit {
     Job(config::Job),
     JobInit(config::Init),

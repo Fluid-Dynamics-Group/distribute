@@ -111,7 +111,7 @@ where
             let stdout_subscriber = fmt::Layer::new()
                 .with_file(with_filename)
                 .with_writer(stdout.with_max_level(logging_level))
-                .with_timer(time.clone())
+                .with_timer(time)
                 .with_ansi(false);
 
             let file_subscriber = fmt::Layer::new()
