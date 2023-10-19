@@ -246,7 +246,7 @@ where
     /// listen for the compute node to send us all the files that are in the ./distribute_save
     /// directory after the job has been completed
     #[instrument(
-        skip(self, scheduler_tx), 
+        skip(self, scheduler_tx),
         fields(
             node_meta = %self.state.extra.node_meta(),
             namespace = self.state.extra.namespace(),

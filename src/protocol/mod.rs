@@ -214,7 +214,7 @@ impl Common {
     /// generalized constructor
     ///
     /// we dont use [`derive_more::Constructor`] here since we need to remove
-    /// the clippy lint for too many arguments. We do not want another method of 
+    /// the clippy lint for too many arguments. We do not want another method of
     /// constructing this since we dont want the fields to be public (initializer-list
     /// style construction)
     #[allow(clippy::too_many_arguments)]

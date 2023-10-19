@@ -183,7 +183,7 @@ impl Machine<Built, ServerBuiltState> {
     /// fetch job details form the scheduler and inform the compute node of the data that is
     /// required to build the job
     #[instrument(
-        skip(self, scheduler_tx), 
+        skip(self, scheduler_tx),
         fields(
             node_meta = %self.state.common.node_meta,
             namespace = self.state.namespace,
