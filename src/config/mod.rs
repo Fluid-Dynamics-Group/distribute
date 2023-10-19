@@ -610,6 +610,40 @@ pub struct Slurm {
     mail_type: Option<String>,
 }
 
+impl Slurm {
+    #[cfg(feature = "python")]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        job_name: Option<String>,
+        output: Option<String>,
+        nodes: Option<usize>,
+        ntasks: Option<usize>,
+        cpus_per_task: Option<usize>,
+        mem_per_cpu: Option<String>,
+        hint: Option<String>,
+        time: Option<String>,
+        partition: Option<String>,
+        account: Option<String>,
+        mail_user: Option<String>,
+        mail_type: Option<String>,
+    ) -> Self {
+        Self {
+            job_name,
+            output,
+            nodes,
+            ntasks,
+            cpus_per_task,
+            mem_per_cpu,
+            hint,
+            time,
+            partition,
+            account,
+            mail_user,
+            mail_type,
+        }
+    }
+}
+
 macro_rules! slurm_helper {
     ($overrides:ident, $self:ident; $($field:ident),*) => {
         Self {
