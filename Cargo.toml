@@ -53,6 +53,8 @@ default = ["cli"]
 cli = ["clap", "regex", "signal-hook", "sha1", "tokio-stream", "num_cpus", "nix", "futures", "chrono", "tokio", "walkdir", "bincode", "matrix-notify/cli", "tracing", "tracing-subscriber", "mimalloc"]
 python = ["pyo3", "matrix-notify/userid"]
 config = ["matrix-notify/userid"]
+# enable integration tests that require local version of apptainer to be installed
+test-apptainer = []
 
 [[bin]]
 name = "distribute"
