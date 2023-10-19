@@ -83,7 +83,7 @@ impl transport::AssociatedMessage for ClientMsg {
 #[serial_test::serial]
 async fn transport_files_with_large_file() {
     if false {
-        crate::logger()
+        crate::logging::default()
     }
 
     let add_port = |port| return SocketAddr::from(([0, 0, 0, 0], port));

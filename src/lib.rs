@@ -18,6 +18,8 @@ mod error;
 #[cfg(feature = "cli")]
 mod kill;
 #[cfg(feature = "cli")]
+pub mod logging;
+#[cfg(feature = "cli")]
 mod node_status;
 #[cfg(feature = "cli")]
 mod pause;
@@ -39,11 +41,6 @@ mod slurm;
 mod template;
 #[cfg(feature = "cli")]
 mod transport;
-#[cfg(feature = "cli")]
-mod logging;
-
-#[cfg(feature = "cli")]
-use prelude::*;
 
 #[cfg(feature = "cli")]
 pub use error::{CreateFile, Error, LogError, RunErrorLocal};
@@ -85,16 +82,8 @@ mod reexports {
     }
 }
 
-// helper function to setup logging in some integration tests
-#[cfg(feature = "cli")]
-/// create a logger instance sending output only to stdout
-pub fn logger() {
-    logging::logger_cfg(logging::LoggingOutput::Stdout, true, true);
-}
-
-
 #[cfg(test)]
 /// get a local address at a given port. Used exclusively for testing
-fn add_port(port: u16) -> SocketAddr {
-    SocketAddr::from(([0, 0, 0, 0], port))
+fn add_port(port: u16) -> std::net::SocketAddr {
+    std::net::SocketAddr::from(([0, 0, 0, 0], port))
 }

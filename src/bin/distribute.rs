@@ -2,6 +2,10 @@ use distribute::cli;
 use distribute::Error;
 use std::fs;
 
+use distribute::logging::logger_cfg;
+use distribute::logging::Global as GlobalLog;
+use distribute::logging::LoggingOutput;
+
 use clap::Parser;
 
 use mimalloc::MiMalloc;
@@ -54,7 +58,7 @@ fn setup_logs(args: &cli::ArgsWrapper) -> Result<(), ErrorWrap> {
                 .map_err(|e| distribute::CreateFile::new(e, args.command.log_path()))
                 .map_err(distribute::LogError::from)
                 .map_err(distribute::Error::from)?;
-            distribute::LoggingOutput::StdoutAndFile(file)
+            LoggingOutput::StdoutAndFile(file)
         }
         // saving a log, not showing the logs
         (true, false) => {
@@ -62,15 +66,15 @@ fn setup_logs(args: &cli::ArgsWrapper) -> Result<(), ErrorWrap> {
                 .map_err(|e| distribute::CreateFile::new(e, args.command.log_path()))
                 .map_err(distribute::LogError::from)
                 .map_err(distribute::Error::from)?;
-            distribute::LoggingOutput::File(file)
+            LoggingOutput::File(file)
         }
         // not saving a log, showing a log
-        (false, true) => distribute::LoggingOutput::Stdout,
+        (false, true) => LoggingOutput::Stdout,
         // not saving a log, not showing a log
-        (false, false) => distribute::LoggingOutput::None,
+        (false, false) => LoggingOutput::None,
     };
 
-    distribute::logger_cfg(logging_output, false);
+    logger_cfg::<GlobalLog>(logging_output, false);
 
     Ok(())
 }

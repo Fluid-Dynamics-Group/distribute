@@ -17,7 +17,7 @@ use std::time::Duration;
 async fn cancel_job() {
     println!("starting cancel job test");
     if false {
-        distribute::logger();
+        distribute::logging::default();
     }
 
     let server_port = 9981;

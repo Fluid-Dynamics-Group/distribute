@@ -3,8 +3,16 @@
 //! access to this module is usually done through [`crate::logger`]. The `cli` feature must be
 //! enabled for this module to be compiled
 
-use tracing::level_filters::LevelFilter;
 use crate::prelude::*;
+use tracing::level_filters::LevelFilter;
+
+/// create a logger instance sending output only to stdout
+///
+/// helper function to setup logging for some unit and integration tests. More
+/// fine grained control of logging can be done with [`logger_cfg`]
+pub fn default() {
+    logger_cfg::<ThreadLocal>(LoggingOutput::Stdout, true);
+}
 
 /// set locations for log outputs (stdout, file, both, or none)
 pub enum LoggingOutput {
@@ -28,12 +36,54 @@ impl LoggingOutput {
     }
 }
 
+/// generic constructor-trait for setting up either thread-local logging or global logging
+///
+/// To setup global logging, see [`Global`], and for thread-local logging see [`ThreadLocal`]
+pub trait LogThreading {
+    /// construct the logger from the provided [`tracing`] subscriber
+    fn from_subscriber<S>(subscriber: S)
+    where
+        S: tracing::Subscriber + Send + Sync + 'static;
+}
+
+/// setup logger to be global between all threads
+pub struct Global;
+
+impl LogThreading for Global {
+    fn from_subscriber<S>(subscriber: S)
+    where
+        S: tracing::Subscriber + Send + Sync + 'static,
+    {
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("setting default subscriber failed - have you already set a subscriber for the process globally?");
+    }
+}
+
+/// setup logger to be local to each thread.
+///
+/// Leaks the lock guard that is returned such that it lives for the duration of
+/// the program
+struct ThreadLocal;
+
+impl LogThreading for ThreadLocal {
+    fn from_subscriber<S>(subscriber: S)
+    where
+        S: tracing::Subscriber + Send + Sync + 'static,
+    {
+        let guard = tracing::subscriber::set_default(subscriber);
+        Box::leak(Box::new(guard));
+    }
+}
+
 /// setup logging with a specific [`LoggingOutput`] configuration
 ///
 /// ## Parameters
 ///
 /// `with_filename`: enable filename in logs
-pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
+pub fn logger_cfg<LOG>(logging_output: LoggingOutput, with_filename: bool)
+where
+    LOG: LogThreading,
+{
     use tracing_subscriber::fmt::time;
 
     let time = time::SystemTime;
@@ -52,8 +102,8 @@ pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
                 .with_timer(time)
                 .finish();
 
-            tracing::subscriber::set_global_default(subscriber)
-                .expect("setting default subscriber failed");
+            // initialize the logger to the given subscriber
+            LOG::from_subscriber(subscriber)
         }
         LoggingOutput::StdoutAndFile(file_writer) => {
             use tracing_subscriber::{fmt, prelude::*, registry::Registry};
@@ -74,8 +124,8 @@ pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
                 .with(file_subscriber)
                 .with(stdout_subscriber);
 
-            tracing::subscriber::set_global_default(subscriber)
-                .expect("setting default subscriber failed");
+            // initialize the logger to the given subscriber
+            LOG::from_subscriber(subscriber)
         }
         LoggingOutput::File(file_writer) => {
             let subscriber = tracing_subscriber::FmtSubscriber::builder()
@@ -86,8 +136,8 @@ pub fn logger_cfg(logging_output: LoggingOutput, with_filename: bool) {
                 .with_timer(time)
                 .finish();
 
-            tracing::subscriber::set_global_default(subscriber)
-                .expect("setting default subscriber failed");
+            // initialize the logger to the given subscriber
+            LOG::from_subscriber(subscriber)
         }
     }
 }
@@ -103,7 +153,7 @@ mod tests {
         let file = std::fs::File::create(path).unwrap();
         let log_cfg = LoggingOutput::File(file);
 
-        logger_cfg(log_cfg, false);
+        logger_cfg::<ThreadLocal>(log_cfg, false);
 
         helper_log_function(1, "1");
         helper_log_function(1, "2");
@@ -121,7 +171,7 @@ mod tests {
         let file = std::fs::File::create(path).unwrap();
         let log_cfg = LoggingOutput::StdoutAndFile(file);
 
-        logger_cfg(log_cfg, false);
+        logger_cfg::<ThreadLocal>(log_cfg, false);
 
         helper_log_function(1, "1");
         helper_log_function(1, "2");
@@ -133,6 +183,9 @@ mod tests {
 
     #[instrument]
     fn helper_log_function(node_meta: usize, other_val: &str) {
-        error!("error in the helper log function! oh no! (this is simulated)")
+        // TODO: its annoying this has to show up in logs, but it has to do with how output
+        // is captured by `cargo test`
+        // https://users.rust-lang.org/t/cargo-doesnt-capture-stderr-in-tests/67045
+        error!("simulated error log for unit testing purposes")
     }
 }
